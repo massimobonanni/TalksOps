@@ -1,0 +1,11 @@
+name: talksops
+
+services:
+  api:
+    project: src/TalksOps.Functions
+    language: csharp
+    host: function
+  web:
+    project: src/TalksOps.Web
+    language: csharp
+    host: appservice
