@@ -1,18 +1,22 @@
 ﻿@inherits LayoutComponentBase
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject WebCurrentUserContext CurrentUserContext
 
-<div class="page">
-    <div class="sidebar">
+<div class="app-shell">
+    <header class="app-header">
+        <a class="wordmark" href="/events">Talks<span>Ops</span></a>
         <NavMenu />
-    </div>
-
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
+        <AuthorizeView>
+            <Authorized Context="authState">
+                <div class="account-menu">
+                    <span>@authState.User.Identity?.Name</span>
+                    <a href="/auth/logout">Sign out</a>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+    </header>
+    <main class="app-content">
+        @Body
     </main>
 </div>
 
@@ -21,3 +25,14 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        var authenticationState = await this.AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authenticationState.User.Identity?.IsAuthenticated is true)
+        {
+            this.CurrentUserContext.SetPrincipal(authenticationState.User);
+        }
+    }
+}

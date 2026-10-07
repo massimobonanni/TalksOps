@@ -1,0 +1,120 @@
+@page "/calendar"
+@attribute [Authorize]
+@inject ITalksOpsApiClient Api
+
+<PageTitle>Calendar | TalksOps</PageTitle>
+
+<div class="page-heading">
+    <div><p class="eyebrow">YEAR AT A GLANCE</p><h1>Speaking calendar</h1></div>
+    <div class="year-control"><button class="icon-button" aria-label="Previous year" @onclick="() => ChangeYearAsync(-1)">&larr;</button><strong>@this.Year</strong><button class="icon-button" aria-label="Next year" @onclick="() => ChangeYearAsync(1)">&rarr;</button></div>
+</div>
+
+<div class="calendar-legend" aria-label="Calendar status legend">
+    <span><i class="calendar-dot accepted"></i> Accepted</span><span><i class="calendar-dot submitted"></i> Submitted</span>
+    <span><i class="calendar-dot rejected"></i> Rejected</span><span><i class="calendar-dot cancelled"></i> Cancelled</span>
+</div>
+<p class="calendar-note">For events with mixed proposal states, the displayed color follows this precedence: Accepted, Submitted, Rejected, then Cancelled.</p>
+
+@if (!string.IsNullOrWhiteSpace(this.ErrorMessage))
+{
+    <div class="notice notice-error" role="alert">@this.ErrorMessage</div>
+}
+else if (this.IsLoading)
+{
+    <p class="empty-state">Loading calendar...</p>
+}
+else if (this.Events.Count == 0)
+{
+    <section class="empty-state"><h2>No events in @this.Year</h2><p>Events in this year will appear here.</p></section>
+}
+else
+{
+    <div class="calendar-months">
+        @foreach (var monthNumber in Enumerable.Range(1, 12))
+        {
+            var monthEvents = this.Events
+                .Where(eventItem => eventItem.StartDate.Year <= this.Year && eventItem.EndDate.Year >= this.Year
+                    && eventItem.StartDate.Month <= monthNumber && eventItem.EndDate.Month >= monthNumber)
+                .OrderBy(eventItem => eventItem.StartDate)
+                .ToList();
+            <section class="calendar-month">
+                <h2>@CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(monthNumber)</h2>
+                @if (monthEvents.Count == 0)
+                {
+                    <p class="month-empty">No events</p>
+                }
+                else
+                {
+                    @foreach (var eventItem in monthEvents)
+                    {
+                        var state = GetEventState(eventItem);
+                        <article class="calendar-event state-@state">
+                            <span class="calendar-date">@eventItem.StartDate.ToString("MMM d")@(eventItem.EndDate != eventItem.StartDate ? $" - {eventItem.EndDate:MMM d}" : string.Empty)</span>
+                            <div><h3>@eventItem.EventName</h3><p>@(eventItem.ProposalStatuses.Count == 0 ? "No proposals" : string.Join(" / ", eventItem.ProposalStatuses.Distinct()))</p></div>
+                            <span class="status-pill status-@state">@state</span>
+                        </article>
+                    }
+                }
+            </section>
+        }
+    </div>
+}
+
+@code {
+    private int Year = DateTime.Today.Year;
+    private IReadOnlyList<CalendarEventDto> Events = [];
+    private bool IsLoading;
+    private string? ErrorMessage;
+
+    protected override async Task OnInitializedAsync() => await this.LoadCalendarAsync();
+
+    private async Task ChangeYearAsync(int offset)
+    {
+        if (this.Year + offset is < 1 or > 9999)
+        {
+            return;
+        }
+
+        this.Year += offset;
+        await this.LoadCalendarAsync();
+    }
+
+    private async Task LoadCalendarAsync()
+    {
+        this.IsLoading = true;
+        this.ErrorMessage = null;
+        try
+        {
+            this.Events = await this.Api.GetCalendarAsync(this.Year);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException)
+        {
+            this.ErrorMessage = $"Unable to load calendar. {exception.Message}";
+        }
+        finally
+        {
+            this.IsLoading = false;
+        }
+    }
+
+    private static string GetEventState(CalendarEventDto eventItem)
+    {
+        var statuses = eventItem.ProposalStatuses;
+        if (statuses.Contains(nameof(ProposalStatus.Accepted), StringComparer.OrdinalIgnoreCase))
+        {
+            return "accepted";
+        }
+
+        if (statuses.Contains(nameof(ProposalStatus.Submitted), StringComparer.OrdinalIgnoreCase))
+        {
+            return "submitted";
+        }
+
+        if (statuses.Contains(nameof(ProposalStatus.Rejected), StringComparer.OrdinalIgnoreCase))
+        {
+            return "rejected";
+        }
+
+        return statuses.Contains(nameof(ProposalStatus.Cancelled), StringComparer.OrdinalIgnoreCase) ? "cancelled" : "none";
+    }
+}

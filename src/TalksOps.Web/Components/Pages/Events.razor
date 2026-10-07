@@ -1,0 +1,406 @@
+@page "/events"
+@attribute [Authorize]
+@inject ITalksOpsApiClient Api
+@inject IJSRuntime JavaScript
+
+<PageTitle>Events | TalksOps</PageTitle>
+
+<div class="page-heading">
+    <div><p class="eyebrow">YOUR SPEAKING PIPELINE</p><h1>Events</h1></div>
+    <button class="button button-primary" @onclick="BeginCreateEvent">New event <span aria-hidden="true">+</span></button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(this.ErrorMessage))
+{
+    <div class="notice notice-error" role="alert">@this.ErrorMessage</div>
+}
+@if (!string.IsNullOrWhiteSpace(this.SuccessMessage))
+{
+    <div class="notice notice-success" role="status">@this.SuccessMessage</div>
+}
+
+<form class="filter-bar" @onsubmit="SearchAsync" @onsubmit:preventDefault>
+    <label>Year<input type="number" min="1" max="9999" @bind="this.SearchYear" /></label>
+    <label>Event name<input type="search" placeholder="Search events" @bind="this.SearchName" /></label>
+    <label>Location<input type="search" placeholder="City or venue" @bind="this.SearchLocation" /></label>
+    <button class="button button-secondary" type="submit">Search</button>
+</form>
+
+@if (this.IsLoading)
+{
+    <p class="empty-state">Loading events...</p>
+}
+else if (this.EventItems.Count == 0)
+{
+    <section class="empty-state"><h2>No events found</h2><p>Try another search or add an event to start planning.</p></section>
+}
+else
+{
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead><tr><th>Event</th><th>Dates</th><th>Location</th><th>Costs</th><th>Proposals</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+                @foreach (var eventItem in this.EventItems)
+                {
+                    <tr @key="eventItem.Id">
+                        <td class="event-name">@eventItem.Name</td>
+                        <td>@eventItem.StartDate.ToString("MMM d") &ndash; @eventItem.EndDate.ToString("MMM d, yyyy")</td>
+                        <td>@eventItem.Location</td>
+                        <td>@FormatCosts(eventItem.Costs)</td>
+                        <td><button class="text-button" @onclick="() => ToggleProposalsAsync(eventItem.Id)">@(this.ExpandedEventId == eventItem.Id ? "Hide" : "Manage") proposals</button></td>
+                        <td class="row-actions">
+                            <button class="icon-button" title="Edit event" aria-label="Edit @eventItem.Name" @onclick="() => BeginEditEvent(eventItem)">Edit</button>
+                            <button class="icon-button danger" title="Delete event" aria-label="Delete @eventItem.Name" @onclick="() => DeleteEventAsync(eventItem)">Delete</button>
+                        </td>
+                    </tr>
+                    @if (this.ExpandedEventId == eventItem.Id)
+                    {
+                        <tr class="detail-row">
+                            <td colspan="6">
+                                <div class="detail-heading"><h2>Session proposals</h2><button class="button button-secondary button-small" @onclick="() => BeginCreateProposal(eventItem.Id)">Add proposal</button></div>
+                                @if (this.Proposals.TryGetValue(eventItem.Id, out var eventProposals) && eventProposals.Count > 0)
+                                {
+                                    <div class="proposal-list">
+                                        @foreach (var proposal in eventProposals)
+                                        {
+                                            <article class="proposal-row" @key="proposal.Id">
+                                                <div><h3>@proposal.Title</h3><p>@proposal.SpeakerName</p></div>
+                                                <span class="status-pill status-@proposal.Status.ToString().ToLowerInvariant()">@proposal.Status</span>
+                                                @if (proposal.Status is ProposalStatus.Submitted)
+                                                {
+                                                    <label class="status-control">Status
+                                                        <select value="@((int)proposal.Status)" @onchange="args => UpdateProposalStatusAsync(eventItem.Id, proposal, args.Value?.ToString())">
+                                                            <option value="@((int)ProposalStatus.Submitted)">Submitted</option>
+                                                            <option value="@((int)ProposalStatus.Accepted)">Accepted</option>
+                                                            <option value="@((int)ProposalStatus.Rejected)">Rejected</option>
+                                                        </select>
+                                                    </label>
+                                                }
+                                                else
+                                                {
+                                                    <span class="muted">Final status</span>
+                                                }
+                                                <div class="row-actions"><button class="text-button" @onclick="() => BeginEditProposal(eventItem.Id, proposal)">Edit</button><button class="text-button danger" @onclick="() => CancelProposalAsync(eventItem.Id, proposal)">Cancel</button></div>
+                                            </article>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="muted">No proposals for this event yet.</p>
+                                }
+                                @if (this.ProposalEditorEventId == eventItem.Id)
+                                {
+                                    <form class="editor-form" @onsubmit="SaveProposalAsync" @onsubmit:preventDefault>
+                                        <h3>@(this.ProposalEditorId is null ? "New proposal" : "Edit proposal")</h3>
+                                        <div class="form-grid">
+                                            <label>Session title<input required maxlength="200" @bind="this.ProposalTitle" /></label>
+                                            <label>Speaker name<input required maxlength="120" @bind="this.ProposalSpeaker" /></label>
+                                            <label class="span-all">Abstract<textarea required rows="4" @bind="this.ProposalAbstract"></textarea></label>
+                                        </div>
+                                        <div class="form-actions"><button class="button button-primary" type="submit">Save proposal</button><button class="button button-quiet" type="button" @onclick="CloseProposalEditor">Discard</button></div>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (this.IsEventEditorOpen)
+{
+    <div class="dialog-backdrop" role="presentation" @onclick="CloseEventEditor">
+        <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="event-editor-title" @onclick:stopPropagation>
+            <div class="detail-heading"><h2 id="event-editor-title">@(this.EventEditorId is null ? "New event" : "Edit event")</h2><button class="icon-button" aria-label="Close" @onclick="CloseEventEditor">Close</button></div>
+            <form @onsubmit="SaveEventAsync" @onsubmit:preventDefault>
+                <div class="form-grid">
+                    <label>Event name<input required maxlength="160" @bind="this.EventName" /></label>
+                    <label>Location<input required maxlength="160" @bind="this.EventLocation" /></label>
+                    <label>Start date<input type="date" required @bind="this.EventStartDate" /></label>
+                    <label>End date<input type="date" required @bind="this.EventEndDate" /></label>
+                    <label class="span-all">Costs <span class="muted">One item per line, formatted as name=amount</span><textarea rows="4" placeholder="Travel=250.00&#10;Hotel=600.00" @bind="this.EventCosts"></textarea></label>
+                </div>
+                <div class="form-actions"><button class="button button-primary" type="submit">Save event</button><button class="button button-quiet" type="button" @onclick="CloseEventEditor">Discard</button></div>
+            </form>
+        </section>
+    </div>
+}
+
+@code {
+    private readonly Dictionary<Guid, IReadOnlyList<SessionProposalDto>> Proposals = [];
+    private List<EventDto> EventItems = [];
+    private string SearchYear = DateTime.Today.Year.ToString(CultureInfo.InvariantCulture);
+    private string SearchName = string.Empty;
+    private string SearchLocation = string.Empty;
+    private Guid? ExpandedEventId;
+    private bool IsLoading;
+    private bool IsEventEditorOpen;
+    private Guid? EventEditorId;
+    private string EventName = string.Empty;
+    private string EventLocation = string.Empty;
+    private DateTime EventStartDate = DateTime.Today;
+    private DateTime EventEndDate = DateTime.Today;
+    private string EventCosts = string.Empty;
+    private Guid? ProposalEditorEventId;
+    private Guid? ProposalEditorId;
+    private string ProposalTitle = string.Empty;
+    private string ProposalSpeaker = string.Empty;
+    private string ProposalAbstract = string.Empty;
+    private string? ErrorMessage;
+    private string? SuccessMessage;
+
+    protected override async Task OnInitializedAsync() => await this.LoadEventsAsync();
+
+    private async Task SearchAsync()
+    {
+        this.SuccessMessage = null;
+        await this.LoadEventsAsync();
+    }
+
+    private async Task LoadEventsAsync()
+    {
+        if (!int.TryParse(this.SearchYear, CultureInfo.InvariantCulture, out var year) || year is < 1 or > 9999)
+        {
+            this.ErrorMessage = "Enter a valid four-digit year.";
+            return;
+        }
+
+        this.IsLoading = true;
+        this.ErrorMessage = null;
+        try
+        {
+            var result = await this.Api.SearchEventsAsync(new EventSearchRequest(year, NullIfEmpty(this.SearchName), NullIfEmpty(this.SearchLocation)));
+            this.EventItems = result.Items.ToList();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException)
+        {
+            this.ErrorMessage = $"Unable to load events. {exception.Message}";
+        }
+        finally
+        {
+            this.IsLoading = false;
+        }
+    }
+
+    private void BeginCreateEvent()
+    {
+        this.ErrorMessage = null;
+        this.SuccessMessage = null;
+        this.EventEditorId = null;
+        this.EventName = this.EventLocation = this.EventCosts = string.Empty;
+        this.EventStartDate = this.EventEndDate = DateTime.Today;
+        this.IsEventEditorOpen = true;
+    }
+
+    private void BeginEditEvent(EventDto eventItem)
+    {
+        this.ErrorMessage = null;
+        this.SuccessMessage = null;
+        this.EventEditorId = eventItem.Id;
+        this.EventName = eventItem.Name;
+        this.EventLocation = eventItem.Location;
+        this.EventStartDate = eventItem.StartDate.ToDateTime(TimeOnly.MinValue);
+        this.EventEndDate = eventItem.EndDate.ToDateTime(TimeOnly.MinValue);
+        this.EventCosts = string.Join(Environment.NewLine, eventItem.Costs.Select(cost => $"{cost.Key}={cost.Value.ToString(CultureInfo.InvariantCulture)}"));
+        this.IsEventEditorOpen = true;
+    }
+
+    private async Task SaveEventAsync()
+    {
+        this.ErrorMessage = null;
+        if (this.EventEndDate.Date < this.EventStartDate.Date)
+        {
+            this.ErrorMessage = "The end date cannot be before the start date.";
+            return;
+        }
+
+        try
+        {
+            var startDate = DateOnly.FromDateTime(this.EventStartDate);
+            var endDate = DateOnly.FromDateTime(this.EventEndDate);
+            var request = new SaveEventRequest(this.EventName.Trim(), this.EventLocation.Trim(), startDate, endDate, ParseCosts(this.EventCosts));
+            if (this.EventEditorId is Guid eventId)
+            {
+                await this.Api.UpdateEventAsync(eventId, request);
+                this.SuccessMessage = "Event updated.";
+            }
+            else
+            {
+                await this.Api.CreateEventAsync(request);
+                this.SuccessMessage = "Event created.";
+            }
+
+            this.IsEventEditorOpen = false;
+            await this.LoadEventsAsync();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or FormatException or ArgumentException)
+        {
+            this.ErrorMessage = $"Unable to save event. {exception.Message}";
+        }
+    }
+
+    private async Task DeleteEventAsync(EventDto eventItem)
+    {
+        if (!await this.JavaScript.InvokeAsync<bool>("confirm", $"Delete {eventItem.Name} and its proposals?"))
+        {
+            return;
+        }
+
+        try
+        {
+            await this.Api.DeleteEventAsync(eventItem.Id);
+            this.Proposals.Remove(eventItem.Id);
+            this.SuccessMessage = "Event and its proposals deleted.";
+            await this.LoadEventsAsync();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+        {
+            this.ErrorMessage = $"Unable to delete event. {exception.Message}";
+        }
+    }
+
+    private async Task ToggleProposalsAsync(Guid eventId)
+    {
+        this.ErrorMessage = null;
+        if (this.ExpandedEventId == eventId)
+        {
+            this.ExpandedEventId = null;
+            this.CloseProposalEditor();
+            return;
+        }
+
+        this.ExpandedEventId = eventId;
+        try
+        {
+            this.Proposals[eventId] = await this.Api.ListProposalsAsync(eventId);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+        {
+            this.ErrorMessage = $"Unable to load proposals. {exception.Message}";
+        }
+    }
+
+    private void BeginCreateProposal(Guid eventId)
+    {
+        this.ErrorMessage = null;
+        this.ProposalEditorEventId = eventId;
+        this.ProposalEditorId = null;
+        this.ProposalTitle = this.ProposalSpeaker = this.ProposalAbstract = string.Empty;
+    }
+
+    private void BeginEditProposal(Guid eventId, SessionProposalDto proposal)
+    {
+        this.ErrorMessage = null;
+        this.ProposalEditorEventId = eventId;
+        this.ProposalEditorId = proposal.Id;
+        this.ProposalTitle = proposal.Title;
+        this.ProposalSpeaker = proposal.SpeakerName;
+        this.ProposalAbstract = proposal.Abstract;
+    }
+
+    private async Task SaveProposalAsync()
+    {
+        if (this.ProposalEditorEventId is not Guid eventId)
+        {
+            return;
+        }
+
+        try
+        {
+            var request = new SaveSessionProposalRequest(this.ProposalTitle.Trim(), this.ProposalAbstract.Trim(), this.ProposalSpeaker.Trim());
+            if (this.ProposalEditorId is Guid proposalId)
+            {
+                await this.Api.UpdateProposalAsync(eventId, proposalId, request);
+                this.SuccessMessage = "Proposal updated.";
+            }
+            else
+            {
+                await this.Api.CreateProposalAsync(eventId, request);
+                this.SuccessMessage = "Proposal added.";
+            }
+
+            this.CloseProposalEditor();
+            this.Proposals[eventId] = await this.Api.ListProposalsAsync(eventId);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or ArgumentException)
+        {
+            this.ErrorMessage = $"Unable to save proposal. {exception.Message}";
+        }
+    }
+
+    private async Task UpdateProposalStatusAsync(Guid eventId, SessionProposalDto proposal, string? statusValue)
+    {
+        if (!int.TryParse(statusValue, CultureInfo.InvariantCulture, out var statusNumber)
+            || !Enum.IsDefined(typeof(ProposalStatus), statusNumber))
+        {
+            return;
+        }
+
+        try
+        {
+            await this.Api.ChangeProposalStatusAsync(eventId, proposal.Id, new ChangeProposalStatusRequest((ProposalStatus)statusNumber));
+            this.Proposals[eventId] = await this.Api.ListProposalsAsync(eventId);
+            this.SuccessMessage = "Proposal status updated.";
+            this.ErrorMessage = null;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+        {
+            this.ErrorMessage = $"Unable to change proposal status. {exception.Message}";
+            this.Proposals[eventId] = await this.Api.ListProposalsAsync(eventId);
+        }
+    }
+
+    private async Task CancelProposalAsync(Guid eventId, SessionProposalDto proposal)
+    {
+        if (!await this.JavaScript.InvokeAsync<bool>("confirm", $"Cancel the proposal '{proposal.Title}'? It will remain in your records."))
+        {
+            return;
+        }
+
+        try
+        {
+            await this.Api.CancelProposalAsync(eventId, proposal.Id);
+            this.Proposals[eventId] = await this.Api.ListProposalsAsync(eventId);
+            this.SuccessMessage = "Proposal cancelled and retained in the event record.";
+            this.ErrorMessage = null;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+        {
+            this.ErrorMessage = $"Unable to cancel proposal. {exception.Message}";
+        }
+    }
+
+    private void CloseEventEditor() => this.IsEventEditorOpen = false;
+
+    private void CloseProposalEditor()
+    {
+        this.ProposalEditorEventId = null;
+        this.ProposalEditorId = null;
+    }
+
+    private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string FormatCosts(IReadOnlyDictionary<string, decimal> costs) => costs.Count == 0
+        ? "None"
+        : string.Join(", ", costs.Select(cost => $"{cost.Key}: {cost.Value.ToString("N2", CultureInfo.InvariantCulture)}"));
+
+    private static IReadOnlyDictionary<string, decimal> ParseCosts(string value)
+    {
+        var costs = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        foreach (var line in value.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var separator = line.IndexOf('=');
+            if (separator < 1 || !decimal.TryParse(line[(separator + 1)..].Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var amount))
+            {
+                throw new FormatException($"Invalid cost entry '{line}'. Use name=amount, for example Travel=250.00.");
+            }
+
+            costs[line[..separator].Trim()] = amount;
+        }
+
+        return costs;
+    }
+}

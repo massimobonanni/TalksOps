@@ -1,0 +1,18 @@
+@page "/login"
+@attribute [AllowAnonymous]
+<PageTitle>Sign in | TalksOps</PageTitle>
+
+<main class="login-page">
+    <a class="wordmark" href="/">Talks<span>Ops</span></a>
+    <p class="eyebrow">SPEAKER OPERATIONS</p>
+    <h1>Your events,<br />in one place.</h1>
+    <p class="login-copy">Manage event details, session proposals, and your annual speaking calendar.</p>
+    <a class="button button-primary" href="@($"/auth/login?returnUrl={Uri.EscapeDataString(this.ReturnUrlValue)}")">Sign in with Microsoft</a>
+</main>
+
+@code {
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    private string ReturnUrlValue => string.IsNullOrWhiteSpace(this.ReturnUrl) ? "/events" : this.ReturnUrl;
+}
