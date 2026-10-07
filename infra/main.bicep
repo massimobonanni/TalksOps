@@ -1,0 +1,111 @@
+targetScope = 'resourceGroup'
+
+@description('Short project identifier used in Azure resource names and tags.')
+@minLength(2)
+@maxLength(12)
+param projectName string = 'talksops'
+
+@description('AZD environment name. Keep it short because it contributes to resource names.')
+@minLength(1)
+@maxLength(12)
+param environmentName string
+
+@description('Azure region selected for this AZD environment.')
+param location string = resourceGroup().location
+
+@description('Object ID of the identity running AZD. It receives Key Vault Secrets Officer for the post-deploy hooks.')
+param deploymentPrincipalId string
+
+@description('Principal type of the identity running AZD.')
+@allowed([
+  'User'
+  'ServicePrincipal'
+])
+param deploymentPrincipalType string = 'User'
+
+var suffix = uniqueString(resourceGroup().id, environmentName)
+var compactEnvironment = toLower(replace(environmentName, '-', ''))
+var storageAccountName = take('${replace(toLower(projectName), '-', '')}${compactEnvironment}${suffix}', 24)
+var keyVaultName = take('kv-${compactEnvironment}-${suffix}', 24)
+var webAppName = take('${projectName}-web-${environmentName}-${suffix}', 60)
+var functionAppName = take('${projectName}-api-${environmentName}-${suffix}', 60)
+var appInsightsName = take('appi-${projectName}-${environmentName}-${suffix}', 60)
+var workspaceName = take('log-${projectName}-${environmentName}-${suffix}', 63)
+var functionPlanName = take('asp-${projectName}-api-${environmentName}-${suffix}', 40)
+var webPlanName = take('asp-${projectName}-web-${environmentName}-${suffix}', 40)
+var appRegistrationDisplayName = 'TalksOps-${environmentName}-${suffix}'
+var tags = {
+  project: projectName
+  environment: environmentName
+  managedBy: 'azd'
+}
+
+module monitoring 'modules/monitoring.bicep' = {
+  name: 'monitoring-${suffix}'
+  params: {
+    location: location
+    appInsightsName: appInsightsName
+    workspaceName: workspaceName
+    tags: tags
+  }
+}
+
+module storage 'modules/storage.bicep' = {
+  name: 'storage-${suffix}'
+  params: {
+    location: location
+    storageAccountName: storageAccountName
+    tableName: 'TalksOps'
+    packageContainerName: 'function-packages'
+    tags: tags
+  }
+}
+
+module backend 'modules/backend.bicep' = {
+  name: 'backend-${suffix}'
+  params: {
+    location: location
+    functionAppName: functionAppName
+    functionPlanName: functionPlanName
+    storageAccountName: storage.outputs.storageAccountName
+    tableServiceUri: storage.outputs.tableServiceUri
+    packageContainerUri: storage.outputs.packageContainerUri
+    tableName: storage.outputs.tableName
+    appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
+    tags: tags
+  }
+}
+
+module frontend 'modules/frontend.bicep' = {
+  name: 'frontend-${suffix}'
+  params: {
+    location: location
+    webAppName: webAppName
+    webPlanName: webPlanName
+    functionEndpoint: backend.outputs.functionEndpoint
+    keyVaultUri: 'https://${keyVaultName}.${environment().suffixes.keyvaultDns}/'
+    loginEndpoint: environment().authentication.loginEndpoint
+    appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
+    tags: tags
+  }
+}
+
+module identity 'modules/identity.bicep' = {
+  name: 'identity-${suffix}'
+  params: {
+    storageAccountName: storage.outputs.storageAccountName
+    tableName: storage.outputs.tableName
+    keyVaultName: frontend.outputs.keyVaultName
+    functionPrincipalId: backend.outputs.functionPrincipalId
+    webPrincipalId: frontend.outputs.webPrincipalId
+    deploymentPrincipalId: deploymentPrincipalId
+    deploymentPrincipalType: deploymentPrincipalType
+  }
+}
+
+output API_ENDPOINT_URL string = backend.outputs.functionEndpoint
+output WEB_ENDPOINT_URL string = frontend.outputs.webEndpoint
+output AZURE_FUNCTION_APP_NAME string = backend.outputs.functionAppName
+output AZURE_WEB_APP_NAME string = frontend.outputs.webAppName
+output AZURE_KEY_VAULT_NAME string = frontend.outputs.keyVaultName
+output AZURE_AD_APP_DISPLAY_NAME string = appRegistrationDisplayName

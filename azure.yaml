@@ -1,5 +1,25 @@
 name: talksops
 
+infra:
+  provider: bicep
+  path: infra
+
+hooks:
+  postprovision:
+    windows:
+      shell: pwsh
+      run: ./infra/scripts/configure-identity.ps1
+    posix:
+      shell: sh
+      run: ./infra/scripts/configure-identity.sh
+  postdeploy:
+    windows:
+      shell: pwsh
+      run: ./infra/scripts/store-function-key.ps1
+    posix:
+      shell: sh
+      run: ./infra/scripts/store-function-key.sh
+
 services:
   api:
     project: src/TalksOps.Functions
