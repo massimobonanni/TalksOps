@@ -87,7 +87,7 @@ public sealed class TalksOpsApiClient(HttpClient httpClient, ICurrentUserContext
             $"api/events/{eventId}/proposals/{proposalId}/status", request, cancellationToken);
 
     /// <inheritdoc />
-    public Task CancelProposalAsync(
+    public Task DeleteProposalAsync(
         Guid eventId,
         Guid proposalId,
         CancellationToken cancellationToken = default) =>

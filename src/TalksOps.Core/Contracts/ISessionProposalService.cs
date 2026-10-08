@@ -38,4 +38,10 @@ public interface ISessionProposalService
         Guid eventId,
         Guid proposalId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes a proposal owned by the current user.</summary>
+    Task<bool> DeleteAsync(
+        Guid eventId,
+        Guid proposalId,
+        CancellationToken cancellationToken = default);
 }

@@ -178,5 +178,15 @@ public sealed class RequestScopedServicesTests
             this.UpdatedProposal = value;
             return Task.FromResult<SessionProposal?>(value);
         }
+
+        public Task<bool> DeleteAsync(
+            string ownerId,
+            Guid eventId,
+            Guid proposalId,
+            CancellationToken cancellationToken = default)
+        {
+            this.LastOwnerId = ownerId;
+            return Task.FromResult(ownerId == proposal.OwnerId && eventId == proposal.EventId && proposalId == proposal.Id);
+        }
     }
 }

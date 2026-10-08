@@ -56,8 +56,8 @@ public interface ITalksOpsApiClient
         ChangeProposalStatusRequest request,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Cancels a proposal without deleting its record.</summary>
-    Task CancelProposalAsync(
+    /// <summary>Deletes a proposal.</summary>
+    Task DeleteProposalAsync(
         Guid eventId,
         Guid proposalId,
         CancellationToken cancellationToken = default);

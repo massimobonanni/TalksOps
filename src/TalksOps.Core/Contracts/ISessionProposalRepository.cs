@@ -27,4 +27,11 @@ public interface ISessionProposalRepository
     Task<SessionProposal?> UpdateAsync(
         SessionProposal proposal,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes a proposal owned by the specified user.</summary>
+    Task<bool> DeleteAsync(
+        string ownerId,
+        Guid eventId,
+        Guid proposalId,
+        CancellationToken cancellationToken = default);
 }

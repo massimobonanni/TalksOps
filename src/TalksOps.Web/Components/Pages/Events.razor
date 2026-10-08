@@ -74,7 +74,7 @@ else
                                                         <option value="@((int)ProposalStatus.Cancelled)">Cancelled</option>
                                                     </select>
                                                 </label>
-                                                <div class="row-actions"><button class="text-button" @onclick="() => BeginEditProposal(eventItem.Id, proposal)">Edit</button><button class="text-button danger" @onclick="() => CancelProposalAsync(eventItem.Id, proposal)">Cancel</button></div>
+                                                <div class="row-actions"><button class="text-button" @onclick="() => BeginEditProposal(eventItem.Id, proposal)">Edit</button><button class="text-button danger" @onclick="() => DeleteProposalAsync(eventItem.Id, proposal)">Delete</button></div>
                                             </article>
                                         }
                                     </div>
@@ -347,23 +347,23 @@ else
         }
     }
 
-    private async Task CancelProposalAsync(Guid eventId, SessionProposalDto proposal)
+    private async Task DeleteProposalAsync(Guid eventId, SessionProposalDto proposal)
     {
-        if (!await this.JavaScript.InvokeAsync<bool>("confirm", $"Cancel the proposal '{proposal.Title}'? It will remain in your records."))
+        if (!await this.JavaScript.InvokeAsync<bool>("confirm", $"Delete the proposal '{proposal.Title}'? This action cannot be undone."))
         {
             return;
         }
 
         try
         {
-            await this.Api.CancelProposalAsync(eventId, proposal.Id);
+            await this.Api.DeleteProposalAsync(eventId, proposal.Id);
             this.Proposals[eventId] = await this.Api.ListProposalsAsync(eventId);
-            this.SuccessMessage = "Proposal cancelled and retained in the event record.";
+            this.SuccessMessage = "Proposal deleted.";
             this.ErrorMessage = null;
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
         {
-            this.ErrorMessage = $"Unable to cancel proposal. {exception.Message}";
+            this.ErrorMessage = $"Unable to delete proposal. {exception.Message}";
         }
     }
 

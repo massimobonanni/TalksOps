@@ -317,9 +317,9 @@ public sealed class EventsFunctions(
         }
     }
 
-    /// <summary>Marks a proposal as cancelled without deleting its record.</summary>
-    [Function(nameof(CancelProposal))]
-    public async Task<IActionResult> CancelProposal(
+    /// <summary>Deletes a proposal owned by the specified user.</summary>
+    [Function(nameof(DeleteProposal))]
+    public async Task<IActionResult> DeleteProposal(
         [HttpTrigger(AuthorizationLevel.Function, "delete", Route = "events/{eventId}/proposals/{proposalId}")] HttpRequest request,
         string eventId,
         string proposalId,
@@ -337,9 +337,9 @@ public sealed class EventsFunctions(
 
         try
         {
-            return await this.proposals.CancelAsync(parentId, id, cancellationToken) is null
-                ? new NotFoundResult()
-                : new NoContentResult();
+            return await this.proposals.DeleteAsync(parentId, id, cancellationToken)
+                ? new NoContentResult()
+                : new NotFoundResult();
         }
         catch (InvalidOperationException exception)
         {

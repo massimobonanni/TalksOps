@@ -84,6 +84,9 @@ public sealed class PartitionKeyTests
         Assert.NotNull(await repository.UpdateAsync(proposal));
         Assert.Contains((partitionKey, proposal.Id.ToString("N")), table.Lookups);
         Assert.Equal(partitionKey, table.Entity.PartitionKey);
+
+        Assert.True(await repository.DeleteAsync(proposal.OwnerId, eventId, proposal.Id));
+        Assert.Equal((partitionKey, proposal.Id.ToString("N")), table.DeletedKey);
     }
 
     /// <summary>Verifies cascading deletion targets sessions before deleting the event.</summary>

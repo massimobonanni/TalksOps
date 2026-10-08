@@ -92,6 +92,13 @@ public sealed class SessionProposalService(
         CancellationToken cancellationToken = default) =>
         this.ChangeStatusAsync(eventId, proposalId, ProposalStatus.Cancelled, cancellationToken);
 
+    /// <inheritdoc />
+    public Task<bool> DeleteAsync(
+        Guid eventId,
+        Guid proposalId,
+        CancellationToken cancellationToken = default) =>
+        this.repository.DeleteAsync(this.currentUser.UserId, eventId, proposalId, cancellationToken);
+
     private static void Validate(SessionProposal value)
     {
         var errors = SessionProposalRules.Validate(value);

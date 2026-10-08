@@ -103,6 +103,33 @@ public sealed class AzureTableSessionProposalRepository : ISessionProposalReposi
         return proposal;
     }
 
+    /// <inheritdoc />
+    public async Task<bool> DeleteAsync(
+        string ownerId,
+        Guid eventId,
+        Guid proposalId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(ownerId);
+        if (!await OwnsEventAsync(ownerId, eventId, cancellationToken))
+        {
+            return false;
+        }
+
+        var partitionKey = AzureTableEventRepository.ProposalPartitionKey(eventId);
+        var rowKey = AzureTableEventRepository.Key(proposalId);
+        var response = await _table.GetEntityIfExistsAsync<TableEntity>(
+            partitionKey, rowKey, cancellationToken: cancellationToken);
+        if (!response.HasValue || !string.Equals(
+            response.Value!.GetString(nameof(SessionProposal.OwnerId)), ownerId, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        await _table.DeleteEntityAsync(partitionKey, rowKey, response.Value.ETag, cancellationToken);
+        return true;
+    }
+
     private async Task<bool> OwnsEventAsync(string ownerId, Guid eventId, CancellationToken cancellationToken)
     {
         var response = await _table.GetEntityIfExistsAsync<TableEntity>(
