@@ -39,13 +39,5 @@ public static class SessionProposalRules
 
     /// <summary>Determines whether a proposal can move from its current status to a target status.</summary>
     public static bool CanTransition(ProposalStatus current, ProposalStatus target) =>
-        current switch
-        {
-            ProposalStatus.Submitted => target is ProposalStatus.Accepted
-                or ProposalStatus.Rejected
-                or ProposalStatus.Cancelled,
-            ProposalStatus.Accepted or ProposalStatus.Rejected => target is ProposalStatus.Cancelled,
-            ProposalStatus.Cancelled => false,
-            _ => false
-        };
+        Enum.IsDefined(current) && Enum.IsDefined(target) && current != target;
 }

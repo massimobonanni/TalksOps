@@ -66,20 +66,14 @@ else
                                             <article class="proposal-row" @key="proposal.Id">
                                                 <div><h3>@proposal.Title</h3><p>@proposal.Notes</p></div>
                                                 <span class="status-pill status-@proposal.Status.ToString().ToLowerInvariant()">@proposal.Status</span>
-                                                @if (proposal.Status is ProposalStatus.Submitted)
-                                                {
-                                                    <label class="status-control">Status
-                                                        <select value="@((int)proposal.Status)" @onchange="args => UpdateProposalStatusAsync(eventItem.Id, proposal, args.Value?.ToString())">
-                                                            <option value="@((int)ProposalStatus.Submitted)">Submitted</option>
-                                                            <option value="@((int)ProposalStatus.Accepted)">Accepted</option>
-                                                            <option value="@((int)ProposalStatus.Rejected)">Rejected</option>
-                                                        </select>
-                                                    </label>
-                                                }
-                                                else
-                                                {
-                                                    <span class="muted">Final status</span>
-                                                }
+                                                <label class="status-control">Status
+                                                    <select value="@((int)proposal.Status)" @onchange="args => UpdateProposalStatusAsync(eventItem.Id, proposal, args.Value?.ToString())">
+                                                        <option value="@((int)ProposalStatus.Submitted)">Submitted</option>
+                                                        <option value="@((int)ProposalStatus.Accepted)">Accepted</option>
+                                                        <option value="@((int)ProposalStatus.Rejected)">Rejected</option>
+                                                        <option value="@((int)ProposalStatus.Cancelled)">Cancelled</option>
+                                                    </select>
+                                                </label>
                                                 <div class="row-actions"><button class="text-button" @onclick="() => BeginEditProposal(eventItem.Id, proposal)">Edit</button><button class="text-button danger" @onclick="() => CancelProposalAsync(eventItem.Id, proposal)">Cancel</button></div>
                                             </article>
                                         }

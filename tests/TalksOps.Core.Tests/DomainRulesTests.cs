@@ -53,10 +53,16 @@ public sealed class DomainRulesTests
     [InlineData(ProposalStatus.Submitted, ProposalStatus.Accepted, true)]
     [InlineData(ProposalStatus.Submitted, ProposalStatus.Rejected, true)]
     [InlineData(ProposalStatus.Submitted, ProposalStatus.Cancelled, true)]
+    [InlineData(ProposalStatus.Accepted, ProposalStatus.Submitted, true)]
+    [InlineData(ProposalStatus.Accepted, ProposalStatus.Rejected, true)]
     [InlineData(ProposalStatus.Accepted, ProposalStatus.Cancelled, true)]
+    [InlineData(ProposalStatus.Rejected, ProposalStatus.Submitted, true)]
+    [InlineData(ProposalStatus.Rejected, ProposalStatus.Accepted, true)]
     [InlineData(ProposalStatus.Rejected, ProposalStatus.Cancelled, true)]
-    [InlineData(ProposalStatus.Cancelled, ProposalStatus.Submitted, false)]
-    [InlineData(ProposalStatus.Accepted, ProposalStatus.Rejected, false)]
+    [InlineData(ProposalStatus.Cancelled, ProposalStatus.Submitted, true)]
+    [InlineData(ProposalStatus.Cancelled, ProposalStatus.Accepted, true)]
+    [InlineData(ProposalStatus.Cancelled, ProposalStatus.Rejected, true)]
+    [InlineData(ProposalStatus.Accepted, ProposalStatus.Accepted, false)]
     public void SessionProposalRules_EnforcesStatusTransitions(
         ProposalStatus current,
         ProposalStatus target,
