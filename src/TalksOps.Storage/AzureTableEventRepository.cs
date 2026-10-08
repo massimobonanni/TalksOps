@@ -128,14 +128,14 @@ public sealed class AzureTableEventRepository : IEventRepository
 
     internal static string Key(Guid id) => id.ToString("N");
 
-    internal static string EventPartitionKey(string ownerId) => $"user|{ownerId}";
+    internal static string EventPartitionKey(string ownerId) => $"events|{ownerId}";
 
-    internal static string ProposalPartitionKey(Guid eventId) => $"event|{Key(eventId)}";
+    internal static string ProposalPartitionKey(Guid eventId) => $"sessions|{Key(eventId)}";
 
     internal static Event FromEntity(TableEntity entity) => new()
     {
         Id = Guid.ParseExact(entity.RowKey, "N"),
-        OwnerId = entity.PartitionKey["user|".Length..],
+        OwnerId = entity.PartitionKey["events|".Length..],
         Name = entity.GetString(nameof(Event.Name))!,
         Location = entity.GetString(nameof(Event.Location))!,
         StartDate = DateOnly.ParseExact(entity.GetString(nameof(Event.StartDate))!, "yyyy-MM-dd"),

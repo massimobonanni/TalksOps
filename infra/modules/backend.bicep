@@ -7,23 +7,52 @@ param functionAppName string
 @description('Flex Consumption plan name.')
 param functionPlanName string
 
-@description('Storage account used by the Functions host and deployment package.')
-param storageAccountName string
+@description('Storage account dedicated to Functions host state and Flex Consumption deployment packages.')
+param functionStorageAccountName string
 
-@description('Azure Table service endpoint used by application repositories.')
-param tableServiceUri string
+@description('Azure Table service endpoint for TalksOps application data.')
+param dataTableServiceUri string
 
-@description('Private blob container URI for Flex Consumption package deployment.')
-param packageContainerUri string
-
-@description('Azure Table name for application data.')
-param tableName string
+@description('Azure Table name used by TalksOps application data.')
+param dataTableName string
 
 @description('Application Insights connection string.')
 param appInsightsConnectionString string
 
 @description('Common resource tags.')
 param tags object
+
+var packageContainerName = 'function-packages'
+
+resource functionStorageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: functionStorageAccountName
+  location: location
+  tags: tags
+  sku: {
+    name: 'Standard_LRS'
+  }
+  kind: 'StorageV2'
+  properties: {
+    accessTier: 'Hot'
+    allowSharedKeyAccess: false
+    defaultToOAuthAuthentication: true
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+resource functionBlobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
+  parent: functionStorageAccount
+  name: 'default'
+}
+
+resource packageContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: functionBlobService
+  name: packageContainerName
+  properties: {
+    publicAccess: 'None'
+  }
+}
 
 resource functionPlan 'Microsoft.Web/serverfarms@2024-04-01' = {
   name: functionPlanName
@@ -54,7 +83,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
       deployment: {
         storage: {
           type: 'blobContainer'
-          value: packageContainerUri
+          value: '${functionStorageAccount.properties.primaryEndpoints.blob}${packageContainer.name}'
           authentication: {
             type: 'SystemAssignedIdentity'
           }
@@ -83,19 +112,19 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         }
         {
           name: 'AzureWebJobsStorage__accountName'
-          value: storageAccountName
+          value: functionStorageAccount.name
         }
         {
           name: 'AzureWebJobsStorage__credential'
           value: 'managedidentity'
         }
         {
-          name: 'Storage__TableServiceUri'
-          value: tableServiceUri
+          name: 'StorageUri'
+          value: dataTableServiceUri
         }
         {
           name: 'StorageTableName'
-          value: tableName
+          value: dataTableName
         }
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
@@ -109,3 +138,4 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
 output functionAppName string = functionApp.name
 output functionEndpoint string = 'https://${functionApp.properties.defaultHostName}/api/'
 output functionPrincipalId string = functionApp.identity.principalId
+output functionStorageAccountName string = functionStorageAccount.name

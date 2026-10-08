@@ -20,10 +20,10 @@ builder.Services.AddScoped<ICurrentUserContext>(services => services.GetRequired
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<ISessionProposalService, SessionProposalService>();
 
-var tableServiceUri = builder.Configuration["Storage:TableServiceUri"];
+var tableServiceUri = builder.Configuration["StorageUri"];
 if (!Uri.TryCreate(tableServiceUri, UriKind.Absolute, out var parsedTableServiceUri))
 {
-    throw new InvalidOperationException("The Storage:TableServiceUri setting must contain the Azure Tables endpoint URI.");
+    throw new InvalidOperationException("The StorageUri setting must contain the Azure Tables endpoint URI.");
 }
 
 var tableName = builder.Configuration["StorageTableName"];

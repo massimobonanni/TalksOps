@@ -1,8 +1,11 @@
-@description('Storage account that hosts the Functions runtime and the TalksOps table.')
-param storageAccountName string
+@description('Storage account that contains the TalksOps application table.')
+param dataStorageAccountName string
 
-@description('Table name containing application data.')
-param tableName string
+@description('Name of the TalksOps application table.')
+param dataTableName string
+
+@description('Storage account dedicated to Functions host and deployment data.')
+param functionStorageAccountName string
 
 @description('Key Vault name containing server-side application credentials.')
 param keyVaultName string
@@ -14,31 +17,34 @@ param functionPrincipalId string
 param webPrincipalId string
 
 var blobDataOwnerRoleId = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
-var queueDataContributorRoleId = '974c5e8b-45b9-4653-ba55-5f855dd0fb88'
 var tableDataContributorRoleId = '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
 var keyVaultSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6'
 
-resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
-  name: storageAccountName
+resource dataStorageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
+  name: dataStorageAccountName
 }
 
-resource tableService 'Microsoft.Storage/storageAccounts/tableServices@2023-05-01' existing = {
-  parent: storageAccount
+resource dataTableService 'Microsoft.Storage/storageAccounts/tableServices@2023-05-01' existing = {
+  parent: dataStorageAccount
   name: 'default'
 }
 
-resource appTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-01' existing = {
-  parent: tableService
-  name: tableName
+resource dataTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-01' existing = {
+  parent: dataTableService
+  name: dataTableName
+}
+
+resource functionStorageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
+  name: functionStorageAccountName
 }
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
   name: keyVaultName
 }
 
-resource functionBlobAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccount.id, functionPrincipalId, blobDataOwnerRoleId)
-  scope: storageAccount
+resource functionHostStorageBlobAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(functionStorageAccount.id, functionPrincipalId, blobDataOwnerRoleId)
+  scope: functionStorageAccount
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', blobDataOwnerRoleId)
     principalId: functionPrincipalId
@@ -46,19 +52,9 @@ resource functionBlobAccess 'Microsoft.Authorization/roleAssignments@2022-04-01'
   }
 }
 
-resource functionQueueAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccount.id, functionPrincipalId, queueDataContributorRoleId)
-  scope: storageAccount
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', queueDataContributorRoleId)
-    principalId: functionPrincipalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-resource functionTableAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(appTable.id, functionPrincipalId, tableDataContributorRoleId)
-  scope: appTable
+resource functionAppTableAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(dataTable.id, functionPrincipalId, tableDataContributorRoleId)
+  scope: dataTable
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', tableDataContributorRoleId)
     principalId: functionPrincipalId

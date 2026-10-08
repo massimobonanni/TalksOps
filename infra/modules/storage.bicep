@@ -1,14 +1,11 @@
-@description('Azure region for the data and deployment storage account.')
+@description('Azure region for the TalksOps data storage account.')
 param location string
 
-@description('Globally unique storage account name, 3-24 lowercase letters and numbers.')
+@description('Globally unique data storage account name, 3-24 lowercase letters and numbers.')
 param storageAccountName string
 
 @description('Table used by TalksOps application data.')
 param tableName string
-
-@description('Private blob container used for Flex Consumption deployment packages.')
-param packageContainerName string
 
 @description('Common resource tags.')
 param tags object
@@ -40,21 +37,6 @@ resource appTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-0
   name: tableName
 }
 
-resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
-  parent: storageAccount
-  name: 'default'
-}
-
-resource packageContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
-  parent: blobService
-  name: packageContainerName
-  properties: {
-    publicAccess: 'None'
-  }
-}
-
 output storageAccountName string = storageAccount.name
 output tableName string = appTable.name
 output tableServiceUri string = 'https://${storageAccount.name}.table.${environment().suffixes.storage}/'
-output packageContainerName string = packageContainer.name
-output packageContainerUri string = '${storageAccount.properties.primaryEndpoints.blob}${packageContainer.name}'

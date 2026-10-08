@@ -25,7 +25,8 @@ param deploymentPrincipalType string = 'User'
 
 var suffix = uniqueString(resourceGroup().id, environmentName)
 var compactEnvironment = toLower(replace(environmentName, '-', ''))
-var storageAccountName = take('${replace(toLower(projectName), '-', '')}${compactEnvironment}${suffix}', 24)
+var dataStorageAccountName = take('st${suffix}${compactEnvironment}', 24)
+var functionStorageAccountName = take('func${suffix}${compactEnvironment}', 24)
 var keyVaultName = take('kv-${compactEnvironment}-${suffix}', 24)
 var webAppName = take('${projectName}-web-${environmentName}-${suffix}', 60)
 var functionAppName = take('${projectName}-api-${environmentName}-${suffix}', 60)
@@ -54,9 +55,8 @@ module storage 'modules/storage.bicep' = {
   name: 'storage-${suffix}'
   params: {
     location: location
-    storageAccountName: storageAccountName
+    storageAccountName: dataStorageAccountName
     tableName: 'TalksOps'
-    packageContainerName: 'function-packages'
     tags: tags
   }
 }
@@ -67,10 +67,9 @@ module backend 'modules/backend.bicep' = {
     location: location
     functionAppName: functionAppName
     functionPlanName: functionPlanName
-    storageAccountName: storage.outputs.storageAccountName
-    tableServiceUri: storage.outputs.tableServiceUri
-    packageContainerUri: storage.outputs.packageContainerUri
-    tableName: storage.outputs.tableName
+    functionStorageAccountName: functionStorageAccountName
+    dataTableServiceUri: storage.outputs.tableServiceUri
+    dataTableName: storage.outputs.tableName
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
     tags: tags
   }
@@ -105,8 +104,9 @@ module frontend 'modules/frontend.bicep' = {
 module identity 'modules/identity.bicep' = {
   name: 'identity-${suffix}'
   params: {
-    storageAccountName: storage.outputs.storageAccountName
-    tableName: storage.outputs.tableName
+    dataStorageAccountName: storage.outputs.storageAccountName
+    dataTableName: storage.outputs.tableName
+    functionStorageAccountName: backend.outputs.functionStorageAccountName
     keyVaultName: keyVault.outputs.keyVaultName
     functionPrincipalId: backend.outputs.functionPrincipalId
     webPrincipalId: frontend.outputs.webPrincipalId

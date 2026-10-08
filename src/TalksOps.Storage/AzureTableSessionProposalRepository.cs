@@ -115,7 +115,7 @@ public sealed class AzureTableSessionProposalRepository : ISessionProposalReposi
     private static SessionProposal FromEntity(TableEntity entity) => new()
     {
         Id = Guid.ParseExact(entity.RowKey, "N"),
-        EventId = Guid.ParseExact(entity.PartitionKey["event|".Length..], "N"),
+        EventId = Guid.ParseExact(entity.PartitionKey["sessions|".Length..], "N"),
         OwnerId = entity.GetString(nameof(SessionProposal.OwnerId))!,
         Title = entity.GetString(nameof(SessionProposal.Title))!,
         Abstract = entity.GetString(nameof(SessionProposal.Abstract))!,
