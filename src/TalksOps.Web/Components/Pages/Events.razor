@@ -64,7 +64,7 @@ else
                                         @foreach (var proposal in eventProposals)
                                         {
                                             <article class="proposal-row" @key="proposal.Id">
-                                                <div><h3>@proposal.Title</h3><p>@proposal.SpeakerName</p></div>
+                                                <div><h3>@proposal.Title</h3><p>@proposal.Notes</p></div>
                                                 <span class="status-pill status-@proposal.Status.ToString().ToLowerInvariant()">@proposal.Status</span>
                                                 @if (proposal.Status is ProposalStatus.Submitted)
                                                 {
@@ -95,8 +95,8 @@ else
                                         <h3>@(this.ProposalEditorId is null ? "New proposal" : "Edit proposal")</h3>
                                         <div class="form-grid">
                                             <label>Session title<input required maxlength="200" @bind="this.ProposalTitle" /></label>
-                                            <label>Speaker name<input required maxlength="120" @bind="this.ProposalSpeaker" /></label>
                                             <label class="span-all">Abstract<textarea required rows="4" @bind="this.ProposalAbstract"></textarea></label>
+                                            <label class="span-all">Notes<textarea rows="3" @bind="this.ProposalNotes"></textarea></label>
                                         </div>
                                         <div class="form-actions"><button class="button button-primary" type="submit">Save proposal</button><button class="button button-quiet" type="button" @onclick="CloseProposalEditor">Discard</button></div>
                                     </form>
@@ -147,7 +147,7 @@ else
     private Guid? ProposalEditorEventId;
     private Guid? ProposalEditorId;
     private string ProposalTitle = string.Empty;
-    private string ProposalSpeaker = string.Empty;
+    private string ProposalNotes = string.Empty;
     private string ProposalAbstract = string.Empty;
     private string? ErrorMessage;
     private string? SuccessMessage;
@@ -288,7 +288,7 @@ else
         this.ErrorMessage = null;
         this.ProposalEditorEventId = eventId;
         this.ProposalEditorId = null;
-        this.ProposalTitle = this.ProposalSpeaker = this.ProposalAbstract = string.Empty;
+        this.ProposalTitle = this.ProposalAbstract = this.ProposalNotes = string.Empty;
     }
 
     private void BeginEditProposal(Guid eventId, SessionProposalDto proposal)
@@ -297,8 +297,8 @@ else
         this.ProposalEditorEventId = eventId;
         this.ProposalEditorId = proposal.Id;
         this.ProposalTitle = proposal.Title;
-        this.ProposalSpeaker = proposal.SpeakerName;
         this.ProposalAbstract = proposal.Abstract;
+        this.ProposalNotes = proposal.Notes;
     }
 
     private async Task SaveProposalAsync()
@@ -310,7 +310,7 @@ else
 
         try
         {
-            var request = new SaveSessionProposalRequest(this.ProposalTitle.Trim(), this.ProposalAbstract.Trim(), this.ProposalSpeaker.Trim());
+            var request = new SaveSessionProposalRequest(this.ProposalTitle.Trim(), this.ProposalAbstract.Trim(), this.ProposalNotes.Trim());
             if (this.ProposalEditorId is Guid proposalId)
             {
                 await this.Api.UpdateProposalAsync(eventId, proposalId, request);

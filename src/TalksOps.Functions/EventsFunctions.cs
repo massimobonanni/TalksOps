@@ -431,14 +431,14 @@ public sealed class EventsFunctions(
         OwnerId = string.Empty,
         Title = value.Title,
         Abstract = value.Abstract,
-        SpeakerName = value.SpeakerName
+        Notes = value.Notes
     };
 
     private static EventDto ToDto(Event value) => new(
         value.Id, value.OwnerId, value.Name, value.Location, value.StartDate, value.EndDate, value.Costs);
 
     private static SessionProposalDto ToDto(SessionProposal value) => new(
-        value.Id, value.EventId, value.OwnerId, value.Title, value.Abstract, value.SpeakerName,
+        value.Id, value.EventId, value.OwnerId, value.Title, value.Abstract, value.Notes,
         value.Status, value.CreatedAt, value.UpdatedAt);
 
     private static BadRequestObjectResult BadRequest(string message) => new(message);

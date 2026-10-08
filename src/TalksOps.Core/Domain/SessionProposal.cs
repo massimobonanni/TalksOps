@@ -18,8 +18,8 @@ public sealed record SessionProposal
     /// <summary>Gets the proposal abstract.</summary>
     public required string Abstract { get; init; }
 
-    /// <summary>Gets the speaker's display name.</summary>
-    public required string SpeakerName { get; init; }
+    /// <summary>Gets optional notes about the proposal.</summary>
+    public string Notes { get; init; } = string.Empty;
 
     /// <summary>Gets the proposal's current status.</summary>
     public ProposalStatus Status { get; init; } = ProposalStatus.Submitted;

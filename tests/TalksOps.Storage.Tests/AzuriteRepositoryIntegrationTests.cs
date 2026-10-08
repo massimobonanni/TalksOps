@@ -42,9 +42,11 @@ public sealed class AzuriteRepositoryIntegrationTests
                 OwnerId = "integration-owner",
                 Title = "Reliable storage",
                 Abstract = "Table persistence",
-                SpeakerName = "Local speaker"
+                Notes = "Bring the demo environment."
             });
 
+            var loadedProposal = await proposals.GetAsync("integration-owner", eventValue.Id, proposal.Id);
+            Assert.Equal("Bring the demo environment.", loadedProposal!.Notes);
             Assert.Single(await proposals.ListByEventAsync("integration-owner", eventValue.Id));
             Assert.Empty(await proposals.ListByEventAsync("different-owner", eventValue.Id));
             Assert.Null(await proposals.GetAsync("different-owner", eventValue.Id, proposal.Id));

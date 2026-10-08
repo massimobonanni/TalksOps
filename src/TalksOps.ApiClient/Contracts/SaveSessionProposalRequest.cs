@@ -4,4 +4,4 @@ namespace TalksOps.ApiClient.Contracts;
 public sealed record SaveSessionProposalRequest(
     string Title,
     string Abstract,
-    string SpeakerName);
+    string Notes);

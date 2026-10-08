@@ -60,7 +60,6 @@ public sealed class RequestScopedServicesTests
             OwnerId = "authenticated-sub",
             Title = "Reliable systems",
             Abstract = "A proposal abstract",
-            SpeakerName = "Speaker"
         };
         var repository = new FakeProposalRepository(proposal);
         var service = new SessionProposalService(repository, currentUser);
@@ -82,7 +81,6 @@ public sealed class RequestScopedServicesTests
             OwnerId = "untrusted-owner",
             Title = "Reliable systems",
             Abstract = "A proposal abstract",
-            SpeakerName = "Speaker"
         };
         var repository = new FakeProposalRepository(proposal with { OwnerId = "authenticated-sub" });
         var service = new SessionProposalService(repository, currentUser);

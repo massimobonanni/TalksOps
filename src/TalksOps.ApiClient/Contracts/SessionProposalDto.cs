@@ -9,7 +9,7 @@ public sealed record SessionProposalDto(
     string OwnerId,
     string Title,
     string Abstract,
-    string SpeakerName,
+    string Notes,
     ProposalStatus Status,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);

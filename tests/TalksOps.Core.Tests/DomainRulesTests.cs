@@ -35,6 +35,20 @@ public sealed class DomainRulesTests
         Assert.Contains(EventRules.Validate(value), error => error.Contains("negative"));
     }
 
+    [Fact]
+    public void SessionProposalRules_AllowsMissingNotes()
+    {
+        var value = new SessionProposal
+        {
+            EventId = Guid.NewGuid(),
+            OwnerId = "user-1",
+            Title = "Reliable systems",
+            Abstract = "A proposal abstract"
+        };
+
+        Assert.Empty(SessionProposalRules.Validate(value));
+    }
+
     [Theory]
     [InlineData(ProposalStatus.Submitted, ProposalStatus.Accepted, true)]
     [InlineData(ProposalStatus.Submitted, ProposalStatus.Rejected, true)]

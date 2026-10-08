@@ -119,7 +119,7 @@ public sealed class AzureTableSessionProposalRepository : ISessionProposalReposi
         OwnerId = entity.GetString(nameof(SessionProposal.OwnerId))!,
         Title = entity.GetString(nameof(SessionProposal.Title))!,
         Abstract = entity.GetString(nameof(SessionProposal.Abstract))!,
-        SpeakerName = entity.GetString(nameof(SessionProposal.SpeakerName))!,
+        Notes = entity.GetString(nameof(SessionProposal.Notes)) ?? string.Empty,
         Status = Enum.Parse<ProposalStatus>(entity.GetString(nameof(SessionProposal.Status))!),
         CreatedAt = entity.GetDateTimeOffset(nameof(SessionProposal.CreatedAt))!.Value,
         UpdatedAt = entity.GetDateTimeOffset(nameof(SessionProposal.UpdatedAt))!.Value
@@ -131,7 +131,7 @@ public sealed class AzureTableSessionProposalRepository : ISessionProposalReposi
         [nameof(SessionProposal.OwnerId)] = value.OwnerId,
         [nameof(SessionProposal.Title)] = value.Title,
         [nameof(SessionProposal.Abstract)] = value.Abstract,
-        [nameof(SessionProposal.SpeakerName)] = value.SpeakerName,
+        [nameof(SessionProposal.Notes)] = value.Notes,
         [nameof(SessionProposal.Status)] = value.Status.ToString(),
         [nameof(SessionProposal.CreatedAt)] = value.CreatedAt,
         [nameof(SessionProposal.UpdatedAt)] = value.UpdatedAt

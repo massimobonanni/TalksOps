@@ -64,7 +64,6 @@ public sealed class PartitionKeyTests
             OwnerId = "owner-123",
             Title = "Storage",
             Abstract = "Partitioning",
-            SpeakerName = "Speaker"
         };
         var partitionKey = $"sessions|{eventId:N}";
 
