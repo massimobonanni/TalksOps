@@ -107,7 +107,7 @@ public sealed class AzureTableEventRepository : IEventRepository
         var proposalEntities = new List<TableEntity>();
         await foreach (var entity in _table.QueryAsync<TableEntity>(
             TableClient.CreateQueryFilter(
-                $"PartitionKey eq {eventPartition} and {nameof(SessionProposal.OwnerId)} eq {ownerId}"),
+                $"PartitionKey eq {eventPartition} and OwnerId eq {ownerId}"),
             cancellationToken: cancellationToken))
         {
             proposalEntities.Add(entity);

@@ -1,3 +1,4 @@
+using Azure.Data.Tables;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,18 +21,32 @@ builder.Services.AddScoped<ICurrentUserContext>(services => services.GetRequired
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<ISessionProposalService, SessionProposalService>();
 
-var tableServiceUri = builder.Configuration["StorageUri"];
-if (!Uri.TryCreate(tableServiceUri, UriKind.Absolute, out var parsedTableServiceUri))
-{
-    throw new InvalidOperationException("The StorageUri setting must contain the Azure Tables endpoint URI.");
-}
-
 var tableName = builder.Configuration["StorageTableName"];
 if (string.IsNullOrWhiteSpace(tableName))
 {
     throw new InvalidOperationException("The StorageTableName setting must contain the shared Azure Table name.");
 }
 
-builder.Services.AddTalksOpsAzureTables(parsedTableServiceUri, tableName);
+var storageConnectionString = builder.Configuration["StorageConnectionString"];
+if (!string.IsNullOrWhiteSpace(storageConnectionString))
+{
+    builder.Services.AddTalksOpsAzureTables(storageConnectionString, tableName);
+}
+else
+{
+    var tableServiceUri = builder.Configuration["StorageUri"];
+    if (!Uri.TryCreate(tableServiceUri, UriKind.Absolute, out var parsedTableServiceUri))
+    {
+        throw new InvalidOperationException("Configure StorageConnectionString for local storage or StorageUri with the Azure Tables endpoint URI.");
+    }
 
-builder.Build().Run();
+    builder.Services.AddTalksOpsAzureTables(parsedTableServiceUri, tableName);
+}
+
+using var host = builder.Build();
+if (!string.IsNullOrWhiteSpace(storageConnectionString))
+{
+    await host.Services.GetRequiredService<TableClient>().CreateIfNotExistsAsync();
+}
+
+await host.RunAsync();

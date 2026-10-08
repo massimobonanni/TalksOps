@@ -47,7 +47,7 @@ else
                 {
                     @foreach (var eventItem in monthEvents)
                     {
-                        var state = GetEventState(eventItem);
+                        var state = CalendarStateClassifier.GetState(eventItem.ProposalStatuses);
                         <article class="calendar-event state-@state">
                             <span class="calendar-date">@eventItem.StartDate.ToString("MMM d")@(eventItem.EndDate != eventItem.StartDate ? $" - {eventItem.EndDate:MMM d}" : string.Empty)</span>
                             <div><h3>@eventItem.EventName</h3><p>@(eventItem.ProposalStatuses.Count == 0 ? "No proposals" : string.Join(" / ", eventItem.ProposalStatuses.Distinct()))</p></div>
@@ -97,24 +97,4 @@ else
         }
     }
 
-    private static string GetEventState(CalendarEventDto eventItem)
-    {
-        var statuses = eventItem.ProposalStatuses;
-        if (statuses.Contains(nameof(ProposalStatus.Accepted), StringComparer.OrdinalIgnoreCase))
-        {
-            return "accepted";
-        }
-
-        if (statuses.Contains(nameof(ProposalStatus.Submitted), StringComparer.OrdinalIgnoreCase))
-        {
-            return "submitted";
-        }
-
-        if (statuses.Contains(nameof(ProposalStatus.Rejected), StringComparer.OrdinalIgnoreCase))
-        {
-            return "rejected";
-        }
-
-        return statuses.Contains(nameof(ProposalStatus.Cancelled), StringComparer.OrdinalIgnoreCase) ? "cancelled" : "none";
-    }
 }

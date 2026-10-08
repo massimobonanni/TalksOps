@@ -24,7 +24,6 @@ Events and session proposals share the `TalksOps` table in the application data 
 
 Queries, ownership checks, updates, and cascading proposal deletion use these same partition keys. Session proposals also retain their `OwnerId` property for owner filtering.
 
-Before deploying against existing data, back up the table and migrate legacy event partitions to `events|{ownerId}` and legacy proposal partitions to `sessions|{eventId:N}`. Azure Tables cannot update a partition key in place: copy each entity to its new partition while preserving its row key and application properties, verify the copies, then delete the legacy entities. Stop application writes during migration. This application does not perform automatic migration or fall back to legacy partitions; Bicep provisioning does not migrate table entities either.
 
 ## Prerequisites
 

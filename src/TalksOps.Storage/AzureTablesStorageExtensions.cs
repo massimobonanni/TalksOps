@@ -19,6 +19,29 @@ public static class AzureTablesStorageExtensions
         ArgumentException.ThrowIfNullOrWhiteSpace(tableName);
 
         var tableServiceClient = new TableServiceClient(serviceUri, new DefaultAzureCredential());
+        return AddRepositories(services, tableServiceClient, tableName);
+    }
+
+    /// <summary>Registers repositories using a connection string, including Azurite development storage.</summary>
+    public static IServiceCollection AddTalksOpsAzureTables(
+        this IServiceCollection services,
+        string connectionString,
+        string tableName)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        ArgumentException.ThrowIfNullOrWhiteSpace(tableName);
+
+        var tableServiceClient = new TableServiceClient(connectionString);
+        return AddRepositories(services, tableServiceClient, tableName);
+    }
+
+    /// <summary>Keeps repository registrations identical for both authentication methods.</summary>
+    private static IServiceCollection AddRepositories(
+        IServiceCollection services,
+        TableServiceClient tableServiceClient,
+        string tableName)
+    {
         services.AddSingleton(tableServiceClient);
         services.AddSingleton(tableServiceClient.GetTableClient(tableName));
         services.AddSingleton<IEventRepository, AzureTableEventRepository>();

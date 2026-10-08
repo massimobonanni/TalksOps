@@ -31,7 +31,7 @@ public sealed class AzureTableSessionProposalRepository : ISessionProposalReposi
         var results = new List<SessionProposal>();
         await foreach (var entity in _table.QueryAsync<TableEntity>(
             TableClient.CreateQueryFilter(
-                $"PartitionKey eq {AzureTableEventRepository.ProposalPartitionKey(eventId)} and {nameof(SessionProposal.OwnerId)} eq {ownerId}"),
+                $"PartitionKey eq {AzureTableEventRepository.ProposalPartitionKey(eventId)} and OwnerId eq {ownerId}"),
             cancellationToken: cancellationToken))
         {
             results.Add(FromEntity(entity));
