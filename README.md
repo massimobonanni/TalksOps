@@ -51,6 +51,4 @@ From `src/TalksOps.Functions`, run `dotnet run`. When `StorageConnectionString` 
 
 `StorageConnectionString` takes precedence over `StorageUri`. Leave it unset in Azure to retain `DefaultAzureCredential` authentication. Do not commit connection strings containing real account keys.
 
-Existing records using the previous partition prefixes must be migrated before deploying this version; the application does not migrate or read legacy partitions automatically. See the [storage migration notes](infra/README.md#application-data-partitions).
-
 The API receives the user ID in its request envelope or query string. The authenticated Blazor Server application must populate that value from the signed-in principal's `sub` claim, not from editable form data. The Function key is a shared application credential, not per-user authentication: anyone who obtains it can submit a different user ID and potentially act as that user. Stronger caller identity binding requires API token validation or another per-user authentication mechanism.
