@@ -24,25 +24,6 @@ param tags object
 
 var webClientSecretReference = '@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/web-client-secret)'
 var functionKeyReference = '@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/function-api-key)'
-var keyVaultName = split(replace(keyVaultUri, 'https://', ''), '.')[0]
-
-resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
-  name: keyVaultName
-  location: location
-  tags: tags
-  properties: {
-    tenantId: tenant().tenantId
-    sku: {
-      family: 'A'
-      name: 'standard'
-    }
-    enableRbacAuthorization: true
-    enablePurgeProtection: true
-    enableSoftDelete: true
-    softDeleteRetentionInDays: 90
-    publicNetworkAccess: 'Enabled'
-  }
-}
 
 resource webPlan 'Microsoft.Web/serverfarms@2024-04-01' = {
   name: webPlanName
@@ -117,4 +98,3 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
 output webAppName string = webApp.name
 output webEndpoint string = 'https://${webApp.properties.defaultHostName}'
 output webPrincipalId string = webApp.identity.principalId
-output keyVaultName string = keyVault.name

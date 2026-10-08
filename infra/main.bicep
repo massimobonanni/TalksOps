@@ -13,7 +13,7 @@ param environmentName string
 @description('Azure region selected for this AZD environment.')
 param location string = resourceGroup().location
 
-@description('Object ID of the identity running AZD. It receives Key Vault Secrets Officer for the post-deploy hooks.')
+@description('Object ID of the identity running AZD. It receives Key Vault Secrets Officer for deployment-time secret creation and the post-provision identity hook.')
 param deploymentPrincipalId string
 
 @description('Principal type of the identity running AZD.')
@@ -76,6 +76,18 @@ module backend 'modules/backend.bicep' = {
   }
 }
 
+module keyVault 'modules/keyvault.bicep' = {
+  name: 'keyvault-${suffix}'
+  params: {
+    location: location
+    keyVaultName: keyVaultName
+    functionAppName: backend.outputs.functionAppName
+    deploymentPrincipalId: deploymentPrincipalId
+    deploymentPrincipalType: deploymentPrincipalType
+    tags: tags
+  }
+}
+
 module frontend 'modules/frontend.bicep' = {
   name: 'frontend-${suffix}'
   params: {
@@ -83,7 +95,7 @@ module frontend 'modules/frontend.bicep' = {
     webAppName: webAppName
     webPlanName: webPlanName
     functionEndpoint: backend.outputs.functionEndpoint
-    keyVaultUri: 'https://${keyVaultName}.${environment().suffixes.keyvaultDns}/'
+    keyVaultUri: keyVault.outputs.keyVaultUri
     loginEndpoint: environment().authentication.loginEndpoint
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
     tags: tags
@@ -95,11 +107,9 @@ module identity 'modules/identity.bicep' = {
   params: {
     storageAccountName: storage.outputs.storageAccountName
     tableName: storage.outputs.tableName
-    keyVaultName: frontend.outputs.keyVaultName
+    keyVaultName: keyVault.outputs.keyVaultName
     functionPrincipalId: backend.outputs.functionPrincipalId
     webPrincipalId: frontend.outputs.webPrincipalId
-    deploymentPrincipalId: deploymentPrincipalId
-    deploymentPrincipalType: deploymentPrincipalType
   }
 }
 
@@ -107,5 +117,5 @@ output API_ENDPOINT_URL string = backend.outputs.functionEndpoint
 output WEB_ENDPOINT_URL string = frontend.outputs.webEndpoint
 output AZURE_FUNCTION_APP_NAME string = backend.outputs.functionAppName
 output AZURE_WEB_APP_NAME string = frontend.outputs.webAppName
-output AZURE_KEY_VAULT_NAME string = frontend.outputs.keyVaultName
+output AZURE_KEY_VAULT_NAME string = keyVault.outputs.keyVaultName
 output AZURE_AD_APP_DISPLAY_NAME string = appRegistrationDisplayName

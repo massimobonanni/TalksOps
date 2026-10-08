@@ -6,11 +6,12 @@ The AZD project provisions a resource group-scoped Bicep deployment in `infra/ma
 
 - `modules/storage.bicep` creates the storage account, table, and private Functions package container. Shared-key access is disabled.
 - `modules/backend.bicep` creates the Functions plan and app, configured for .NET isolated 10 and managed-identity access to host and deployment storage.
-- `modules/frontend.bicep` creates the Linux App Service and an RBAC-mode Key Vault. The app uses Key Vault references for both authentication and the Function key.
+- `modules/frontend.bicep` creates the Linux App Service, which uses Key Vault references for both authentication and the Function key.
+- `modules/keyvault.bicep` creates the RBAC-mode Key Vault and the `function-api-key` secret. It reads the generated default host key from the Function App with the ARM `listKeys` function and writes that value directly to the vault; the key is not a Bicep output or parameter.
 - `modules/monitoring.bicep` creates Log Analytics and workspace-based Application Insights.
-- `modules/identity.bicep` grants the Function identity Storage Blob Data Owner and Storage Queue Data Contributor on the dedicated storage account, Storage Table Data Contributor on only the application table, and grants the Web identity Key Vault Secrets User. The AZD deployment principal receives Key Vault Secrets Officer for the provisioning hooks.
+- `modules/identity.bicep` grants the Function identity Storage Blob Data Owner and Storage Queue Data Contributor on the dedicated storage account, Storage Table Data Contributor on only the application table, and grants the Web identity Key Vault Secrets User. The Key Vault module grants the AZD deployment principal Key Vault Secrets Officer so Bicep can create the Function-key secret and the post-provision hook can add the web client secret.
 
-The web app registration is tenant-scoped and therefore handled by the AZD `postprovision` hook, not the resource-group Bicep deployment. The hook creates or updates a `AzureADandPersonalMicrosoftAccount` registration, its service principal, and the production `/signin-oidc` redirect URI. It creates a two-year client credential only if `web-client-secret` is not already present, stores that credential in Key Vault, and configures App Service with a Key Vault reference. The root `postdeploy` hook retrieves the Function host default key, writes it to `function-api-key`, and restarts the Web App to refresh Key Vault references. Neither secret is a Bicep parameter or output.
+The web app registration is tenant-scoped and therefore handled by the AZD `postprovision` hook, not the resource-group Bicep deployment. The hook creates or updates a `AzureADandPersonalMicrosoftAccount` registration, its service principal, and the production `/signin-oidc` redirect URI. It creates a two-year client credential only if `web-client-secret` is not already present, stores that credential in Key Vault, and configures App Service with a Key Vault reference. The Function key is created by the Functions resource provider and copied into Key Vault by Bicep during provisioning. Neither secret is a Bicep parameter or output.
 
 ## Prerequisites
 
@@ -39,7 +40,7 @@ azd env set AZURE_LOCATION <azure-region>
 azd up -e talksops-dev
 ```
 
-`azd up` first provisions Bicep, then runs the identity setup hook, deploys the API and web app, and finally retrieves the Function host key, stores it in Key Vault, and restarts the web app so it refreshes its Key Vault reference. The hooks use the current Azure CLI identity for Microsoft Graph and Key Vault operations. If Graph permissions or Key Vault RBAC have not propagated, address the reported prerequisite and rerun the relevant hook; do not paste secrets into AZD outputs or source files.
+`azd up` first provisions Bicep, which creates the Function host key and the corresponding Key Vault secret, then runs the identity setup hook and deploys the API and web app. The hook uses the current Azure CLI identity for Microsoft Graph and Key Vault operations. If Graph permissions or Key Vault RBAC have not propagated, address the reported prerequisite and rerun the relevant hook; do not paste secrets into AZD outputs or source files.
 
 For a provisioning-only review, run `azd provision -e talksops-dev` after choosing the environment and confirming the target subscription, tenant, and region. A `what-if` or a real provisioning operation is intentionally not run as part of local implementation.
 

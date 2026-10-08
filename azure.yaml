@@ -12,13 +12,6 @@ hooks:
     posix:
       shell: sh
       run: ./infra/scripts/configure-identity.sh
-  postdeploy:
-    windows:
-      shell: pwsh
-      run: ./infra/scripts/store-function-key.ps1
-    posix:
-      shell: sh
-      run: ./infra/scripts/store-function-key.sh
 
 services:
   api:
