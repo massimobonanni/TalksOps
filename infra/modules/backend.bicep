@@ -23,6 +23,7 @@ param appInsightsConnectionString string
 param tags object
 
 var packageContainerName = 'function-packages'
+var blobDataOwnerRoleId = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
 
 resource functionStorageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: functionStorageAccountName
@@ -72,7 +73,9 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
   name: functionAppName
   location: location
   kind: 'functionapp,linux'
-  tags: tags
+  tags: union(tags, {
+    'azd-service-name': 'api'
+  })
   identity: {
     type: 'SystemAssigned'
   }
@@ -100,16 +103,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
     }
     siteConfig: {
       minTlsVersion: '1.2'
-      ftpsState: 'Disabled'
       appSettings: [
-        {
-          name: 'FUNCTIONS_EXTENSION_VERSION'
-          value: '~4'
-        }
-        {
-          name: 'FUNCTIONS_WORKER_RUNTIME'
-          value: 'dotnet-isolated'
-        }
         {
           name: 'AzureWebJobsStorage__accountName'
           value: functionStorageAccount.name
@@ -135,7 +129,17 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
   }
 }
 
+resource functionHostStorageBlobAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(functionStorageAccount.id, functionApp.id, blobDataOwnerRoleId)
+  scope: functionStorageAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', blobDataOwnerRoleId)
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 output functionAppName string = functionApp.name
-output functionEndpoint string = 'https://${functionApp.properties.defaultHostName}/api/'
+output functionEndpoint string = 'https://${functionApp.properties.defaultHostName}/'
 output functionPrincipalId string = functionApp.identity.principalId
 output functionStorageAccountName string = functionStorageAccount.name

@@ -51,9 +51,20 @@ if ($secretExists -eq '0') {
 }
 
 $secretUri = "https://$($env:AZURE_KEY_VAULT_NAME).vault.azure.net/secrets/web-client-secret"
-az webapp config appsettings set --resource-group $env:AZURE_RESOURCE_GROUP --name $env:AZURE_WEB_APP_NAME --settings "AzureAd__ClientId=$clientId" "AzureAd__ClientSecret=@Microsoft.KeyVault(SecretUri=$secretUri)" --output none
-if ($LASTEXITCODE -ne 0) {
-    throw 'Configuring the Web App OpenID Connect settings failed.'
+$settingsPath = [System.IO.Path]::GetTempFileName()
+try {
+    @{
+        AzureAd__ClientId = $clientId
+        AzureAd__ClientSecret = "@Microsoft.KeyVault(SecretUri=$secretUri)"
+    } | ConvertTo-Json | Set-Content -LiteralPath $settingsPath -Encoding utf8
+
+    az webapp config appsettings set --resource-group $env:AZURE_RESOURCE_GROUP --name $env:AZURE_WEB_APP_NAME --settings "@$settingsPath" --output none
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Configuring the Web App OpenID Connect settings failed.'
+    }
+}
+finally {
+    Remove-Item -LiteralPath $settingsPath -Force
 }
 
 Write-Output "Configured personal-account sign-in for $($env:WEB_ENDPOINT_URL)."

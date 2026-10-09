@@ -1,8 +1,9 @@
 {
-  "Microsoft.Insights/components": "appi",
-  "Microsoft.KeyVault/vaults": "kv",
-  "Microsoft.OperationalInsights/workspaces": "log",
-  "Microsoft.Storage/storageAccounts": "st",
-  "Microsoft.Web/serverfarms": "asp",
-  "Microsoft.Web/sites": "app"
+  "rg": "rg",
+  "appi": "appi",
+  "kv": "kv",
+  "log": "log",
+  "st": "st",
+  "asp": "asp",
+  "app": "app"
 }

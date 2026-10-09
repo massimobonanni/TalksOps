@@ -67,4 +67,4 @@ resource functionKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
 }
 
 output keyVaultName string = keyVault.name
-output keyVaultUri string = 'https://${keyVault.name}.${environment().suffixes.keyvaultDns}/'
+output keyVaultUri string = keyVault.properties.vaultUri

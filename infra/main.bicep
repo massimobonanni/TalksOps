@@ -1,17 +1,15 @@
-targetScope = 'resourceGroup'
+targetScope = 'subscription'
 
 @description('Short project identifier used in Azure resource names and tags.')
 @minLength(2)
 @maxLength(12)
-param projectName string = 'talksops'
+param environmentName string = 'talksops'
 
-@description('AZD environment name. Keep it short because it contributes to resource names.')
-@minLength(1)
-@maxLength(12)
-param environmentName string
+@description('Additional resource tags, including AZD environment discovery metadata.')
+param resourceTags object = {}
 
 @description('Azure region selected for this AZD environment.')
-param location string = resourceGroup().location
+param location string
 
 @description('Object ID of the identity running AZD. It receives Key Vault Secrets Officer for deployment-time secret creation and the post-provision identity hook.')
 param deploymentPrincipalId string
@@ -23,26 +21,34 @@ param deploymentPrincipalId string
 ])
 param deploymentPrincipalType string = 'User'
 
-var suffix = uniqueString(resourceGroup().id, environmentName)
-var compactEnvironment = toLower(replace(environmentName, '-', ''))
-var dataStorageAccountName = take('st${suffix}${compactEnvironment}', 24)
-var functionStorageAccountName = take('func${suffix}${compactEnvironment}', 24)
-var keyVaultName = take('kv-${compactEnvironment}-${suffix}', 24)
-var webAppName = take('${projectName}-web-${environmentName}-${suffix}', 60)
-var functionAppName = take('${projectName}-api-${environmentName}-${suffix}', 60)
-var appInsightsName = take('appi-${projectName}-${environmentName}-${suffix}', 60)
-var workspaceName = take('log-${projectName}-${environmentName}-${suffix}', 63)
-var functionPlanName = take('asp-${projectName}-api-${environmentName}-${suffix}', 40)
-var webPlanName = take('asp-${projectName}-web-${environmentName}-${suffix}', 40)
+var abbreviations = loadJsonContent('./abbreviations.json')
+var resourceGroupName = '${abbreviations.rg}-${environmentName}'
+var suffix = uniqueString(resourceGroup.id)
+var compactProject = toLower(replace(environmentName, '-', ''))
+var dataStorageAccountName = take('${abbreviations.st}${suffix}${compactProject}', 24)
+var functionStorageAccountName = take('${abbreviations.st}func${suffix}${compactProject}', 24)
+var keyVaultName = take('${abbreviations.kv}-${compactProject}-${suffix}', 24)
+var webAppName = take('${abbreviations.app}-${environmentName}-web-${suffix}', 60)
+var functionAppName = take('${abbreviations.app}-${environmentName}-api-${suffix}', 60)
+var appInsightsName = take('${abbreviations.appi}-${environmentName}-${suffix}', 60)
+var workspaceName = take('${abbreviations.log}-${environmentName}-${suffix}', 63)
+var functionPlanName = take('${abbreviations.asp}-${environmentName}-api-${suffix}', 40)
+var webPlanName = take('${abbreviations.asp}-${environmentName}-web-${suffix}', 40)
 var appRegistrationDisplayName = 'TalksOps-${environmentName}-${suffix}'
-var tags = {
-  project: projectName
-  environment: environmentName
+var tags = union({
+  project: environmentName
   managedBy: 'azd'
+}, resourceTags)
+
+resource resourceGroup 'Microsoft.Resources/resourceGroups@2025-04-01' = {
+  name: resourceGroupName
+  location: location
+  tags: tags
 }
 
 module monitoring 'modules/monitoring.bicep' = {
   name: 'monitoring-${suffix}'
+  scope: resourceGroup
   params: {
     location: location
     appInsightsName: appInsightsName
@@ -53,6 +59,7 @@ module monitoring 'modules/monitoring.bicep' = {
 
 module storage 'modules/storage.bicep' = {
   name: 'storage-${suffix}'
+  scope: resourceGroup
   params: {
     location: location
     storageAccountName: dataStorageAccountName
@@ -63,6 +70,7 @@ module storage 'modules/storage.bicep' = {
 
 module backend 'modules/backend.bicep' = {
   name: 'backend-${suffix}'
+  scope: resourceGroup
   params: {
     location: location
     functionAppName: functionAppName
@@ -77,6 +85,7 @@ module backend 'modules/backend.bicep' = {
 
 module keyVault 'modules/keyvault.bicep' = {
   name: 'keyvault-${suffix}'
+  scope: resourceGroup
   params: {
     location: location
     keyVaultName: keyVaultName
@@ -89,6 +98,7 @@ module keyVault 'modules/keyvault.bicep' = {
 
 module frontend 'modules/frontend.bicep' = {
   name: 'frontend-${suffix}'
+  scope: resourceGroup
   params: {
     location: location
     webAppName: webAppName
@@ -103,16 +113,17 @@ module frontend 'modules/frontend.bicep' = {
 
 module identity 'modules/identity.bicep' = {
   name: 'identity-${suffix}'
+  scope: resourceGroup
   params: {
     dataStorageAccountName: storage.outputs.storageAccountName
     dataTableName: storage.outputs.tableName
-    functionStorageAccountName: backend.outputs.functionStorageAccountName
     keyVaultName: keyVault.outputs.keyVaultName
     functionPrincipalId: backend.outputs.functionPrincipalId
     webPrincipalId: frontend.outputs.webPrincipalId
   }
 }
 
+output AZURE_RESOURCE_GROUP string = resourceGroup.name
 output API_ENDPOINT_URL string = backend.outputs.functionEndpoint
 output WEB_ENDPOINT_URL string = frontend.outputs.webEndpoint
 output AZURE_FUNCTION_APP_NAME string = backend.outputs.functionAppName

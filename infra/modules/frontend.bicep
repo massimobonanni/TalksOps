@@ -7,7 +7,7 @@ param webAppName string
 @description('Linux App Service plan name.')
 param webPlanName string
 
-@description('Deployed Functions API base address, including the /api/ prefix.')
+@description('Deployed Function App base address, without the /api/ route prefix.')
 param functionEndpoint string
 
 @description('Key Vault URI used by App Service references.')
@@ -44,7 +44,9 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
   name: webAppName
   location: location
   kind: 'app,linux'
-  tags: tags
+  tags: union(tags, {
+    'azd-service-name': 'web'
+  })
   identity: {
     type: 'SystemAssigned'
   }
