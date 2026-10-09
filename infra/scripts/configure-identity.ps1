@@ -17,10 +17,10 @@ $appName = $env:AZURE_AD_APP_DISPLAY_NAME
 $redirectUri = "$($env:WEB_ENDPOINT_URL.TrimEnd('/'))/signin-oidc"
 $clientId = az ad app list --display-name $appName --query '[0].appId' --output tsv
 if ([string]::IsNullOrWhiteSpace($clientId)) {
-    $clientId = az ad app create --display-name $appName --sign-in-audience AzureADandPersonalMicrosoftAccount --web-redirect-uris $redirectUri --query appId --output tsv
+    $clientId = az ad app create --display-name $appName --sign-in-audience PersonalMicrosoftAccount --web-redirect-uris $redirectUri --enable-id-token-issuance true --query appId --output tsv
 }
 else {
-    az ad app update --id $clientId --sign-in-audience AzureADandPersonalMicrosoftAccount --web-redirect-uris $redirectUri --output none
+    az ad app update --id $clientId --sign-in-audience PersonalMicrosoftAccount --web-redirect-uris $redirectUri --enable-id-token-issuance true --output none
 }
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($clientId)) {
     throw 'Creating or updating the Microsoft personal-account app registration failed.'
