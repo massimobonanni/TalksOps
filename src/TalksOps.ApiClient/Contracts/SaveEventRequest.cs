@@ -6,4 +6,6 @@ public sealed record SaveEventRequest(
     string Location,
     DateOnly StartDate,
     DateOnly EndDate,
-    IReadOnlyDictionary<string, decimal> Costs);
+    IReadOnlyDictionary<string, decimal> Costs,
+    string? OfficialWebsiteUrl = null,
+    string? CallForPapersUrl = null);

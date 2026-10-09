@@ -138,20 +138,37 @@ public sealed class AzureTableEventRepository : IEventRepository
         OwnerId = entity.PartitionKey["events|".Length..],
         Name = entity.GetString(nameof(Event.Name))!,
         Location = entity.GetString(nameof(Event.Location))!,
+        OfficialWebsiteUrl = entity.GetString(nameof(Event.OfficialWebsiteUrl)),
+        CallForPapersUrl = entity.GetString(nameof(Event.CallForPapersUrl)),
         StartDate = DateOnly.ParseExact(entity.GetString(nameof(Event.StartDate))!, "yyyy-MM-dd"),
         EndDate = DateOnly.ParseExact(entity.GetString(nameof(Event.EndDate))!, "yyyy-MM-dd"),
         Costs = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, decimal>>(
             entity.GetString(nameof(Event.Costs))!) ?? new Dictionary<string, decimal>()
     };
 
-    internal static TableEntity ToEntity(Event value) => new(EventPartitionKey(value.OwnerId), Key(value.Id))
+    internal static TableEntity ToEntity(Event value)
     {
-        [nameof(Event.Name)] = value.Name,
-        [nameof(Event.Location)] = value.Location,
-        [nameof(Event.StartDate)] = value.StartDate.ToString("yyyy-MM-dd"),
-        [nameof(Event.EndDate)] = value.EndDate.ToString("yyyy-MM-dd"),
-        [nameof(Event.Costs)] = System.Text.Json.JsonSerializer.Serialize(value.Costs)
-    };
+        var entity = new TableEntity(EventPartitionKey(value.OwnerId), Key(value.Id))
+        {
+            [nameof(Event.Name)] = value.Name,
+            [nameof(Event.Location)] = value.Location,
+            [nameof(Event.StartDate)] = value.StartDate.ToString("yyyy-MM-dd"),
+            [nameof(Event.EndDate)] = value.EndDate.ToString("yyyy-MM-dd"),
+            [nameof(Event.Costs)] = System.Text.Json.JsonSerializer.Serialize(value.Costs)
+        };
+
+        if (!string.IsNullOrWhiteSpace(value.OfficialWebsiteUrl))
+        {
+            entity[nameof(Event.OfficialWebsiteUrl)] = value.OfficialWebsiteUrl;
+        }
+
+        if (!string.IsNullOrWhiteSpace(value.CallForPapersUrl))
+        {
+            entity[nameof(Event.CallForPapersUrl)] = value.CallForPapersUrl;
+        }
+
+        return entity;
+    }
 
     private static bool Matches(string value, string? filter) =>
         string.IsNullOrWhiteSpace(filter) || value.Contains(filter.Trim(), StringComparison.OrdinalIgnoreCase);

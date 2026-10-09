@@ -113,6 +113,8 @@ else
                 <div class="form-grid">
                     <label>Event name<input required maxlength="160" @bind="this.EventName" /></label>
                     <label>Location<input required maxlength="160" @bind="this.EventLocation" /></label>
+                    <label>Official website<input type="url" maxlength="2048" @bind="this.EventOfficialWebsiteUrl" /></label>
+                    <label>Call for papers<input type="url" maxlength="2048" @bind="this.EventCallForPapersUrl" /></label>
                     <label>Start date<input type="date" required @bind="this.EventStartDate" /></label>
                     <label>End date<input type="date" required @bind="this.EventEndDate" /></label>
                     <label class="span-all">Costs <span class="muted">One item per line, formatted as name=amount</span><textarea rows="4" placeholder="Travel=250.00&#10;Hotel=600.00" @bind="this.EventCosts"></textarea></label>
@@ -135,6 +137,8 @@ else
     private Guid? EventEditorId;
     private string EventName = string.Empty;
     private string EventLocation = string.Empty;
+    private string EventOfficialWebsiteUrl = string.Empty;
+    private string EventCallForPapersUrl = string.Empty;
     private DateTime EventStartDate = DateTime.Today;
     private DateTime EventEndDate = DateTime.Today;
     private string EventCosts = string.Empty;
@@ -184,7 +188,7 @@ else
         this.ErrorMessage = null;
         this.SuccessMessage = null;
         this.EventEditorId = null;
-        this.EventName = this.EventLocation = this.EventCosts = string.Empty;
+        this.EventName = this.EventLocation = this.EventOfficialWebsiteUrl = this.EventCallForPapersUrl = this.EventCosts = string.Empty;
         this.EventStartDate = this.EventEndDate = DateTime.Today;
         this.IsEventEditorOpen = true;
     }
@@ -196,6 +200,8 @@ else
         this.EventEditorId = eventItem.Id;
         this.EventName = eventItem.Name;
         this.EventLocation = eventItem.Location;
+        this.EventOfficialWebsiteUrl = eventItem.OfficialWebsiteUrl ?? string.Empty;
+        this.EventCallForPapersUrl = eventItem.CallForPapersUrl ?? string.Empty;
         this.EventStartDate = eventItem.StartDate.ToDateTime(TimeOnly.MinValue);
         this.EventEndDate = eventItem.EndDate.ToDateTime(TimeOnly.MinValue);
         this.EventCosts = string.Join(Environment.NewLine, eventItem.Costs.Select(cost => $"{cost.Key}={cost.Value.ToString(CultureInfo.InvariantCulture)}"));
@@ -215,7 +221,9 @@ else
         {
             var startDate = DateOnly.FromDateTime(this.EventStartDate);
             var endDate = DateOnly.FromDateTime(this.EventEndDate);
-            var request = new SaveEventRequest(this.EventName.Trim(), this.EventLocation.Trim(), startDate, endDate, ParseCosts(this.EventCosts));
+            var request = new SaveEventRequest(
+                this.EventName.Trim(), this.EventLocation.Trim(), startDate, endDate, ParseCosts(this.EventCosts),
+                NullIfEmpty(this.EventOfficialWebsiteUrl), NullIfEmpty(this.EventCallForPapersUrl));
             if (this.EventEditorId is Guid eventId)
             {
                 await this.Api.UpdateEventAsync(eventId, request);

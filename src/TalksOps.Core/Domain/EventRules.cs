@@ -24,6 +24,16 @@ public static class EventRules
             errors.Add("An event location is required.");
         }
 
+        if (!IsValidWebUrl(value.OfficialWebsiteUrl))
+        {
+            errors.Add("The official website URL must be a valid HTTP or HTTPS URL.");
+        }
+
+        if (!IsValidWebUrl(value.CallForPapersUrl))
+        {
+            errors.Add("The call for papers URL must be a valid HTTP or HTTPS URL.");
+        }
+
         if (value.EndDate < value.StartDate)
         {
             errors.Add("The event end date must be on or after its start date.");
@@ -44,4 +54,10 @@ public static class EventRules
 
         return errors;
     }
+
+    private static bool IsValidWebUrl(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+        || (Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+            && !string.IsNullOrWhiteSpace(uri.Host));
 }

@@ -420,6 +420,8 @@ public sealed class EventsFunctions(
         OwnerId = string.Empty,
         Name = value.Name,
         Location = value.Location,
+        OfficialWebsiteUrl = string.IsNullOrWhiteSpace(value.OfficialWebsiteUrl) ? null : value.OfficialWebsiteUrl.Trim(),
+        CallForPapersUrl = string.IsNullOrWhiteSpace(value.CallForPapersUrl) ? null : value.CallForPapersUrl.Trim(),
         StartDate = value.StartDate,
         EndDate = value.EndDate,
         Costs = value.Costs ?? new Dictionary<string, decimal>()
@@ -435,7 +437,8 @@ public sealed class EventsFunctions(
     };
 
     private static EventDto ToDto(Event value) => new(
-        value.Id, value.OwnerId, value.Name, value.Location, value.StartDate, value.EndDate, value.Costs);
+        value.Id, value.OwnerId, value.Name, value.Location, value.StartDate, value.EndDate, value.Costs,
+        value.OfficialWebsiteUrl, value.CallForPapersUrl);
 
     private static SessionProposalDto ToDto(SessionProposal value) => new(
         value.Id, value.EventId, value.OwnerId, value.Title, value.Abstract, value.Notes,

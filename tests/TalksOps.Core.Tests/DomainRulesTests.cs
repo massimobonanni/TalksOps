@@ -36,6 +36,26 @@ public sealed class DomainRulesTests
     }
 
     [Fact]
+    public void EventRules_AllowsMissingUrlsAndValidatesProvidedUrls()
+    {
+        var value = new Event
+        {
+            OwnerId = "user-1",
+            Name = "Tech conference",
+            Location = "Milan",
+            StartDate = new DateOnly(2026, 5, 1),
+            EndDate = new DateOnly(2026, 5, 2),
+            OfficialWebsiteUrl = "https://conference.example.com",
+            CallForPapersUrl = "http://conference.example.com/cfp"
+        };
+
+        Assert.Empty(EventRules.Validate(value));
+        Assert.Empty(EventRules.Validate(value with { OfficialWebsiteUrl = null, CallForPapersUrl = " " }));
+        Assert.Contains(EventRules.Validate(value with { OfficialWebsiteUrl = "not a URL" }), error => error.Contains("official website URL"));
+        Assert.Contains(EventRules.Validate(value with { CallForPapersUrl = "ftp://conference.example.com" }), error => error.Contains("call for papers URL"));
+    }
+
+    [Fact]
     public void SessionProposalRules_AllowsMissingNotes()
     {
         var value = new SessionProposal

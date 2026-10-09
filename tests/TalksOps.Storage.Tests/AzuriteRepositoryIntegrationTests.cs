@@ -23,6 +23,8 @@ public sealed class AzuriteRepositoryIntegrationTests
                 OwnerId = "integration-owner",
                 Name = "Azurite conference",
                 Location = "Local",
+                OfficialWebsiteUrl = "https://conference.example.com",
+                CallForPapersUrl = "https://conference.example.com/cfp",
                 StartDate = new DateOnly(2026, 6, 1),
                 EndDate = new DateOnly(2026, 6, 2),
                 Costs = new Dictionary<string, decimal> { ["Travel"] = 12.5m }
@@ -31,6 +33,8 @@ public sealed class AzuriteRepositoryIntegrationTests
             var loadedEvent = await events.GetAsync("integration-owner", eventValue.Id);
             Assert.NotNull(loadedEvent);
             Assert.Equal(eventValue.Name, loadedEvent.Name);
+            Assert.Equal(eventValue.OfficialWebsiteUrl, loadedEvent.OfficialWebsiteUrl);
+            Assert.Equal(eventValue.CallForPapersUrl, loadedEvent.CallForPapersUrl);
             Assert.Equal(eventValue.Costs["Travel"], loadedEvent.Costs["Travel"]);
             Assert.Null(await events.GetAsync("different-owner", eventValue.Id));
             Assert.Single((await events.SearchAsync("integration-owner", new EventSearchCriteria())).Items);

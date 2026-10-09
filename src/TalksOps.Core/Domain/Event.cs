@@ -15,6 +15,12 @@ public sealed record Event
     /// <summary>Gets the event location.</summary>
     public required string Location { get; init; }
 
+    /// <summary>Gets the official event website URL.</summary>
+    public string? OfficialWebsiteUrl { get; init; }
+
+    /// <summary>Gets the call for papers URL.</summary>
+    public string? CallForPapersUrl { get; init; }
+
     /// <summary>Gets the event start date.</summary>
     public required DateOnly StartDate { get; init; }
 
