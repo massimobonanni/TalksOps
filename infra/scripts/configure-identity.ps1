@@ -34,6 +34,11 @@ if ($LASTEXITCODE -ne 0) {
     }
 }
 
+    azd env set AZURE_AD_APP_CLIENT_ID $clientId
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Persisting the frontend app registration ID in the AZD environment failed.'
+    }
+
 $secretExists = az keyvault secret list --vault-name $env:AZURE_KEY_VAULT_NAME --query "[?name=='web-client-secret'] | length(@)" --output tsv
 if ($LASTEXITCODE -ne 0) {
     throw 'Unable to check the web client secret in Key Vault. Verify Key Vault Secrets Officer access and RBAC propagation.'

@@ -22,6 +22,7 @@ fi
 if ! az ad sp show --id "$client_id" --query id --output tsv >/dev/null 2>&1; then
   az ad sp create --id "$client_id" --output none
 fi
+azd env set AZURE_AD_APP_CLIENT_ID "$client_id"
 
 secret_count=$(az keyvault secret list --vault-name "$AZURE_KEY_VAULT_NAME" --query "[?name=='web-client-secret'] | length(@)" --output tsv)
 if [ "$secret_count" = '0' ]; then
