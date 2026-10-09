@@ -20,6 +20,7 @@ builder.Services.AddScoped<RequestCurrentUserContext>();
 builder.Services.AddScoped<ICurrentUserContext>(services => services.GetRequiredService<RequestCurrentUserContext>());
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<ISessionProposalService, SessionProposalService>();
+builder.Services.AddScoped<IEventImportExportService, EventImportExportService>();
 
 var tableName = builder.Configuration["StorageTableName"];
 if (string.IsNullOrWhiteSpace(tableName))

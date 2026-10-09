@@ -1,0 +1,142 @@
+@page "/import-export"
+@attribute [Authorize]
+@implements IAsyncDisposable
+@using System.Text.Json
+@using TalksOps.Core.Export
+@inject ITalksOpsApiClient Api
+@inject IJSRuntime JavaScript
+
+<PageTitle>Import / Export | TalksOps</PageTitle>
+
+<div class="page-heading">
+    <div><p class="eyebrow">MOVE YOUR DATA</p><h1>Import / Export</h1></div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(this.ErrorMessage))
+{
+    <div class="notice notice-error" role="alert">@this.ErrorMessage</div>
+}
+@if (!string.IsNullOrWhiteSpace(this.SuccessMessage))
+{
+    <div class="notice notice-success" role="status">@this.SuccessMessage</div>
+}
+
+<form class="editor-form" @onsubmit="ExportAsync" @onsubmit:preventDefault>
+    <h3>Export events</h3>
+    <p class="muted">Downloads your events and their sessions as a JSON file. Leave a date empty to remove that bound.</p>
+    <div class="form-grid">
+        <label>From<input type="date" @bind="this.ExportFrom" /></label>
+        <label>To<input type="date" @bind="this.ExportTo" /></label>
+    </div>
+    <div class="form-actions"><button class="button button-primary" type="submit" disabled="@this.IsBusy">Download JSON</button></div>
+</form>
+
+<form class="editor-form" @onsubmit="ImportAsync" @onsubmit:preventDefault>
+    <h3>Import events</h3>
+    <p class="muted">Adds the events and sessions of a TalksOps export to your data. Existing events are never changed or removed.</p>
+    <div class="form-grid">
+        <label class="span-all">JSON file<InputFile accept=".json,application/json" OnChange="SelectImportFile" /></label>
+    </div>
+    <div class="form-actions"><button class="button button-primary" type="submit" disabled="@(this.IsBusy || this.ImportFile is null)">Import</button></div>
+</form>
+
+@code {
+    private const long MaxImportFileSize = 10 * 1024 * 1024;
+    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
+
+    private DateOnly? ExportFrom;
+    private DateOnly? ExportTo;
+    private IBrowserFile? ImportFile;
+    private bool IsBusy;
+    private string? ErrorMessage;
+    private string? SuccessMessage;
+    private IJSObjectReference? module;
+
+    private async Task ExportAsync()
+    {
+        this.ErrorMessage = this.SuccessMessage = null;
+        if (this.ExportFrom is DateOnly from && this.ExportTo is DateOnly to && from > to)
+        {
+            this.ErrorMessage = "The start date cannot be after the end date.";
+            return;
+        }
+
+        this.IsBusy = true;
+        try
+        {
+            var document = await this.Api.ExportEventsAsync(this.ExportFrom, this.ExportTo);
+            using var content = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(document, SerializerOptions));
+            using var streamReference = new DotNetStreamReference(content);
+            this.module ??= await this.JavaScript.InvokeAsync<IJSObjectReference>(
+                "import", $"./{Assets["Components/Pages/ImportExport.razor.js"]}");
+            await this.module.InvokeVoidAsync("downloadFile", $"talksops-events-{DateTime.Now:yyyyMMdd-HHmmss}.json", streamReference);
+            this.SuccessMessage = $"Exported {document.Events.Count} events with {document.Events.Sum(value => value.Sessions.Count)} sessions.";
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or JSException or TaskCanceledException)
+        {
+            this.ErrorMessage = $"Unable to export events. {exception.Message}";
+        }
+        finally
+        {
+            this.IsBusy = false;
+        }
+    }
+
+    private void SelectImportFile(InputFileChangeEventArgs args)
+    {
+        this.ErrorMessage = this.SuccessMessage = null;
+        this.ImportFile = args.File;
+    }
+
+    private async Task ImportAsync()
+    {
+        if (this.ImportFile is null)
+        {
+            return;
+        }
+
+        this.ErrorMessage = this.SuccessMessage = null;
+        if (this.ImportFile.Size > MaxImportFileSize)
+        {
+            this.ErrorMessage = "The selected file exceeds the 10 MB limit.";
+            return;
+        }
+
+        this.IsBusy = true;
+        try
+        {
+            await using var stream = this.ImportFile.OpenReadStream(MaxImportFileSize);
+            var document = await JsonSerializer.DeserializeAsync<EventsExportDocument>(stream, SerializerOptions)
+                ?? throw new JsonException("The file is empty.");
+            var result = await this.Api.ImportEventsAsync(document);
+            this.SuccessMessage = $"Imported {result.EventsImported} events with {result.SessionsImported} sessions.";
+        }
+        catch (JsonException)
+        {
+            this.ErrorMessage = "The selected file is not a valid TalksOps events export.";
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or IOException or TaskCanceledException)
+        {
+            this.ErrorMessage = $"Unable to import events. {exception.Message}";
+        }
+        finally
+        {
+            this.IsBusy = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (this.module is not null)
+        {
+            try
+            {
+                await this.module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit is already gone, so there is nothing left to release on the client.
+            }
+        }
+    }
+}

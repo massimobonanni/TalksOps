@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using TalksOps.ApiClient.Contracts;
 using TalksOps.Core.Contracts;
+using TalksOps.Core.Export;
 
 namespace TalksOps.ApiClient;
 
@@ -100,6 +101,42 @@ public sealed class TalksOpsApiClient(HttpClient httpClient, ICurrentUserContext
         CancellationToken cancellationToken = default) =>
         await this.GetRequiredAsync<IReadOnlyList<CalendarEventDto>>(
             $"api/calendar?year={year}".WithUserId(this.currentUser.UserId), cancellationToken);
+
+    /// <inheritdoc />
+    public Task<EventsExportDocument> ExportEventsAsync(
+        DateOnly? from,
+        DateOnly? to,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new List<string>();
+        AddQuery(query, "from", from?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
+        AddQuery(query, "to", to?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
+        var path = (query.Count == 0 ? "api/export" : $"api/export?{string.Join('&', query)}")
+            .WithUserId(this.currentUser.UserId);
+        return this.GetRequiredAsync<EventsExportDocument>(path, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<EventImportResult> ImportEventsAsync(
+        EventsExportDocument document,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        using var response = await this.httpClient.PostAsJsonAsync(
+            "api/import", new ApiRequest<EventsExportDocument>(this.currentUser.UserId, document), cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            // Surface the server's validation message so the user can fix the file.
+            var message = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpRequestException(
+                string.IsNullOrWhiteSpace(message) ? $"Import failed with status {(int)response.StatusCode}." : message,
+                null,
+                response.StatusCode);
+        }
+
+        return await response.Content.ReadFromJsonAsync<EventImportResult>(cancellationToken)
+            ?? throw new HttpRequestException("The TalksOps API returned an empty response body.");
+    }
 
     private async Task<T> GetRequiredAsync<T>(string path, CancellationToken cancellationToken)
     {

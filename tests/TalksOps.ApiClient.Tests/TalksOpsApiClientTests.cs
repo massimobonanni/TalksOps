@@ -4,6 +4,7 @@ using System.Text.Json;
 using TalksOps.ApiClient;
 using TalksOps.ApiClient.Contracts;
 using TalksOps.Core.Contracts;
+using TalksOps.Core.Export;
 
 namespace TalksOps.ApiClient.Tests;
 
@@ -36,6 +37,37 @@ public sealed class TalksOpsApiClientTests
         using var request = JsonDocument.Parse(handler.RequestBody!);
         Assert.Equal("user-1", request.RootElement.GetProperty("userId").GetString());
         Assert.Equal("Summit", request.RootElement.GetProperty("payload").GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public async Task ExportEventsAsync_SendsOptionalDatesAndUser()
+    {
+        var handler = new RecordingHandler(_ => JsonResponse("""{"schemaVersion":1,"events":[]}"""));
+        var client = CreateClient(handler, "user-1");
+
+        await client.ExportEventsAsync(new DateOnly(2026, 1, 1), null);
+
+        var query = Uri.UnescapeDataString(new Uri(handler.RequestUri).Query);
+        Assert.Contains("from=2026-01-01", query);
+        Assert.DoesNotContain("to=", query);
+        Assert.Contains("userId=user-1", query);
+    }
+
+    [Fact]
+    public async Task ImportEventsAsync_SurfacesServerValidationMessage()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.BadRequest)
+        {
+            Content = new StringContent("Event #1: An event name is required.")
+        });
+        var client = CreateClient(handler, "user-1");
+
+        var exception = await Assert.ThrowsAsync<HttpRequestException>(() =>
+            client.ImportEventsAsync(new EventsExportDocument()));
+
+        Assert.Contains("event name is required", exception.Message);
+        using var request = JsonDocument.Parse(handler.RequestBody!);
+        Assert.Equal("user-1", request.RootElement.GetProperty("userId").GetString());
     }
 
     private static ITalksOpsApiClient CreateClient(HttpMessageHandler handler, string userId)

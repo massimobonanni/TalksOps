@@ -1,4 +1,5 @@
 using TalksOps.ApiClient.Contracts;
+using TalksOps.Core.Export;
 
 namespace TalksOps.ApiClient;
 
@@ -65,5 +66,17 @@ public interface ITalksOpsApiClient
     /// <summary>Gets the current user's annual calendar events.</summary>
     Task<IReadOnlyList<CalendarEventDto>> GetCalendarAsync(
         int year,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Exports the current user's events and sessions overlapping the optional date range.</summary>
+    Task<EventsExportDocument> ExportEventsAsync(
+        DateOnly? from,
+        DateOnly? to,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Adds the events and sessions of an export document to the current user's data.</summary>
+    /// <exception cref="HttpRequestException">Thrown with the server validation message when the import is rejected.</exception>
+    Task<EventImportResult> ImportEventsAsync(
+        EventsExportDocument document,
         CancellationToken cancellationToken = default);
 }
