@@ -12,6 +12,13 @@ hooks:
     posix:
       shell: sh
       run: ./infra/scripts/configure-identity.sh
+  postdown:
+    windows:
+      shell: pwsh
+      run: ./infra/scripts/remove-identity.ps1
+    posix:
+      shell: sh
+      run: ./infra/scripts/remove-identity.sh
 
 services:
   api:

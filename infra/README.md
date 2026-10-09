@@ -30,8 +30,8 @@ Queries, ownership checks, updates, and cascading proposal deletion use these sa
 - .NET 10 SDK, Azure CLI, Azure Developer CLI, and Bicep CLI.
 - An Azure subscription and region in which the selected App Service, Flex Consumption, Storage, Key Vault, and monitoring resources are available.
 - AZD permissions to deploy at subscription scope, create the resource group, and create its resources and role assignments. The deployment identity is granted Key Vault Secrets Officer on the new vault by Bicep.
-- Microsoft Graph permission to create and update applications and service principals in the selected Entra tenant. Tenant policy may require administrator approval. The application accepts personal Microsoft accounts; it is not an App Service Easy Auth configuration.
-- The deployer must be able to create service principals and credentials through Microsoft Graph. Client credentials expire after two years; rotate the Key Vault secret and app registration credential before expiry.
+- Microsoft Graph permission to create, update, and delete applications and service principals in the selected Entra tenant. Tenant policy may require administrator approval. The application accepts personal Microsoft accounts; it is not an App Service Easy Auth configuration.
+- The deployer must be able to create and delete service principals and manage application credentials through Microsoft Graph. Client credentials expire after two years; rotate the Key Vault secret and app registration credential before expiry.
 - Before provisioning, set the object ID and type of the identity that runs AZD. This identity must be allowed to create role assignments and will receive Key Vault Secrets Officer on the new vault:
 
 ```powershell
@@ -53,7 +53,13 @@ azd env set AZURE_LOCATION <azure-region>
 azd up -e talksops-dev
 ```
 
-`azd up` first provisions Bicep, which creates the Function host key and the corresponding Key Vault secret, then runs the identity setup hook and deploys the API and web app. The hook uses the current Azure CLI identity for Microsoft Graph and Key Vault operations. If Graph permissions or Key Vault RBAC have not propagated, address the reported prerequisite and rerun the relevant hook; do not paste secrets into AZD outputs or source files.
+### AZD lifecycle hooks
+
+After Bicep provisions the Azure resources, the `postprovision` hook runs `configure-identity.ps1` on Windows or `configure-identity.sh` on POSIX. It uses the `AZURE_AD_APP_DISPLAY_NAME` output to create or update the tenant-scoped app registration for personal Microsoft accounts, configure the `/signin-oidc` redirect URI, and ensure its service principal exists. If the `web-client-secret` Key Vault secret is missing, the hook creates a client credential and stores it there; it then configures the Web App to use the Key Vault reference. The credential itself is not printed or stored in AZD outputs. This hook runs before the API and web app are deployed, so the login settings are ready when the frontend starts.
+
+The hook uses the current Azure CLI identity for Microsoft Graph and Key Vault operations. It must have the Graph permissions described under Prerequisites and Key Vault Secrets Officer access to the provisioned vault. If Graph permissions or Key Vault RBAC have not propagated, address the reported prerequisite and rerun the relevant hook; do not paste secrets into AZD outputs or source files.
+
+When `azd down` removes an environment, the `postdown` hook runs `remove-identity.ps1` on Windows or `remove-identity.sh` on POSIX. Since the app registration is tenant-scoped and is not managed by Bicep, this hook deletes its service principal and app registration using the same unique `AZURE_AD_APP_DISPLAY_NAME`. It does nothing if the registration is already absent and refuses to delete if the name resolves to multiple registrations. The teardown identity therefore also needs Microsoft Graph permission to delete applications and service principals.
 
 For a provisioning-only review, run `azd provision -e talksops-dev` after choosing the environment and confirming the target subscription, tenant, and region. A `what-if` or a real provisioning operation is intentionally not run as part of local implementation.
 
@@ -66,7 +72,7 @@ azd package
 
 Review the deployment plan and outputs before provisioning. `API_ENDPOINT_URL`, `WEB_ENDPOINT_URL`, resource names, and the app-registration display name are nonsecret outputs. `.azure/`, local Function settings, Terraform state, and plan files are ignored by Git.
 
-Remove an environment only after confirming its resource group and data-retention requirements:
+Remove an environment only after confirming its resource group and data-retention requirements. The `postdown` hook also deletes the tenant-scoped frontend app registration and its service principal, identified by the environment's unique `AZURE_AD_APP_DISPLAY_NAME` output. It is a no-op if the registration is already absent and refuses to proceed if multiple registrations match:
 
 ```powershell
 azd down -e talksops-dev
