@@ -26,14 +26,6 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($clientId)) {
     throw 'Creating or updating the Microsoft personal-account app registration failed.'
 }
 
-az ad sp show --id $clientId --query id --output tsv *> $null
-if ($LASTEXITCODE -ne 0) {
-    az ad sp create --id $clientId --output none
-    if ($LASTEXITCODE -ne 0) {
-        throw 'Creating the app registration service principal failed.'
-    }
-}
-
     azd env set AZURE_AD_APP_CLIENT_ID $clientId
     if ($LASTEXITCODE -ne 0) {
         throw 'Persisting the frontend app registration ID in the AZD environment failed.'
