@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-10-09T10:00:00+00:00",
+  "from": "2026-01-01",
+  "to": null,
+  "events": [
+    {
+      "id": "d2d0cb59-8f72-4dad-9ad5-956dfaa630c7",
+      "name": "Cloud Native Days",
+      "location": "Milan, Italy",
+      "officialWebsiteUrl": "https://example.org/cloud-native-days",
+      "callForPapersUrl": "https://example.org/cloud-native-days/cfp",
+      "startDate": "2026-10-20",
+      "endDate": "2026-10-21",
+      "costs": {
+        "travel": 180.00,
+        "hotel": 320.00
+      },
+      "sessions": [
+        {
+          "id": "ac390440-304d-4a81-8866-09e96b531e13",
+          "title": "Reliable event-driven systems",
+          "abstract": "Patterns for building resilient event-driven applications.",
+          "notes": "Bring a demo.",
+          "status": "Accepted",
+          "createdAt": "2026-06-01T09:30:00+00:00",
+          "updatedAt": "2026-07-15T14:00:00+00:00"
+        }
+      ]
+    }
+  ]
+}

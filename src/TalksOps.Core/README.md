@@ -145,3 +145,42 @@ Lifecycle values: `Submitted`, `Accepted`, `Rejected`, and `Cancelled`.
 | `SessionProposalService` | Implements `ISessionProposalService`; constructor dependencies are `ISessionProposalRepository` and `ICurrentUserContext`. Invalid status changes throw `InvalidOperationException`; validation failures throw `ArgumentException`. |
 
 All asynchronous service and repository methods accept an optional `CancellationToken`. Nullable return values from get/update operations indicate that the requested record was not found or is not owned by the caller.
+
+## Import and export
+
+`IEventImportExportService` exports the current user's events and their sessions as JSON. Optional `from` and `to` dates are inclusive and select events whose date range overlaps the requested range. The document uses schema version `1`; session statuses are serialized by name. An import is additive: source IDs are replaced with new IDs, and all imported events and sessions are assigned to the current user. See [`Export/example-export.json`](Export/example-export.json) for a complete example.
+
+```json
+{
+    "schemaVersion": 1,
+    "exportedAt": "2026-10-09T10:00:00+00:00",
+    "from": "2026-01-01",
+    "to": null,
+    "events": [
+        {
+            "id": "d2d0cb59-8f72-4dad-9ad5-956dfaa630c7",
+            "name": "Cloud Native Days",
+            "location": "Milan, Italy",
+            "officialWebsiteUrl": "https://example.org/cloud-native-days",
+            "callForPapersUrl": "https://example.org/cloud-native-days/cfp",
+            "startDate": "2026-10-20",
+            "endDate": "2026-10-21",
+            "costs": {
+                "travel": 180.00,
+                "hotel": 320.00
+            },
+            "sessions": [
+                {
+                    "id": "ac390440-304d-4a81-8866-09e96b531e13",
+                    "title": "Reliable event-driven systems",
+                    "abstract": "Patterns for building resilient event-driven applications.",
+                    "notes": "Bring a demo.",
+                    "status": "Accepted",
+                    "createdAt": "2026-06-01T09:30:00+00:00",
+                    "updatedAt": "2026-07-15T14:00:00+00:00"
+                }
+            ]
+        }
+    ]
+}
+```
