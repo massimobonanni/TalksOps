@@ -1,4 +1,4 @@
-# TalksOps
+![TalksOps](src/TalksOps.Web/wwwroot/images/TalksOps-logo.svg)
 
 TalksOps is a .NET 10 application for managing speaking events, session proposals, and an annual calendar. A server-side Blazor application calls an Azure Functions API; Azure Tables stores application data.
 

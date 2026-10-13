@@ -78,6 +78,7 @@ button { cursor: pointer; }
 .app-shell { min-height: 100vh; }
 .app-header { display: flex; align-items: center; gap: 3rem; min-height: 72px; padding: 0 clamp(1.25rem, 5vw, 5rem); background: var(--green-deep); color: white; }
 .wordmark { color: inherit; text-decoration: none; font-size: 1.35rem; font-weight: 750; letter-spacing: 0; }
+.app-header .wordmark img { display: block; width: 160px; max-width: 100%; height: 42px; object-fit: contain; object-position: left center; }
 .wordmark span { color: #efb56b; }
 .primary-nav { display: flex; gap: 1.5rem; align-items: center; flex: 1; }
 .primary-nav a { color: #c3d5cc; text-decoration: none; padding: .45rem 0; border-bottom: 2px solid transparent; }
