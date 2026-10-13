@@ -110,6 +110,7 @@ public sealed class EventImportExportService(
                 Location = exportedEvent.Location,
                 OfficialWebsiteUrl = exportedEvent.OfficialWebsiteUrl,
                 CallForPapersUrl = exportedEvent.CallForPapersUrl,
+                CallForPapersDeadline = exportedEvent.CallForPapersDeadline,
                 StartDate = exportedEvent.StartDate,
                 EndDate = exportedEvent.EndDate,
                 Costs = exportedEvent.Costs ?? new Dictionary<string, decimal>()
@@ -202,6 +203,7 @@ public sealed class EventImportExportService(
         Location = value.Location,
         OfficialWebsiteUrl = value.OfficialWebsiteUrl,
         CallForPapersUrl = value.CallForPapersUrl,
+        CallForPapersDeadline = value.CallForPapersDeadline,
         StartDate = value.StartDate,
         EndDate = value.EndDate,
         Costs = value.Costs,

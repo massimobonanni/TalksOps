@@ -140,6 +140,9 @@ public sealed class AzureTableEventRepository : IEventRepository
         Location = entity.GetString(nameof(Event.Location))!,
         OfficialWebsiteUrl = entity.GetString(nameof(Event.OfficialWebsiteUrl)),
         CallForPapersUrl = entity.GetString(nameof(Event.CallForPapersUrl)),
+        CallForPapersDeadline = entity.GetString(nameof(Event.CallForPapersDeadline)) is { } deadline
+            ? DateOnly.ParseExact(deadline, "yyyy-MM-dd")
+            : null,
         StartDate = DateOnly.ParseExact(entity.GetString(nameof(Event.StartDate))!, "yyyy-MM-dd"),
         EndDate = DateOnly.ParseExact(entity.GetString(nameof(Event.EndDate))!, "yyyy-MM-dd"),
         Costs = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, decimal>>(
@@ -165,6 +168,11 @@ public sealed class AzureTableEventRepository : IEventRepository
         if (!string.IsNullOrWhiteSpace(value.CallForPapersUrl))
         {
             entity[nameof(Event.CallForPapersUrl)] = value.CallForPapersUrl;
+        }
+
+        if (value.CallForPapersDeadline is DateOnly deadline)
+        {
+            entity[nameof(Event.CallForPapersDeadline)] = deadline.ToString("yyyy-MM-dd");
         }
 
         return entity;

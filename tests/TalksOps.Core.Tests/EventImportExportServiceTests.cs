@@ -49,7 +49,7 @@ public sealed class EventImportExportServiceTests
     public async Task ImportAsync_RoundTripAddsCopiesWithoutTouchingExistingData()
     {
         var store = new InMemoryStore();
-        var original = store.AddEvent(UserId, new DateOnly(2026, 5, 1));
+        var original = store.AddEvent(UserId, new DateOnly(2026, 5, 1), callForPapersDeadline: new DateOnly(2026, 3, 15));
         store.AddSession(original, "Talk A", ProposalStatus.Accepted);
         var service = CreateService(store);
 
@@ -63,6 +63,7 @@ public sealed class EventImportExportServiceTests
         Assert.Contains(store.Events, value => value.Id == original.Id);
         var imported = Assert.Single(store.Events, value => value.Id != original.Id);
         Assert.Equal(UserId, imported.OwnerId);
+        Assert.Equal(original.CallForPapersDeadline, imported.CallForPapersDeadline);
         var session = Assert.Single(store.Sessions, value => value.EventId == imported.Id);
         Assert.Equal(ProposalStatus.Accepted, session.Status);
     }
@@ -88,7 +89,9 @@ public sealed class EventImportExportServiceTests
 
         await CreateService(store).ImportAsync(new MemoryStream(Encoding.UTF8.GetBytes(json)));
 
-        Assert.Equal(UserId, Assert.Single(store.Events).OwnerId);
+        var imported = Assert.Single(store.Events);
+        Assert.Equal(UserId, imported.OwnerId);
+        Assert.Null(imported.CallForPapersDeadline);
         Assert.Equal(ProposalStatus.Rejected, Assert.Single(store.Sessions).Status);
     }
 
@@ -130,9 +133,17 @@ public sealed class EventImportExportServiceTests
 
         public List<SessionProposal> Sessions { get; } = [];
 
-        public Event AddEvent(string ownerId, DateOnly start, DateOnly? end = null)
+        public Event AddEvent(string ownerId, DateOnly start, DateOnly? end = null, DateOnly? callForPapersDeadline = null)
         {
-            var value = new Event { OwnerId = ownerId, Name = "Event", Location = "Milan", StartDate = start, EndDate = end ?? start };
+            var value = new Event
+            {
+                OwnerId = ownerId,
+                Name = "Event",
+                Location = "Milan",
+                StartDate = start,
+                EndDate = end ?? start,
+                CallForPapersDeadline = callForPapersDeadline
+            };
             this.Events.Add(value);
             return value;
         }

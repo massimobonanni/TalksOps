@@ -57,7 +57,7 @@ classDiagram
 
 ## Cross-project contracts
 
-- `Event` and `SessionProposal` are the domain records. A proposal references its parent event through `EventId`; `ProposalStatus` represents its lifecycle.
+- `Event` and `SessionProposal` are the domain records. An event can include an optional `CallForPapersDeadline`; a proposal references its parent event through `EventId`, and `ProposalStatus` represents its lifecycle.
 - `IEventService` and `ISessionProposalService` expose operations for the current user. Their implementations replace caller-supplied ownership with `ICurrentUserContext.UserId` before persistence.
 - `IEventRepository` and `ISessionProposalRepository` separate application behavior from persistence. `TalksOps.Storage` provides their Azure Tables implementations.
 - `ITalksOpsApiClient` is the Web-to-Functions boundary. Its DTOs and request records live in `TalksOps.ApiClient.Contracts` and are intentionally separate from Core domain records.

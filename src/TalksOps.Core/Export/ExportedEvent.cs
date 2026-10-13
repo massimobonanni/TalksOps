@@ -19,6 +19,9 @@ public sealed record ExportedEvent
     /// <summary>Gets the call for papers URL.</summary>
     public string? CallForPapersUrl { get; init; }
 
+    /// <summary>Gets the call for papers submission deadline.</summary>
+    public DateOnly? CallForPapersDeadline { get; init; }
+
     /// <summary>Gets the event start date.</summary>
     public required DateOnly StartDate { get; init; }
 

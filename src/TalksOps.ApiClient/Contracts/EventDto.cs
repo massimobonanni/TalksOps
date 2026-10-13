@@ -10,4 +10,5 @@ public sealed record EventDto(
     DateOnly EndDate,
     IReadOnlyDictionary<string, decimal> Costs,
     string? OfficialWebsiteUrl = null,
-    string? CallForPapersUrl = null);
+    string? CallForPapersUrl = null,
+    DateOnly? CallForPapersDeadline = null);
