@@ -21,6 +21,9 @@ public sealed record SessionProposal
     /// <summary>Gets optional notes about the proposal.</summary>
     public string Notes { get; init; } = string.Empty;
 
+    /// <summary>Gets the optional date the proposal was submitted.</summary>
+    public DateOnly? SubmissionDate { get; init; }
+
     /// <summary>Gets the proposal's current status.</summary>
     public ProposalStatus Status { get; init; } = ProposalStatus.Submitted;
 

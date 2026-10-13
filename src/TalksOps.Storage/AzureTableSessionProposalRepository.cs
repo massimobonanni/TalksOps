@@ -147,20 +147,33 @@ public sealed class AzureTableSessionProposalRepository : ISessionProposalReposi
         Title = entity.GetString(nameof(SessionProposal.Title))!,
         Abstract = entity.GetString(nameof(SessionProposal.Abstract)) ?? string.Empty,
         Notes = entity.GetString(nameof(SessionProposal.Notes)) ?? string.Empty,
+        SubmissionDate = entity.GetString(nameof(SessionProposal.SubmissionDate)) is { } submissionDate
+            ? DateOnly.ParseExact(submissionDate, "yyyy-MM-dd")
+            : null,
         Status = Enum.Parse<ProposalStatus>(entity.GetString(nameof(SessionProposal.Status))!),
         CreatedAt = entity.GetDateTimeOffset(nameof(SessionProposal.CreatedAt))!.Value,
         UpdatedAt = entity.GetDateTimeOffset(nameof(SessionProposal.UpdatedAt))!.Value
     };
 
-    private static TableEntity ToEntity(SessionProposal value) => new(
-        AzureTableEventRepository.ProposalPartitionKey(value.EventId), AzureTableEventRepository.Key(value.Id))
+    private static TableEntity ToEntity(SessionProposal value)
     {
-        [nameof(SessionProposal.OwnerId)] = value.OwnerId,
-        [nameof(SessionProposal.Title)] = value.Title,
-        [nameof(SessionProposal.Abstract)] = value.Abstract,
-        [nameof(SessionProposal.Notes)] = value.Notes,
-        [nameof(SessionProposal.Status)] = value.Status.ToString(),
-        [nameof(SessionProposal.CreatedAt)] = value.CreatedAt,
-        [nameof(SessionProposal.UpdatedAt)] = value.UpdatedAt
-    };
+        var entity = new TableEntity(
+            AzureTableEventRepository.ProposalPartitionKey(value.EventId), AzureTableEventRepository.Key(value.Id))
+        {
+            [nameof(SessionProposal.OwnerId)] = value.OwnerId,
+            [nameof(SessionProposal.Title)] = value.Title,
+            [nameof(SessionProposal.Abstract)] = value.Abstract,
+            [nameof(SessionProposal.Notes)] = value.Notes,
+            [nameof(SessionProposal.Status)] = value.Status.ToString(),
+            [nameof(SessionProposal.CreatedAt)] = value.CreatedAt,
+            [nameof(SessionProposal.UpdatedAt)] = value.UpdatedAt
+        };
+
+        if (value.SubmissionDate is DateOnly submissionDate)
+        {
+            entity[nameof(SessionProposal.SubmissionDate)] = submissionDate.ToString("yyyy-MM-dd");
+        }
+
+        return entity;
+    }
 }

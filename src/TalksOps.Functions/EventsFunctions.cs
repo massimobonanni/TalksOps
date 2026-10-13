@@ -433,7 +433,8 @@ public sealed class EventsFunctions(
         OwnerId = string.Empty,
         Title = value.Title,
         Abstract = value.Abstract ?? string.Empty,
-        Notes = value.Notes ?? string.Empty
+        Notes = value.Notes ?? string.Empty,
+        SubmissionDate = value.SubmissionDate
     };
 
     private static EventDto ToDto(Event value) => new(
@@ -442,7 +443,7 @@ public sealed class EventsFunctions(
 
     private static SessionProposalDto ToDto(SessionProposal value) => new(
         value.Id, value.EventId, value.OwnerId, value.Title, value.Abstract, value.Notes,
-        value.Status, value.CreatedAt, value.UpdatedAt);
+        value.Status, value.CreatedAt, value.UpdatedAt, value.SubmissionDate);
 
     private static BadRequestObjectResult BadRequest(string message) => new(message);
 

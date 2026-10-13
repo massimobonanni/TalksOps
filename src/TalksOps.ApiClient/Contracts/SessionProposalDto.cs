@@ -12,4 +12,5 @@ public sealed record SessionProposalDto(
     string Notes,
     ProposalStatus Status,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    DateOnly? SubmissionDate);

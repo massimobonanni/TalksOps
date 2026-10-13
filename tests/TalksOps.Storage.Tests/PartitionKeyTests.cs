@@ -64,6 +64,7 @@ public sealed class PartitionKeyTests
             OwnerId = "owner-123",
             Title = "Storage",
             Abstract = "Partitioning",
+            SubmissionDate = new DateOnly(2026, 3, 15)
         };
         var partitionKey = $"sessions|{eventId:N}";
 
@@ -76,6 +77,8 @@ public sealed class PartitionKeyTests
         var loaded = await repository.GetAsync(proposal.OwnerId, eventId, proposal.Id);
         Assert.Equal(eventId, loaded!.EventId);
         Assert.Equal(proposal.OwnerId, loaded.OwnerId);
+        Assert.Equal(proposal.SubmissionDate, loaded.SubmissionDate);
+        Assert.Equal("2026-03-15", table.Entity.GetString(nameof(SessionProposal.SubmissionDate)));
 
         var results = await repository.ListByEventAsync(proposal.OwnerId, eventId);
         Assert.Equal(eventId, Assert.Single(results).EventId);
@@ -116,6 +119,7 @@ public sealed class PartitionKeyTests
         var loaded = await repository.GetAsync(proposal.OwnerId, eventId, proposal.Id);
         Assert.NotNull(loaded);
         Assert.Equal(string.Empty, loaded.Abstract);
+        Assert.Null(loaded.SubmissionDate);
     }
 
     /// <summary>Verifies cascading deletion targets sessions before deleting the event.</summary>

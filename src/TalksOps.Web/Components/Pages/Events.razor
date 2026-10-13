@@ -64,7 +64,14 @@ else
                                         @foreach (var proposal in eventProposals)
                                         {
                                             <article class="proposal-row" @key="proposal.Id">
-                                                <div><h3>@proposal.Title</h3><p>@proposal.Notes</p></div>
+                                                <div>
+                                                    <h3>@proposal.Title</h3>
+                                                    <p>@proposal.Notes</p>
+                                                    @if (proposal.SubmissionDate is DateOnly submissionDate)
+                                                    {
+                                                        <p>Submission date: @submissionDate.ToString("yyyy-MM-dd")</p>
+                                                    }
+                                                </div>
                                                 <span class="status-pill status-@proposal.Status.ToString().ToLowerInvariant()">@proposal.Status</span>
                                                 <label class="status-control">Status
                                                     <select value="@((int)proposal.Status)" @onchange="args => UpdateProposalStatusAsync(eventItem.Id, proposal, args.Value?.ToString())">
@@ -89,6 +96,7 @@ else
                                         <h3>@(this.ProposalEditorId is null ? "New proposal" : "Edit proposal")</h3>
                                         <div class="form-grid">
                                             <label>Session title<input required maxlength="200" @bind="this.ProposalTitle" /></label>
+                                            <label>Submission date<input type="date" @bind="this.ProposalSubmissionDate" /></label>
                                             <label class="span-all">Abstract<textarea rows="4" @bind="this.ProposalAbstract"></textarea></label>
                                             <label class="span-all">Notes<textarea rows="3" @bind="this.ProposalNotes"></textarea></label>
                                         </div>
@@ -147,6 +155,7 @@ else
     private string ProposalTitle = string.Empty;
     private string ProposalNotes = string.Empty;
     private string ProposalAbstract = string.Empty;
+    private DateOnly? ProposalSubmissionDate;
     private string? ErrorMessage;
     private string? SuccessMessage;
 
@@ -291,6 +300,7 @@ else
         this.ProposalEditorEventId = eventId;
         this.ProposalEditorId = null;
         this.ProposalTitle = this.ProposalAbstract = this.ProposalNotes = string.Empty;
+        this.ProposalSubmissionDate = null;
     }
 
     private void BeginEditProposal(Guid eventId, SessionProposalDto proposal)
@@ -301,6 +311,7 @@ else
         this.ProposalTitle = proposal.Title;
         this.ProposalAbstract = proposal.Abstract ?? string.Empty;
         this.ProposalNotes = proposal.Notes;
+        this.ProposalSubmissionDate = proposal.SubmissionDate;
     }
 
     private async Task SaveProposalAsync()
@@ -312,7 +323,8 @@ else
 
         try
         {
-            var request = new SaveSessionProposalRequest(this.ProposalTitle.Trim(), this.ProposalAbstract.Trim(), this.ProposalNotes.Trim());
+            var request = new SaveSessionProposalRequest(
+                this.ProposalTitle.Trim(), this.ProposalAbstract.Trim(), this.ProposalNotes.Trim(), this.ProposalSubmissionDate);
             if (this.ProposalEditorId is Guid proposalId)
             {
                 await this.Api.UpdateProposalAsync(eventId, proposalId, request);
