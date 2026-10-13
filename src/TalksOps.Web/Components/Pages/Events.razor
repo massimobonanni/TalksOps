@@ -58,7 +58,16 @@ else
                                 <a class="call-for-papers-link" href="@eventItem.CallForPapersUrl" target="_blank" rel="noopener noreferrer">call for paper</a>
                             }
                         </td>
-                        <td>@eventItem.StartDate.ToString("MMM d") &ndash; @eventItem.EndDate.ToString("MMM d, yyyy")</td>
+                        <td>
+                            @if (eventItem.StartDate == eventItem.EndDate)
+                            {
+                                @eventItem.StartDate.ToString("MMM d, yyyy")
+                            }
+                            else
+                            {
+                                @eventItem.StartDate.ToString("MMM d") <text>&ndash;</text> @eventItem.EndDate.ToString("MMM d, yyyy")
+                            }
+                        </td>
                         <td>@eventItem.Location</td>
                         <td>@(eventItem.Costs.Count == 0 ? "None" : eventItem.TotalCosts.ToString("N2", CultureInfo.InvariantCulture))</td>
                         <td>
