@@ -68,7 +68,7 @@ Records below expose positional properties with the listed names and types; reco
 | `CalendarEventDto` | `EventId: Guid`, `EventName: string`, `StartDate: DateOnly`, `EndDate: DateOnly`, `ProposalStatuses: IReadOnlyList<string>`. |
 | `EventSearchRequest` | `Year: int?`, `Name: string?`, `Location: string?`, `Page: int` (default 1), `PageSize: int` (default 20). |
 | `SaveEventRequest` | `Name: string`, `Location: string`, `StartDate: DateOnly`, `EndDate: DateOnly`, `Costs: IReadOnlyDictionary<string, decimal>`; fields accepted to create or update an event. |
-| `SaveSessionProposalRequest` | `Title: string`, `Abstract: string`, `Notes: string`; fields accepted to create or update a proposal. |
+| `SaveSessionProposalRequest` | `Title: string`, `Abstract: string?`, `Notes: string?`; fields accepted to create or update a proposal. |
 | `ChangeProposalStatusRequest` | `Status: ProposalStatus`; desired proposal lifecycle state. |
 | `PagedResponse<T>` | `Items: IReadOnlyList<T>`, `Page: int`, `PageSize: int`, `TotalCount: int`. |
 | `ITalksOpsApiClient` | Typed API contract; all methods accept optional cancellation tokens. |

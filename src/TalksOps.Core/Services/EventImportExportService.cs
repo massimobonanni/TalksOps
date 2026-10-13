@@ -137,7 +137,7 @@ public sealed class EventImportExportService(
                     EventId = value.Id,
                     OwnerId = ownerId,
                     Title = exportedSession.Title,
-                    Abstract = exportedSession.Abstract,
+                    Abstract = exportedSession.Abstract ?? string.Empty,
                     Notes = exportedSession.Notes ?? string.Empty,
                     Status = exportedSession.Status,
                     CreatedAt = exportedSession.CreatedAt,

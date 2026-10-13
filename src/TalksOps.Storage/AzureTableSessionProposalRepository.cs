@@ -145,7 +145,7 @@ public sealed class AzureTableSessionProposalRepository : ISessionProposalReposi
         EventId = Guid.ParseExact(entity.PartitionKey["sessions|".Length..], "N"),
         OwnerId = entity.GetString(nameof(SessionProposal.OwnerId))!,
         Title = entity.GetString(nameof(SessionProposal.Title))!,
-        Abstract = entity.GetString(nameof(SessionProposal.Abstract))!,
+        Abstract = entity.GetString(nameof(SessionProposal.Abstract)) ?? string.Empty,
         Notes = entity.GetString(nameof(SessionProposal.Notes)) ?? string.Empty,
         Status = Enum.Parse<ProposalStatus>(entity.GetString(nameof(SessionProposal.Status))!),
         CreatedAt = entity.GetDateTimeOffset(nameof(SessionProposal.CreatedAt))!.Value,

@@ -16,7 +16,7 @@ public sealed record SessionProposal
     public required string Title { get; init; }
 
     /// <summary>Gets the proposal abstract.</summary>
-    public required string Abstract { get; init; }
+    public string Abstract { get; init; } = string.Empty;
 
     /// <summary>Gets optional notes about the proposal.</summary>
     public string Notes { get; init; } = string.Empty;

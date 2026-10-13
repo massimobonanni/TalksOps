@@ -89,7 +89,7 @@ else
                                         <h3>@(this.ProposalEditorId is null ? "New proposal" : "Edit proposal")</h3>
                                         <div class="form-grid">
                                             <label>Session title<input required maxlength="200" @bind="this.ProposalTitle" /></label>
-                                            <label class="span-all">Abstract<textarea required rows="4" @bind="this.ProposalAbstract"></textarea></label>
+                                            <label class="span-all">Abstract<textarea rows="4" @bind="this.ProposalAbstract"></textarea></label>
                                             <label class="span-all">Notes<textarea rows="3" @bind="this.ProposalNotes"></textarea></label>
                                         </div>
                                         <div class="form-actions"><button class="button button-primary" type="submit">Save proposal</button><button class="button button-quiet" type="button" @onclick="CloseProposalEditor">Discard</button></div>
@@ -299,7 +299,7 @@ else
         this.ProposalEditorEventId = eventId;
         this.ProposalEditorId = proposal.Id;
         this.ProposalTitle = proposal.Title;
-        this.ProposalAbstract = proposal.Abstract;
+        this.ProposalAbstract = proposal.Abstract ?? string.Empty;
         this.ProposalNotes = proposal.Notes;
     }
 

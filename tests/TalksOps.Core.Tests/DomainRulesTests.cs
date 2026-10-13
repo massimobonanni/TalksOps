@@ -56,17 +56,17 @@ public sealed class DomainRulesTests
     }
 
     [Fact]
-    public void SessionProposalRules_AllowsMissingNotes()
+    public void SessionProposalRules_AllowsMissingAbstractAndNotes()
     {
         var value = new SessionProposal
         {
             EventId = Guid.NewGuid(),
             OwnerId = "user-1",
-            Title = "Reliable systems",
-            Abstract = "A proposal abstract"
+            Title = "Reliable systems"
         };
 
         Assert.Empty(SessionProposalRules.Validate(value));
+        Assert.Empty(SessionProposalRules.Validate(value with { Abstract = "   ", Notes = "   " }));
     }
 
     [Theory]

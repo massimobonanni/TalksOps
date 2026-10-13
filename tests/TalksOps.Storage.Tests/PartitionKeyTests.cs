@@ -89,6 +89,35 @@ public sealed class PartitionKeyTests
         Assert.Equal((partitionKey, proposal.Id.ToString("N")), table.DeletedKey);
     }
 
+    [Fact]
+    public async Task SessionProposalRepository_HandlesMissingAbstract()
+    {
+        var table = new RecordingTableClient();
+        var eventId = Guid.NewGuid();
+        await new AzureTableEventRepository(table).CreateAsync(new Event
+        {
+            Id = eventId,
+            OwnerId = "owner-123",
+            Name = "Summit",
+            Location = "Rome",
+            StartDate = new DateOnly(2026, 5, 1),
+            EndDate = new DateOnly(2026, 5, 2)
+        });
+        var repository = new AzureTableSessionProposalRepository(table);
+        var proposal = new SessionProposal
+        {
+            EventId = eventId,
+            OwnerId = "owner-123",
+            Title = "Storage without abstract"
+        };
+
+        await repository.CreateAsync(proposal);
+
+        var loaded = await repository.GetAsync(proposal.OwnerId, eventId, proposal.Id);
+        Assert.NotNull(loaded);
+        Assert.Equal(string.Empty, loaded.Abstract);
+    }
+
     /// <summary>Verifies cascading deletion targets sessions before deleting the event.</summary>
     [Fact]
     public async Task DeleteEvent_UsesSessionsPartitionForCascade()

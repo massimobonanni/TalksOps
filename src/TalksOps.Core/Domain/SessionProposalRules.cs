@@ -24,11 +24,6 @@ public static class SessionProposalRules
             errors.Add("A proposal title is required.");
         }
 
-        if (string.IsNullOrWhiteSpace(value.Abstract))
-        {
-            errors.Add("A proposal abstract is required.");
-        }
-
         if (value.UpdatedAt < value.CreatedAt)
         {
             errors.Add("The update timestamp cannot precede the creation timestamp.");

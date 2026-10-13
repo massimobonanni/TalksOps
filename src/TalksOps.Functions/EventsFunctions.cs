@@ -432,8 +432,8 @@ public sealed class EventsFunctions(
         EventId = eventId,
         OwnerId = string.Empty,
         Title = value.Title,
-        Abstract = value.Abstract,
-        Notes = value.Notes
+        Abstract = value.Abstract ?? string.Empty,
+        Notes = value.Notes ?? string.Empty
     };
 
     private static EventDto ToDto(Event value) => new(

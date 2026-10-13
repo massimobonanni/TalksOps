@@ -13,7 +13,7 @@ public sealed record ExportedSession
     public required string Title { get; init; }
 
     /// <summary>Gets the session abstract.</summary>
-    public required string Abstract { get; init; }
+    public string Abstract { get; init; } = string.Empty;
 
     /// <summary>Gets optional notes about the session.</summary>
     public string Notes { get; init; } = string.Empty;
