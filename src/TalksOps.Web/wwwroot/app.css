@@ -111,6 +111,10 @@ input:focus, textarea:focus, select:focus { outline: 2px solid #6ba88c; outline-
 .data-table th { padding: .8rem 1rem; background: #edf2ee; color: #516565; font-size: .73rem; text-transform: uppercase; letter-spacing: .08em; }
 .data-table td { padding: 1rem; border-top: 1px solid var(--line); vertical-align: middle; }
 .event-name { min-width: 160px; font-weight: 700; }
+.event-title-link { color: inherit; text-decoration: none; }
+.event-title-link:hover { text-decoration: underline; }
+.call-for-papers-link { display: block; margin-top: .15rem; color: var(--green); font-size: .88rem; font-style: italic; font-weight: 650; text-decoration: none; }
+.call-for-papers-link:hover { text-decoration: underline; }
 .row-actions { display: flex; align-items: center; justify-content: end; gap: .75rem; white-space: nowrap; }
 .icon-button, .text-button { padding: .25rem; border: 0; background: transparent; color: var(--green); font-weight: 650; }
 .icon-button:hover, .text-button:hover { text-decoration: underline; }

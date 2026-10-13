@@ -44,7 +44,20 @@ else
                 {
                     this.ProposalStatuses.TryGetValue(eventItem.Id, out var statuses);
                     <tr @key="eventItem.Id">
-                        <td class="event-name">@eventItem.Name</td>
+                        <td class="event-name">
+                            @if (!string.IsNullOrWhiteSpace(eventItem.OfficialWebsiteUrl))
+                            {
+                                <a class="event-title-link" href="@eventItem.OfficialWebsiteUrl" target="_blank" rel="noopener noreferrer">@eventItem.Name</a>
+                            }
+                            else
+                            {
+                                @eventItem.Name
+                            }
+                            @if (!string.IsNullOrWhiteSpace(eventItem.CallForPapersUrl))
+                            {
+                                <a class="call-for-papers-link" href="@eventItem.CallForPapersUrl" target="_blank" rel="noopener noreferrer">call for paper</a>
+                            }
+                        </td>
                         <td>@eventItem.StartDate.ToString("MMM d") &ndash; @eventItem.EndDate.ToString("MMM d, yyyy")</td>
                         <td>@eventItem.Location</td>
                         <td>@FormatCosts(eventItem.Costs)</td>
