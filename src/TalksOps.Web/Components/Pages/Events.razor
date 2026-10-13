@@ -123,10 +123,18 @@ else
                     <label>Location<input required maxlength="160" @bind="this.EventLocation" /></label>
                     <label>Official website<input type="url" maxlength="2048" @bind="this.EventOfficialWebsiteUrl" /></label>
                     <label>Call for papers<input type="url" maxlength="2048" @bind="this.EventCallForPapersUrl" /></label>
-                    <label>Start date<input type="date" required @bind="this.EventStartDate" /></label>
-                    <label>End date<input type="date" required @bind="this.EventEndDate" /></label>
+                    <label>Start date<input type="date" required @bind="this.EventStartDate" @bind:after="this.RefreshEventOverlapAsync" /></label>
+                    <label>End date<input type="date" required @bind="this.EventEndDate" @bind:after="this.RefreshEventOverlapAsync" /></label>
                     <label class="span-all">Costs <span class="muted">One item per line, formatted as name=amount</span><textarea rows="4" placeholder="Travel=250.00&#10;Hotel=600.00" @bind="this.EventCosts"></textarea></label>
                 </div>
+                @if (this.HasEventOverlap)
+                {
+                    <p class="notice notice-warning" role="status">The selected dates overlap another event in your calendar.</p>
+                }
+                else if (this.EventOverlapCheckError is not null)
+                {
+                    <p class="notice notice-warning" role="status">Unable to check for overlapping events. You can still save this event.</p>
+                }
                 <div class="form-actions"><button class="button button-primary" type="submit">Save event</button><button class="button button-quiet" type="button" @onclick="CloseEventEditor">Discard</button></div>
             </form>
         </section>
@@ -135,6 +143,7 @@ else
 
 @code {
     private readonly Dictionary<Guid, IReadOnlyList<SessionProposalDto>> Proposals = [];
+    private readonly Dictionary<int, IReadOnlyList<CalendarEventDto>> CalendarEventsByYear = [];
     private List<EventDto> EventItems = [];
     private string SearchYear = DateTime.Today.Year.ToString(CultureInfo.InvariantCulture);
     private string SearchName = string.Empty;
@@ -142,6 +151,9 @@ else
     private Guid? ExpandedEventId;
     private bool IsLoading;
     private bool IsEventEditorOpen;
+    private bool HasEventOverlap;
+    private int EventOverlapRequestVersion;
+    private string? EventOverlapCheckError;
     private Guid? EventEditorId;
     private string EventName = string.Empty;
     private string EventLocation = string.Empty;
@@ -192,20 +204,23 @@ else
         }
     }
 
-    private void BeginCreateEvent()
+    private async Task BeginCreateEvent()
     {
         this.ErrorMessage = null;
         this.SuccessMessage = null;
+        this.CalendarEventsByYear.Clear();
         this.EventEditorId = null;
         this.EventName = this.EventLocation = this.EventOfficialWebsiteUrl = this.EventCallForPapersUrl = this.EventCosts = string.Empty;
         this.EventStartDate = this.EventEndDate = DateTime.Today;
         this.IsEventEditorOpen = true;
+        await this.RefreshEventOverlapAsync();
     }
 
-    private void BeginEditEvent(EventDto eventItem)
+    private async Task BeginEditEvent(EventDto eventItem)
     {
         this.ErrorMessage = null;
         this.SuccessMessage = null;
+        this.CalendarEventsByYear.Clear();
         this.EventEditorId = eventItem.Id;
         this.EventName = eventItem.Name;
         this.EventLocation = eventItem.Location;
@@ -215,6 +230,67 @@ else
         this.EventEndDate = eventItem.EndDate.ToDateTime(TimeOnly.MinValue);
         this.EventCosts = string.Join(Environment.NewLine, eventItem.Costs.Select(cost => $"{cost.Key}={cost.Value.ToString(CultureInfo.InvariantCulture)}"));
         this.IsEventEditorOpen = true;
+        await this.RefreshEventOverlapAsync();
+    }
+
+    private async Task RefreshEventOverlapAsync()
+    {
+        var requestVersion = ++this.EventOverlapRequestVersion;
+        this.HasEventOverlap = false;
+        this.EventOverlapCheckError = null;
+        if (!this.IsEventEditorOpen)
+        {
+            return;
+        }
+
+        var startDate = DateOnly.FromDateTime(this.EventStartDate);
+        var endDate = DateOnly.FromDateTime(this.EventEndDate);
+        if (endDate < startDate)
+        {
+            return;
+        }
+
+        try
+        {
+            var years = Enumerable.Range(startDate.Year, endDate.Year - startDate.Year + 1).ToArray();
+            foreach (var year in years)
+            {
+                if (this.CalendarEventsByYear.ContainsKey(year))
+                {
+                    continue;
+                }
+
+                var calendarEvents = await this.Api.GetCalendarAsync(year);
+                if (requestVersion != this.EventOverlapRequestVersion)
+                {
+                    return;
+                }
+
+                this.CalendarEventsByYear[year] = calendarEvents;
+            }
+
+            if (requestVersion != this.EventOverlapRequestVersion)
+            {
+                return;
+            }
+
+            var eventsToCheck = years
+                .SelectMany(year => this.CalendarEventsByYear[year])
+                .DistinctBy(eventItem => eventItem.EventId)
+                .ToArray();
+            this.HasEventOverlap = EventOverlapDetector.HasOverlap(
+                eventsToCheck, startDate, endDate, this.EventEditorId);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException)
+        {
+            if (requestVersion == this.EventOverlapRequestVersion)
+            {
+                this.EventOverlapCheckError = exception.Message;
+            }
+        }
+        finally
+        {
+        }
     }
 
     private async Task SaveEventAsync()
@@ -244,7 +320,7 @@ else
                 this.SuccessMessage = "Event created.";
             }
 
-            this.IsEventEditorOpen = false;
+            this.CloseEventEditor();
             await this.LoadEventsAsync();
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or FormatException or ArgumentException)
@@ -387,7 +463,13 @@ else
         }
     }
 
-    private void CloseEventEditor() => this.IsEventEditorOpen = false;
+    private void CloseEventEditor()
+    {
+        this.EventOverlapRequestVersion++;
+        this.HasEventOverlap = false;
+        this.EventOverlapCheckError = null;
+        this.IsEventEditorOpen = false;
+    }
 
     private void CloseProposalEditor()
     {

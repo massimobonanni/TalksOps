@@ -133,6 +133,7 @@ input:focus, textarea:focus, select:focus { outline: 2px solid #6ba88c; outline-
 .notice { margin: 0 0 1rem; padding: .8rem 1rem; border-left: 4px solid; }
 .notice-error { color: #8a392d; background: #fff0eb; border-color: var(--coral); }
 .notice-success { color: #205f49; background: #e6f2eb; border-color: var(--green); }
+.notice-warning { color: #76520f; background: #fff6d9; border-color: #c28b1a; }
 .empty-state { padding: 3rem 1.5rem; text-align: center; color: var(--muted); }
 .empty-state h2 { margin: 0 0 .4rem; color: var(--ink); font-family: Georgia, "Times New Roman", serif; font-weight: 500; }
 .dialog-backdrop { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 1rem; background: rgb(18 37 32 / 55%); }
