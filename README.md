@@ -12,6 +12,42 @@ TalksOps is a .NET 10 application for managing speaking events, session proposal
 - [Functions API](src/TalksOps.Functions/README.md)
 - [Blazor Server web application](src/TalksOps.Web/README.md)
 
+## Deploy with Azure Developer CLI
+
+Install the latest stable version of the [Azure Developer CLI (`azd`)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) before deploying. The latest stable release is **1.35.1** (checked October 13, 2026); this repository does not pin a minimum version. Confirm the installed version with `azd version`. You also need the .NET 10 SDK, Azure CLI, and Bicep CLI; see the [infrastructure guide](infra/README.md) for Azure permissions and other prerequisites.
+
+Sign in, create an AZD environment, and set its required values. `AZURE_ENV_NAME` is set by `azd env new`; the deployment identity must be allowed to create role assignments.
+
+```powershell
+az login
+azd auth login
+azd env new talksops-dev
+azd env set AZURE_PROJECT_NAME talksops-dev
+azd env set AZURE_SUBSCRIPTION_ID <subscription-id>
+azd env set AZURE_LOCATION <azure-region>
+```
+
+Required environment values are `AZURE_ENV_NAME` (created with the environment), `AZURE_PROJECT_NAME`, `AZURE_SUBSCRIPTION_ID`, `AZURE_LOCATION`, and `AZURE_PRINCIPAL_ID` (the deployment identity's object ID).
+
+Provision the Azure resources and deploy both services with `azd up`. For subsequent code-only updates, use `azd deploy`:
+
+```powershell
+azd up -e talksops-dev
+azd deploy -e talksops-dev
+```
+
+> [!NOTE]
+> If you receive an error during `azd up` related to a resource that already exists, try again the command
+
+
+To remove the environment, including its Azure resources and tenant app registration, run:
+
+```powershell
+azd down -e talksops-dev
+```
+
+This teardown deletes the provisioned data as well. Review the target subscription and data-retention requirements first. For the full deployment lifecycle, hook behavior, and required permissions, see the [infrastructure guide](infra/README.md).
+
 ## Architecture
 
 ```mermaid
