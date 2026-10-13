@@ -135,7 +135,7 @@ else
 @if (this.IsEventEditorOpen)
 {
     <div class="dialog-backdrop" role="presentation" @onclick="CloseEventEditor">
-        <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="event-editor-title" @onclick:stopPropagation>
+        <section class="dialog event-dialog" role="dialog" aria-modal="true" aria-labelledby="event-editor-title" @onclick:stopPropagation>
             <div class="detail-heading"><h2 id="event-editor-title">@(this.EventEditorId is null ? "New event" : "Edit event")</h2><button class="icon-button" aria-label="Close" @onclick="CloseEventEditor">Close</button></div>
             <form @onsubmit="SaveEventAsync" @onsubmit:preventDefault>
                 <div class="form-grid">
@@ -143,9 +143,9 @@ else
                     <label>Location<input required maxlength="160" @bind="this.EventLocation" /></label>
                     <label>Official website<input type="url" maxlength="2048" @bind="this.EventOfficialWebsiteUrl" /></label>
                     <label>Call for paper website<input type="url" maxlength="2048" @bind="this.EventCallForPapersUrl" /></label>
-                    <label>Call for papers deadline<input type="date" @bind="this.EventCallForPapersDeadline" /></label>
                     <label>Event Start date<input type="date" required @bind="this.EventStartDate" @bind:after="this.RefreshEventOverlapAsync" /></label>
                     <label>Event End date<input type="date" required @bind="this.EventEndDate" @bind:after="this.RefreshEventOverlapAsync" /></label>
+                    <label>Call for papers deadline<input type="date" @bind="this.EventCallForPapersDeadline" /></label>
                     <label class="span-all">Costs <span class="muted">One item per line, formatted as name=amount</span><textarea rows="4" placeholder="Travel=250.00&#10;Hotel=600.00" @bind="this.EventCosts"></textarea></label>
                 </div>
                 @if (this.HasEventOverlap)
