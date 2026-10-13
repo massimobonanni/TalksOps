@@ -33,4 +33,7 @@ public sealed record Event
     /// <summary>Gets named event costs, expressed in a single unspecified currency.</summary>
     public IReadOnlyDictionary<string, decimal> Costs { get; init; } =
         new Dictionary<string, decimal>();
+
+    /// <summary>Gets the sum of all named event costs.</summary>
+    public decimal TotalCosts => this.Costs.Values.Sum();
 }

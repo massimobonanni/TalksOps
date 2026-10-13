@@ -60,7 +60,7 @@ else
                         </td>
                         <td>@eventItem.StartDate.ToString("MMM d") &ndash; @eventItem.EndDate.ToString("MMM d, yyyy")</td>
                         <td>@eventItem.Location</td>
-                        <td>@FormatCosts(eventItem.Costs)</td>
+                        <td>@(eventItem.Costs.Count == 0 ? "None" : eventItem.TotalCosts.ToString("N2", CultureInfo.InvariantCulture))</td>
                         <td>
                             <div class="proposal-summary">
                                 <button class="text-button" aria-expanded="@(this.ExpandedEventId == eventItem.Id)" @onclick="() => ToggleProposalsAsync(eventItem.Id)">
@@ -589,10 +589,6 @@ else
     }
 
     private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    private static string FormatCosts(IReadOnlyDictionary<string, decimal> costs) => costs.Count == 0
-        ? "None"
-        : string.Join(", ", costs.Select(cost => $"{cost.Key}: {cost.Value.ToString("N2", CultureInfo.InvariantCulture)}"));
 
     private static IReadOnlyDictionary<string, decimal> ParseCosts(string value)
     {

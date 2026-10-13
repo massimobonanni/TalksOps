@@ -5,6 +5,30 @@ namespace TalksOps.Core.Tests;
 public sealed class DomainRulesTests
 {
     [Fact]
+    public void Event_TotalCostsSumsAllCosts()
+    {
+        var value = new Event
+        {
+            OwnerId = "user-1",
+            Name = "Tech conference",
+            Location = "Milan",
+            StartDate = new DateOnly(2026, 5, 1),
+            EndDate = new DateOnly(2026, 5, 2),
+            Costs = new Dictionary<string, decimal> { ["Travel"] = 250m, ["Hotel"] = 600.50m }
+        };
+
+        Assert.Equal(850.50m, value.TotalCosts);
+        Assert.Equal(0m, new Event
+        {
+            OwnerId = "user-1",
+            Name = "Tech conference",
+            Location = "Milan",
+            StartDate = new DateOnly(2026, 5, 1),
+            EndDate = new DateOnly(2026, 5, 2)
+        }.TotalCosts);
+    }
+
+    [Fact]
     public void EventRules_RejectsEndDateBeforeStartDate()
     {
         var value = new Event
