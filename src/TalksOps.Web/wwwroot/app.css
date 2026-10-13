@@ -68,6 +68,10 @@ h1:focus {
     --green: #176b54;
     --green-deep: #124b3e;
     --coral: #bd5944;
+    --status-submitted: #b77900;
+    --status-accepted: #15803d;
+    --status-rejected: #dc2626;
+    --status-cancelled: #6b7280;
     font-family: "Aptos", "Segoe UI Variable", "Segoe UI", sans-serif;
 }
 
@@ -121,10 +125,10 @@ input:focus, textarea:focus, select:focus { outline: 2px solid #6ba88c; outline-
 .proposal-row .row-actions { justify-content: start; }
 .status-control { min-width: 130px; }
 .status-pill { display: inline-flex; width: fit-content; padding: .25rem .55rem; border-radius: 20px; font-size: .75rem; font-weight: 700; text-transform: capitalize; }
-.status-accepted { background: #d9eee5; color: #176345; }
-.status-submitted { background: #e2edf3; color: #315f78; }
-.status-rejected { background: #f8e5df; color: #9f4938; }
-.status-cancelled { background: #ecebe4; color: #6d6d5c; }
+.status-accepted { background: #dcfce7; color: var(--status-accepted); }
+.status-submitted { background: #fffbeb; color: var(--status-submitted); }
+.status-rejected { background: #fef2f2; color: var(--status-rejected); }
+.status-cancelled { background: #f3f4f6; color: var(--status-cancelled); }
 .editor-form { margin-top: 1rem; padding: 1rem; border: 1px solid var(--line); background: white; }
 .editor-form h3 { margin: 0 0 1rem; font-size: 1rem; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
@@ -143,15 +147,14 @@ input:focus, textarea:focus, select:focus { outline: 2px solid #6ba88c; outline-
 .year-control strong { min-width: 4ch; text-align: center; font-family: Georgia, "Times New Roman", serif; font-weight: 500; }
 .calendar-legend { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; padding: .9rem 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: #526462; font-size: .85rem; }
 .calendar-legend span { display: inline-flex; align-items: center; gap: .45rem; }
-.calendar-dot { width: 10px; height: 10px; border-radius: 50%; }
-.calendar-dot.accepted { background: #25835f; }
-.calendar-dot.submitted { background: #47718a; }
-.calendar-dot.rejected { background: #bd5944; }
-.calendar-dot.cancelled { background: #90917f; }
+.calendar-dot { display: inline-block; width: 14px; height: 14px; flex: 0 0 14px; border-radius: 50%; }
+.calendar-dot.accepted { background: var(--status-accepted); }
+.calendar-dot.submitted { background: var(--status-submitted); }
+.calendar-dot.rejected { background: var(--status-rejected); }
+.calendar-dot.cancelled { background: var(--status-cancelled); }
 .proposal-summary { display: flex; align-items: center; flex-wrap: wrap; gap: .35rem .6rem; }
 .proposal-summary > .text-button { white-space: nowrap; }
 .proposal-indicators { display: inline-flex; align-items: center; flex-wrap: wrap; gap: .3rem; }
-.proposal-indicators .calendar-dot { display: inline-block; flex: 0 0 10px; height: 10px; }
 .proposal-indicators .unknown { background: var(--muted); }
 .calendar-note { margin: .8rem 0 1.5rem; font-size: .85rem; }
 .calendar-months { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 3rem; }
@@ -159,10 +162,10 @@ input:focus, textarea:focus, select:focus { outline: 2px solid #6ba88c; outline-
 .calendar-month h2 { margin: 0 0 .7rem; padding-bottom: .45rem; border-bottom: 2px solid var(--green); font-family: Georgia, "Times New Roman", serif; font-size: 1.3rem; font-weight: 500; }
 .month-empty { color: #879390; font-size: .85rem; }
 .calendar-event { display: grid; grid-template-columns: 85px minmax(0, 1fr) auto; gap: .75rem; align-items: center; margin: .55rem 0; padding: .75rem; border-left: 4px solid var(--line); background: white; }
-.calendar-event.state-accepted { border-color: #25835f; }
-.calendar-event.state-submitted { border-color: #47718a; }
-.calendar-event.state-rejected { border-color: #bd5944; }
-.calendar-event.state-cancelled, .calendar-event.state-none { border-color: #90917f; }
+.calendar-event.state-accepted { border-color: var(--status-accepted); }
+.calendar-event.state-submitted { border-color: var(--status-submitted); }
+.calendar-event.state-rejected { border-color: var(--status-rejected); }
+.calendar-event.state-cancelled, .calendar-event.state-none { border-color: var(--status-cancelled); }
 .calendar-date { color: #506260; font-size: .78rem; font-weight: 700; }
 .calendar-event h3 { margin: 0; font-size: .95rem; }
 .calendar-event p { margin: .2rem 0 0; color: var(--muted); font-size: .78rem; }
