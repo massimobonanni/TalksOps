@@ -42,12 +42,32 @@ else
             <tbody>
                 @foreach (var eventItem in this.EventItems)
                 {
+                    this.ProposalStatuses.TryGetValue(eventItem.Id, out var statuses);
                     <tr @key="eventItem.Id">
                         <td class="event-name">@eventItem.Name</td>
                         <td>@eventItem.StartDate.ToString("MMM d") &ndash; @eventItem.EndDate.ToString("MMM d, yyyy")</td>
                         <td>@eventItem.Location</td>
                         <td>@FormatCosts(eventItem.Costs)</td>
-                        <td><button class="text-button" @onclick="() => ToggleProposalsAsync(eventItem.Id)">@(this.ExpandedEventId == eventItem.Id ? "Hide" : "Manage") proposals</button></td>
+                        <td>
+                            <div class="proposal-summary">
+                                <button class="text-button" aria-expanded="@(this.ExpandedEventId == eventItem.Id)" @onclick="() => ToggleProposalsAsync(eventItem.Id)">
+                                    @(this.ExpandedEventId == eventItem.Id ? "Hide" : "Manage") proposals
+                                    @if (statuses is not null)
+                                    {
+                                        <text> (@statuses.Count)</text>
+                                    }
+                                </button>
+                                @if (statuses is not null)
+                                {
+                                    <span class="proposal-indicators">
+                                        @foreach (var status in statuses)
+                                        {
+                                            <span class="calendar-dot @GetProposalState(status)" role="img" title="@status" aria-label="@($"Proposal status: {status}")"></span>
+                                        }
+                                    </span>
+                                }
+                            </div>
+                        </td>
                         <td class="row-actions">
                             <button class="icon-button" title="Edit event" aria-label="Edit @eventItem.Name" @onclick="() => BeginEditEvent(eventItem)">Edit</button>
                             <button class="icon-button danger" title="Delete event" aria-label="Delete @eventItem.Name" @onclick="() => DeleteEventAsync(eventItem)">Delete</button>
@@ -144,6 +164,7 @@ else
 
 @code {
     private readonly Dictionary<Guid, IReadOnlyList<SessionProposalDto>> Proposals = [];
+    private readonly Dictionary<Guid, IReadOnlyList<string>> ProposalStatuses = [];
     private readonly Dictionary<int, IReadOnlyList<CalendarEventDto>> CalendarEventsByYear = [];
     private List<EventDto> EventItems = [];
     private string SearchYear = DateTime.Today.Year.ToString(CultureInfo.InvariantCulture);
@@ -151,6 +172,7 @@ else
     private string SearchLocation = string.Empty;
     private Guid? ExpandedEventId;
     private bool IsLoading;
+    private int EventSearchRequestVersion;
     private bool IsEventEditorOpen;
     private bool HasEventOverlap;
     private int EventOverlapRequestVersion;
@@ -189,20 +211,69 @@ else
             return;
         }
 
+        var requestVersion = ++this.EventSearchRequestVersion;
         this.IsLoading = true;
         this.ErrorMessage = null;
         try
         {
             var result = await this.Api.SearchEventsAsync(new EventSearchRequest(year, NullIfEmpty(this.SearchName), NullIfEmpty(this.SearchLocation)));
+            if (requestVersion != this.EventSearchRequestVersion)
+            {
+                return;
+            }
+
             this.EventItems = result.Items.ToList();
+            this.ProposalStatuses.Clear();
+            this.Proposals.Clear();
+            if (!this.EventItems.Any(eventItem => eventItem.Id == this.ExpandedEventId))
+            {
+                this.ExpandedEventId = null;
+                this.CloseProposalEditor();
+            }
+
+            if (this.EventItems.Count > 0)
+            {
+                try
+                {
+                    var calendar = await this.Api.GetCalendarAsync(year);
+                    if (requestVersion != this.EventSearchRequestVersion)
+                    {
+                        return;
+                    }
+
+                    var visibleIds = this.EventItems.Select(eventItem => eventItem.Id).ToHashSet();
+                    foreach (var eventItem in calendar.Where(eventItem => visibleIds.Contains(eventItem.EventId)))
+                    {
+                        this.ProposalStatuses[eventItem.EventId] = eventItem.ProposalStatuses;
+                    }
+                }
+                catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException)
+                {
+                    if (requestVersion == this.EventSearchRequestVersion)
+                    {
+                        this.ErrorMessage = $"Unable to load proposal summaries. {exception.Message}";
+                    }
+                }
+            }
+
+            if (requestVersion == this.EventSearchRequestVersion && this.ExpandedEventId is Guid expandedId)
+            {
+                await this.RefreshProposalsAsync(expandedId);
+            }
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException)
         {
-            this.ErrorMessage = $"Unable to load events. {exception.Message}";
+            if (requestVersion == this.EventSearchRequestVersion)
+            {
+                this.ErrorMessage = $"Unable to load events. {exception.Message}";
+            }
         }
         finally
         {
-            this.IsLoading = false;
+            if (requestVersion == this.EventSearchRequestVersion)
+            {
+                this.IsLoading = false;
+            }
         }
     }
 
@@ -345,6 +416,7 @@ else
         {
             await this.Api.DeleteEventAsync(eventItem.Id);
             this.Proposals.Remove(eventItem.Id);
+            this.ProposalStatuses.Remove(eventItem.Id);
             this.SuccessMessage = "Event and its proposals deleted.";
             await this.LoadEventsAsync();
         }
@@ -367,13 +439,35 @@ else
         this.ExpandedEventId = eventId;
         try
         {
-            this.Proposals[eventId] = await this.Api.ListProposalsAsync(eventId);
+            await this.RefreshProposalsAsync(eventId);
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
         {
             this.ErrorMessage = $"Unable to load proposals. {exception.Message}";
         }
     }
+
+    private async Task RefreshProposalsAsync(Guid eventId)
+    {
+        var requestVersion = this.EventSearchRequestVersion;
+        var proposals = await this.Api.ListProposalsAsync(eventId);
+        if (requestVersion != this.EventSearchRequestVersion)
+        {
+            return;
+        }
+
+        this.Proposals[eventId] = proposals;
+        this.ProposalStatuses[eventId] = proposals.Select(proposal => proposal.Status.ToString()).ToArray();
+    }
+
+    private static string GetProposalState(string status) => status.ToLowerInvariant() switch
+    {
+        "submitted" => "submitted",
+        "accepted" => "accepted",
+        "rejected" => "rejected",
+        "cancelled" => "cancelled",
+        _ => "unknown"
+    };
 
     private void BeginCreateProposal(Guid eventId)
     {
@@ -418,7 +512,7 @@ else
             }
 
             this.CloseProposalEditor();
-            this.Proposals[eventId] = await this.Api.ListProposalsAsync(eventId);
+            await this.RefreshProposalsAsync(eventId);
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or ArgumentException)
         {
@@ -437,14 +531,13 @@ else
         try
         {
             await this.Api.ChangeProposalStatusAsync(eventId, proposal.Id, new ChangeProposalStatusRequest((ProposalStatus)statusNumber));
-            this.Proposals[eventId] = await this.Api.ListProposalsAsync(eventId);
+            await this.RefreshProposalsAsync(eventId);
             this.SuccessMessage = "Proposal status updated.";
             this.ErrorMessage = null;
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
         {
             this.ErrorMessage = $"Unable to change proposal status. {exception.Message}";
-            this.Proposals[eventId] = await this.Api.ListProposalsAsync(eventId);
         }
     }
 
@@ -458,7 +551,7 @@ else
         try
         {
             await this.Api.DeleteProposalAsync(eventId, proposal.Id);
-            this.Proposals[eventId] = await this.Api.ListProposalsAsync(eventId);
+            await this.RefreshProposalsAsync(eventId);
             this.SuccessMessage = "Proposal deleted.";
             this.ErrorMessage = null;
         }
