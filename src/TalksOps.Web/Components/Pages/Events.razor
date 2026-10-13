@@ -122,10 +122,10 @@ else
                     <label>Event name<input required maxlength="160" @bind="this.EventName" /></label>
                     <label>Location<input required maxlength="160" @bind="this.EventLocation" /></label>
                     <label>Official website<input type="url" maxlength="2048" @bind="this.EventOfficialWebsiteUrl" /></label>
-                    <label>Call for papers<input type="url" maxlength="2048" @bind="this.EventCallForPapersUrl" /></label>
+                    <label>Call for paper website<input type="url" maxlength="2048" @bind="this.EventCallForPapersUrl" /></label>
                     <label>Call for papers deadline<input type="date" @bind="this.EventCallForPapersDeadline" /></label>
-                    <label>Start date<input type="date" required @bind="this.EventStartDate" @bind:after="this.RefreshEventOverlapAsync" /></label>
-                    <label>End date<input type="date" required @bind="this.EventEndDate" @bind:after="this.RefreshEventOverlapAsync" /></label>
+                    <label>Event Start date<input type="date" required @bind="this.EventStartDate" @bind:after="this.RefreshEventOverlapAsync" /></label>
+                    <label>Event End date<input type="date" required @bind="this.EventEndDate" @bind:after="this.RefreshEventOverlapAsync" /></label>
                     <label class="span-all">Costs <span class="muted">One item per line, formatted as name=amount</span><textarea rows="4" placeholder="Travel=250.00&#10;Hotel=600.00" @bind="this.EventCosts"></textarea></label>
                 </div>
                 @if (this.HasEventOverlap)
