@@ -65,7 +65,7 @@ Records below expose positional properties with the listed names and types; reco
 | `ApiRequest<T>` | `UserId: string`, `Payload: T`. Envelope used for POST, PUT, and PATCH requests. |
 | `EventDto` | `Id: Guid`, `OwnerId: string`, `Name: string`, `Location: string`, `StartDate: DateOnly`, `EndDate: DateOnly`, `Costs: IReadOnlyDictionary<string, decimal>`, `OfficialWebsiteUrl: string?`, `CallForPapersUrl: string?`, `CallForPapersDeadline: DateOnly?`. |
 | `SessionProposalDto` | `Id: Guid`, `EventId: Guid`, `OwnerId: string`, `Title: string`, `Abstract: string`, `Notes: string`, `Status: ProposalStatus`, `CreatedAt: DateTimeOffset`, `UpdatedAt: DateTimeOffset`. |
-| `CalendarEventDto` | `EventId: Guid`, `EventName: string`, `StartDate: DateOnly`, `EndDate: DateOnly`, `ProposalStatuses: IReadOnlyList<string>`. |
+| `CalendarEventDto` | `EventId: Guid`, `EventName: string`, `StartDate: DateOnly`, `EndDate: DateOnly`, `ProposalStatuses: IReadOnlyList<string>`, `OfficialWebsiteUrl: string?`, `CallForPapersUrl: string?`. |
 | `EventSearchRequest` | `Year: int?`, `Name: string?`, `Location: string?`, `Page: int` (default 1), `PageSize: int` (default 20). |
 | `SaveEventRequest` | `Name: string`, `Location: string`, `StartDate: DateOnly`, `EndDate: DateOnly`, `Costs: IReadOnlyDictionary<string, decimal>`, `OfficialWebsiteUrl: string?`, `CallForPapersUrl: string?`, `CallForPapersDeadline: DateOnly?`; fields accepted to create or update an event. |
 | `SaveSessionProposalRequest` | `Title: string`, `Abstract: string?`, `Notes: string?`; fields accepted to create or update a proposal. |

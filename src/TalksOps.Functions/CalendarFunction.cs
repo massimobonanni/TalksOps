@@ -57,7 +57,9 @@ public sealed class CalendarFunction(
                 value.Name,
                 value.StartDate,
                 value.EndDate,
-                eventProposals.Select(proposal => proposal.Status.ToString()).ToArray()));
+                eventProposals.Select(proposal => proposal.Status.ToString()).ToArray(),
+                value.OfficialWebsiteUrl,
+                value.CallForPapersUrl));
         }
 
         return new OkObjectResult(calendar);

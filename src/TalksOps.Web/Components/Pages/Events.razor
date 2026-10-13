@@ -84,7 +84,7 @@ else
                                     <span class="proposal-indicators">
                                         @foreach (var status in statuses)
                                         {
-                                            <span class="calendar-dot @GetProposalState(status)" role="img" title="@status" aria-label="@($"Proposal status: {status}")"></span>
+                                            <span class="calendar-dot @CalendarStateClassifier.GetProposalState(status)" role="img" title="@status" aria-label="@($"Proposal status: {status}")"></span>
                                         }
                                     </span>
                                 }
@@ -481,15 +481,6 @@ else
         this.Proposals[eventId] = proposals;
         this.ProposalStatuses[eventId] = proposals.Select(proposal => proposal.Status.ToString()).ToArray();
     }
-
-    private static string GetProposalState(string status) => status.ToLowerInvariant() switch
-    {
-        "submitted" => "submitted",
-        "accepted" => "accepted",
-        "rejected" => "rejected",
-        "cancelled" => "cancelled",
-        _ => "unknown"
-    };
 
     private void BeginCreateProposal(Guid eventId)
     {

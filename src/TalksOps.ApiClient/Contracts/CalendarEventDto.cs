@@ -6,4 +6,6 @@ public sealed record CalendarEventDto(
     string EventName,
     DateOnly StartDate,
     DateOnly EndDate,
-    IReadOnlyList<string> ProposalStatuses);
+    IReadOnlyList<string> ProposalStatuses,
+    string? OfficialWebsiteUrl = null,
+    string? CallForPapersUrl = null);

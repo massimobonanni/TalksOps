@@ -9,6 +9,17 @@ public sealed class CalendarStateClassifierTests
     [InlineData("Submitted", "submitted")]
     [InlineData("Rejected", "rejected")]
     [InlineData("Cancelled", "cancelled")]
+    [InlineData("unknown", "unknown")]
+    public void GetProposalState_MapsProposalStatusToIndicatorClass(string status, string expected)
+    {
+        Assert.Equal(expected, CalendarStateClassifier.GetProposalState(status));
+    }
+
+    [Theory]
+    [InlineData("Accepted", "accepted")]
+    [InlineData("Submitted", "submitted")]
+    [InlineData("Rejected", "rejected")]
+    [InlineData("Cancelled", "cancelled")]
     [InlineData("unknown", "none")]
     public void GetState_ClassifiesSingleProposalStatus(string status, string expected)
     {
