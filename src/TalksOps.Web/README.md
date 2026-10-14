@@ -24,6 +24,9 @@ classDiagram
         +OnInitializedAsync()
         +ChangeYearAsync(offset)
         +LoadCalendarAsync()
+        +OpenEventDetailsAsync(eventItem)
+        +CloseEventDetails()
+        +DismissDetailsAsync()
     }
     class LoginPage {
         +string? ReturnUrl
@@ -62,13 +65,15 @@ Razor component code-behind members are private unless explicitly identified as 
 | Component/type | Properties and methods |
 | --- | --- |
 | `Events.razor` (`/events`) | Injects `ITalksOpsApiClient Api` and `IJSRuntime JavaScript`. State fields hold event results, search filters, loading/editor state, proposal cache, and success/error messages. The event editor captures optional website and call-for-papers details, including `CallForPapersDeadline`; `OnInitializedAsync` loads events; `SearchAsync` and `LoadEventsAsync` refresh the list; `BeginCreateEvent`/`BeginEditEvent` initialize the event editor; `SaveEventAsync` validates and saves; `DeleteEventAsync` confirms then deletes. `ToggleProposalsAsync` expands/collapses an event and loads its proposals; `BeginCreateProposal`/`BeginEditProposal`, `SaveProposalAsync`, `UpdateProposalStatusAsync`, and `DeleteProposalAsync` manage proposals. `CloseEventEditor` and `CloseProposalEditor` reset editor state. `NullIfEmpty`, `FormatCosts`, and `ParseCosts` normalize filters and display/parse newline-separated `name=amount` costs. |
-| `Calendar.razor` (`/calendar`) | Injects `ITalksOpsApiClient Api`. State fields: `Year`, `Events`, `IsLoading`, `ErrorMessage`. `OnInitializedAsync` loads the current year; `ChangeYearAsync(offset)` changes year within 1–9999 and reloads; `LoadCalendarAsync` fetches and records errors. |
+| `Calendar.razor` (`/calendar`) | Injects `ITalksOpsApiClient Api` and `IJSRuntime JavaScript`. `OnInitializedAsync` loads the current year; `ChangeYearAsync(offset)` changes year within 1–9999 and reloads; `LoadCalendarAsync` fetches and records errors. Each event has an information button opening a read-only native dialog. `OpenEventDetailsAsync(eventItem)` loads the event and all session proposals on demand, with loading, retry, and unavailable-event states. `CloseEventDetails` and `DismissDetailsAsync` clear the selection and invalidate pending responses. `Calendar.razor.js` handles modal focus, Escape and backdrop dismissal; `DisposeAsync` releases interop resources. |
 | `CalendarStateClassifier` | Static `GetState(IReadOnlyCollection<string> proposalStatuses)` returns `accepted`, `submitted`, `rejected`, `cancelled`, or `none`, in that precedence order. |
 | `WebCurrentUserContext` | Scoped implementation of `ICurrentUserContext`. `SetPrincipal(ClaimsPrincipal)` assigns the current Blazor circuit principal. Read-only `UserId` resolves the `sub` claim first, then `NameIdentifier`, and throws if unavailable. |
 | `Login.razor` (`/login`) | Public nullable `ReturnUrl` property is bound from the query. Private `ReturnUrlValue` defaults an empty return URL to `/events`; the page is anonymous and starts `/auth/login`. |
 | `Home.razor` (`/`) | Authenticated route; `OnInitialized` redirects to `/events`. |
 
 The shared layout, router, error/not-found pages, and static assets are under `Components`. `Counter.razor` and `Weather.razor` are template/demo pages and are not part of the primary TalksOps workflows.
+
+The calendar details dialog shows event location, dates, websites, call-for-papers deadline and itemized costs, followed by every proposal's title, abstract, notes, submission date and current status. It does not offer editing or status changes. Details are refreshed on each opening; calendar links and status indicators retain their existing behavior.
 
 ## Local configuration and run
 

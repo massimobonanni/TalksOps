@@ -194,6 +194,25 @@ input:focus, textarea:focus, select:focus { outline: 2px solid #6ba88c; outline-
 .calendar-event.state-cancelled, .calendar-event.state-none { border-color: var(--status-cancelled); }
 .calendar-date { color: #506260; font-size: .78rem; font-weight: 700; }
 .calendar-event h3 { margin: 0; font-size: .95rem; }
+.calendar-event-actions { display: flex; align-items: center; justify-content: end; gap: .5rem; }
+.calendar-details-button, .calendar-details-close { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex: 0 0 40px; }
+.calendar-details-button:focus-visible, .calendar-details-close:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.calendar-event-dialog { margin: auto; border: 0; color: var(--ink); max-height: calc(100dvh - 2rem); overflow-wrap: anywhere; }
+.calendar-event-dialog::backdrop { background: rgb(18 37 32 / 55%); }
+.calendar-event-dialog .detail-heading { align-items: start; margin-bottom: 1.25rem; }
+.calendar-event-dialog .detail-heading h2 { padding-top: .4rem; min-width: 0; }
+.calendar-event-dialog h3 { font-size: 1.1rem; margin: 1.5rem 0 .75rem; }
+.calendar-details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.5rem; margin: 0; }
+.calendar-details-grid > div { min-width: 0; }
+.calendar-details-grid dt { color: var(--muted); font-size: .82rem; margin-bottom: .3rem; }
+.calendar-details-grid dd { margin: 0; }
+.calendar-session-list { border-top: 1px solid var(--line); }
+.calendar-session { padding: 1rem 0; border-bottom: 1px solid var(--line); }
+.calendar-session-heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: .5rem 1rem; }
+.calendar-session h4 { flex: 1; min-width: 0; margin: 0; font-size: 1rem; }
+.calendar-session h5 { margin: .75rem 0 .25rem; font-size: .85rem; }
+.calendar-session p { margin: .35rem 0 0; }
+.calendar-session-text { white-space: pre-wrap; }
 .login-page { display: flex; min-height: 100vh; flex-direction: column; align-items: flex-start; justify-content: center; padding: clamp(2rem, 10vw, 9rem); background: radial-gradient(ellipse at 85% 80%, #d7e7d9 0, transparent 35%), linear-gradient(120deg, #f5f7f2 0%, #e7eee7 100%); }
 .login-page .wordmark { margin-bottom: 4rem; color: var(--green-deep); }
 .login-page h1 { margin: .8rem 0; font-size: 4rem; }
@@ -213,6 +232,7 @@ input:focus, textarea:focus, select:focus { outline: 2px solid #6ba88c; outline-
     .calendar-months { grid-template-columns: 1fr; gap: 1rem; }
     .calendar-event { grid-template-columns: 68px minmax(0, 1fr); }
     .calendar-event .proposal-indicators { grid-column: 2; }
+    .calendar-event-actions { grid-column: 2; justify-content: space-between; }
     .filter-bar { align-items: stretch; }
     .filter-bar label { min-width: min(100%, 180px); }
 }
@@ -220,6 +240,8 @@ input:focus, textarea:focus, select:focus { outline: 2px solid #6ba88c; outline-
 @media (max-width: 480px) {
     .page-heading { flex-direction: column; align-items: stretch; }
     .form-grid { grid-template-columns: 1fr; }
+    .calendar-details-grid { grid-template-columns: 1fr; }
+    .calendar-event-dialog { width: calc(100% - 2rem); padding: 1rem; }
     .span-all { grid-column: auto; }
     .login-page { padding: 2rem 1.4rem; }
     .login-page .wordmark { margin-bottom: 3rem; }

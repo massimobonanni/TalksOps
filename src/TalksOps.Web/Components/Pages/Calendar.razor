@@ -1,6 +1,8 @@
 @page "/calendar"
 @attribute [Authorize]
+@implements IAsyncDisposable
 @inject ITalksOpsApiClient Api
+@inject IJSRuntime JavaScript
 
 <PageTitle>Calendar | TalksOps</PageTitle>
 
@@ -66,6 +68,7 @@ else
                                     <a class="call-for-papers-link" href="@eventItem.CallForPapersUrl" target="_blank" rel="noopener noreferrer">call for paper</a>
                                 }
                             </div>
+                            <div class="calendar-event-actions">
                             @if (eventItem.ProposalStatuses.Count > 0)
                             {
                                 <span class="proposal-indicators" aria-label="@($"{eventItem.ProposalStatuses.Count} session proposals")">
@@ -75,6 +78,10 @@ else
                                     }
                                 </span>
                             }
+                                <button type="button" class="icon-button calendar-details-button" title="View event details" aria-label="@($"View details for {eventItem.EventName}")" aria-haspopup="dialog" @onclick="() => OpenEventDetailsAsync(eventItem)">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
+                                </button>
+                            </div>
                         </article>
                     }
                 }
@@ -83,13 +90,159 @@ else
     </div>
 }
 
+<dialog @ref="this.detailsDialog" class="dialog event-dialog calendar-event-dialog" aria-labelledby="calendar-details-title">
+    @if (this.SelectedCalendarEvent is not null)
+    {
+        <div class="detail-heading">
+            <h2 id="calendar-details-title">@(this.EventDetails?.Name ?? this.SelectedCalendarEvent.EventName)</h2>
+            <button type="button" class="icon-button calendar-details-close" title="Close" aria-label="Close event details" autofocus @onclick="CloseEventDetails">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="m18 6-12 12M6 6l12 12" /></svg>
+            </button>
+        </div>
+        @if (this.IsLoadingDetails)
+        {
+            <p role="status">Loading event details...</p>
+        }
+        else if (this.DetailsError is not null)
+        {
+            <p class="notice notice-error" role="alert">@this.DetailsError</p>
+            <button type="button" class="button button-secondary" @onclick="() => OpenEventDetailsAsync(this.SelectedCalendarEvent)">Retry</button>
+        }
+        else if (this.EventDetails is { } details)
+        {
+            <dl class="calendar-details-grid">
+                <div><dt>Location</dt><dd>@details.Location</dd></div>
+                <div><dt>Dates</dt><dd>@details.StartDate.ToString("MMM d, yyyy") - @details.EndDate.ToString("MMM d, yyyy")</dd></div>
+                <div><dt>Official website</dt><dd>@if (!string.IsNullOrWhiteSpace(details.OfficialWebsiteUrl)) { <a href="@details.OfficialWebsiteUrl" target="_blank" rel="noopener noreferrer">@details.OfficialWebsiteUrl</a> } else { <span>Not specified</span> }</dd></div>
+                <div><dt>Call for papers</dt><dd>@if (!string.IsNullOrWhiteSpace(details.CallForPapersUrl)) { <a href="@details.CallForPapersUrl" target="_blank" rel="noopener noreferrer">@details.CallForPapersUrl</a> } else { <span>Not specified</span> }</dd></div>
+                <div><dt>Call for papers deadline</dt><dd>@(details.CallForPapersDeadline?.ToString("MMM d, yyyy") ?? "Not specified")</dd></div>
+                <div><dt>Costs</dt><dd>
+                    @if (details.Costs.Count == 0) { <span>No costs recorded</span> }
+                    else
+                    {
+                        @foreach (var cost in details.Costs.OrderBy(cost => cost.Key)) { <div>@cost.Key: @cost.Value.ToString("0.00", CultureInfo.InvariantCulture)</div> }
+                        <strong>Total: @details.TotalCosts.ToString("0.00", CultureInfo.InvariantCulture)</strong>
+                    }
+                </dd></div>
+            </dl>
+            <h3>Session proposals (@this.EventProposals.Count)</h3>
+            @if (this.EventProposals.Count == 0)
+            {
+                <p class="muted">No session proposals for this event.</p>
+            }
+            else
+            {
+                <div class="calendar-session-list">
+                    @foreach (var proposal in this.EventProposals)
+                    {
+                        <article class="calendar-session" @key="proposal.Id">
+                            <div class="calendar-session-heading"><h4>@proposal.Title</h4><span class="status-pill status-@CalendarStateClassifier.GetProposalState(proposal.Status.ToString())">@proposal.Status</span></div>
+                            <p class="muted">Submitted: @(proposal.SubmissionDate?.ToString("MMM d, yyyy") ?? "Not specified")</p>
+                        </article>
+                    }
+                </div>
+            }
+        }
+    }
+</dialog>
+
 @code {
     private int Year = DateTime.Today.Year;
     private IReadOnlyList<CalendarEventDto> Events = [];
     private bool IsLoading;
     private string? ErrorMessage;
+    private CalendarEventDto? SelectedCalendarEvent;
+    private EventDto? EventDetails;
+    private IReadOnlyList<SessionProposalDto> EventProposals = [];
+    private bool IsLoadingDetails;
+    private string? DetailsError;
+    private int detailsRequestVersion;
+    private ElementReference detailsDialog;
+    private IJSObjectReference? module;
+    private DotNetObjectReference<Calendar>? callbackReference;
+    private bool disposed;
 
     protected override async Task OnInitializedAsync() => await this.LoadCalendarAsync();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (this.disposed)
+        {
+            return;
+        }
+
+        if (this.module is null)
+        {
+            this.module = await this.JavaScript.InvokeAsync<IJSObjectReference>(
+                "import", $"./{Assets["Components/Pages/Calendar.razor.js"]}");
+            this.callbackReference = DotNetObjectReference.Create(this);
+            await this.module.InvokeVoidAsync("initialize", this.detailsDialog, this.callbackReference);
+        }
+
+        if (!this.disposed)
+        {
+            await this.module.InvokeVoidAsync("setOpen", this.detailsDialog, this.SelectedCalendarEvent is not null);
+        }
+    }
+
+    private async Task OpenEventDetailsAsync(CalendarEventDto eventItem)
+    {
+        var requestVersion = ++this.detailsRequestVersion;
+        this.SelectedCalendarEvent = eventItem;
+        this.EventDetails = null;
+        this.EventProposals = [];
+        this.DetailsError = null;
+        this.IsLoadingDetails = true;
+        try
+        {
+            var eventTask = this.Api.GetEventAsync(eventItem.EventId);
+            var proposalsTask = this.Api.ListProposalsAsync(eventItem.EventId);
+            await Task.WhenAll(eventTask, proposalsTask);
+            if (requestVersion != this.detailsRequestVersion)
+            {
+                return;
+            }
+
+            this.EventDetails = await eventTask;
+            this.EventProposals = (await proposalsTask).OrderBy(proposal => proposal.Title).ThenBy(proposal => proposal.Id).ToArray();
+            if (this.EventDetails is null)
+            {
+                this.DetailsError = "This event is no longer available.";
+            }
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException)
+        {
+            if (requestVersion == this.detailsRequestVersion)
+            {
+                this.DetailsError = $"Unable to load event details. {exception.Message}";
+            }
+        }
+        finally
+        {
+            if (requestVersion == this.detailsRequestVersion)
+            {
+                this.IsLoadingDetails = false;
+            }
+        }
+    }
+
+    private void CloseEventDetails()
+    {
+        this.detailsRequestVersion++;
+        this.SelectedCalendarEvent = null;
+        this.EventDetails = null;
+        this.EventProposals = [];
+        this.DetailsError = null;
+        this.IsLoadingDetails = false;
+    }
+
+    /// <summary>Closes the details dialog when dismissed by the browser.</summary>
+    [JSInvokable]
+    public Task DismissDetailsAsync() => this.InvokeAsync(() =>
+    {
+        this.CloseEventDetails();
+        this.StateHasChanged();
+    });
 
     private async Task ChangeYearAsync(int offset)
     {
@@ -98,6 +251,7 @@ else
             return;
         }
 
+        this.CloseEventDetails();
         this.Year += offset;
         await this.LoadCalendarAsync();
     }
@@ -120,4 +274,23 @@ else
         }
     }
 
+    /// <summary>Releases the dialog interop resources and invalidates pending requests.</summary>
+    public async ValueTask DisposeAsync()
+    {
+        this.disposed = true;
+        this.CloseEventDetails();
+        if (this.module is not null)
+        {
+            try
+            {
+                await this.module.InvokeVoidAsync("dispose", this.detailsDialog);
+                await this.module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+
+        this.callbackReference?.Dispose();
+    }
 }
