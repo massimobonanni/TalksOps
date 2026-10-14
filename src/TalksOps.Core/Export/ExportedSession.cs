@@ -18,6 +18,9 @@ public sealed record ExportedSession
     /// <summary>Gets optional notes about the session.</summary>
     public string Notes { get; init; } = string.Empty;
 
+    /// <summary>Gets the optional date the session proposal was submitted.</summary>
+    public DateOnly? SubmissionDate { get; init; }
+
     /// <summary>Gets the session status, serialized by name to keep the file readable and stable.</summary>
     [JsonConverter(typeof(JsonStringEnumConverter<ProposalStatus>))]
     public ProposalStatus Status { get; init; } = ProposalStatus.Submitted;

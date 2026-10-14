@@ -151,7 +151,7 @@ All asynchronous service and repository methods accept an optional `Cancellation
 
 ## Import and export
 
-`IEventImportExportService` exports the current user's events and their sessions as JSON. Optional `from` and `to` dates are inclusive and select events whose date range overlaps the requested range. The document uses schema version `1`; session statuses are serialized by name. An import is additive: source IDs are replaced with new IDs, and all imported events and sessions are assigned to the current user. See [`Export/example-export.json`](Export/example-export.json) for a complete example.
+`IEventImportExportService` exports the current user's events and their sessions as JSON, including each session's optional `submissionDate` (`yyyy-MM-dd`). Optional `from` and `to` dates are inclusive and select events whose date range overlaps the requested range. The document uses schema version `1`; session statuses are serialized by name. The submission date is optional, so older version 1 documents without it import with no date. An import is additive: source IDs are replaced with new IDs, and all imported events and sessions are assigned to the current user. See [`Export/example-export.json`](Export/example-export.json) for a complete example.
 
 ```json
 {
@@ -179,6 +179,7 @@ All asynchronous service and repository methods accept an optional `Cancellation
                     "title": "Reliable event-driven systems",
                     "abstract": "Patterns for building resilient event-driven applications.",
                     "notes": "Bring a demo.",
+                    "submissionDate": "2026-06-15",
                     "status": "Accepted",
                     "createdAt": "2026-06-01T09:30:00+00:00",
                     "updatedAt": "2026-07-15T14:00:00+00:00"

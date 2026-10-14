@@ -52,6 +52,7 @@ public sealed class SessionProposalService(
             Title = proposal.Title,
             Abstract = proposal.Abstract,
             Notes = proposal.Notes,
+            SubmissionDate = proposal.SubmissionDate,
             UpdatedAt = DateTimeOffset.UtcNow
         };
         Validate(updated);

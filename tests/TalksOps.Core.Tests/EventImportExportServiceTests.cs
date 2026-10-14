@@ -16,13 +16,15 @@ public sealed class EventImportExportServiceTests
         var store = new InMemoryStore();
         var own = store.AddEvent(UserId, new DateOnly(2026, 5, 1));
         store.AddEvent("user-2", new DateOnly(2026, 5, 1));
-        store.AddSession(own, "Talk A");
+        store.AddSession(own, "Talk A", submissionDate: new DateOnly(2026, 4, 15));
 
         var document = await CreateService(store).ExportAsync(null, null);
 
         var exported = Assert.Single(document.Events);
         Assert.Equal(own.Id, exported.Id);
-        Assert.Equal("Talk A", Assert.Single(exported.Sessions).Title);
+        var session = Assert.Single(exported.Sessions);
+        Assert.Equal("Talk A", session.Title);
+        Assert.Equal(new DateOnly(2026, 4, 15), session.SubmissionDate);
     }
 
     [Fact]
@@ -50,7 +52,7 @@ public sealed class EventImportExportServiceTests
     {
         var store = new InMemoryStore();
         var original = store.AddEvent(UserId, new DateOnly(2026, 5, 1), callForPapersDeadline: new DateOnly(2026, 3, 15));
-        store.AddSession(original, "Talk A", ProposalStatus.Accepted);
+        store.AddSession(original, "Talk A", ProposalStatus.Accepted, new DateOnly(2026, 4, 15));
         var service = CreateService(store);
 
         using var stream = new MemoryStream();
@@ -66,6 +68,7 @@ public sealed class EventImportExportServiceTests
         Assert.Equal(original.CallForPapersDeadline, imported.CallForPapersDeadline);
         var session = Assert.Single(store.Sessions, value => value.EventId == imported.Id);
         Assert.Equal(ProposalStatus.Accepted, session.Status);
+        Assert.Equal(new DateOnly(2026, 4, 15), session.SubmissionDate);
     }
 
     [Fact]
@@ -92,7 +95,9 @@ public sealed class EventImportExportServiceTests
         var imported = Assert.Single(store.Events);
         Assert.Equal(UserId, imported.OwnerId);
         Assert.Null(imported.CallForPapersDeadline);
-        Assert.Equal(ProposalStatus.Rejected, Assert.Single(store.Sessions).Status);
+        var session = Assert.Single(store.Sessions);
+        Assert.Equal(ProposalStatus.Rejected, session.Status);
+        Assert.Null(session.SubmissionDate);
     }
 
     [Fact]
@@ -148,8 +153,20 @@ public sealed class EventImportExportServiceTests
             return value;
         }
 
-        public void AddSession(Event parent, string title, ProposalStatus status = ProposalStatus.Submitted) =>
-            this.Sessions.Add(new SessionProposal { EventId = parent.Id, OwnerId = parent.OwnerId, Title = title, Abstract = "Abstract", Status = status });
+        public void AddSession(
+            Event parent,
+            string title,
+            ProposalStatus status = ProposalStatus.Submitted,
+            DateOnly? submissionDate = null) =>
+            this.Sessions.Add(new SessionProposal
+            {
+                EventId = parent.Id,
+                OwnerId = parent.OwnerId,
+                Title = title,
+                Abstract = "Abstract",
+                Status = status,
+                SubmissionDate = submissionDate
+            });
 
         public Task<PagedResult<Event>> SearchAsync(string ownerId, EventSearchCriteria criteria, CancellationToken cancellationToken = default)
         {

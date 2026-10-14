@@ -140,6 +140,7 @@ public sealed class EventImportExportService(
                     Title = exportedSession.Title,
                     Abstract = exportedSession.Abstract ?? string.Empty,
                     Notes = exportedSession.Notes ?? string.Empty,
+                    SubmissionDate = exportedSession.SubmissionDate,
                     Status = exportedSession.Status,
                     CreatedAt = exportedSession.CreatedAt,
                     UpdatedAt = exportedSession.UpdatedAt
@@ -215,6 +216,7 @@ public sealed class EventImportExportService(
                 Title = session.Title,
                 Abstract = session.Abstract,
                 Notes = session.Notes,
+                SubmissionDate = session.SubmissionDate,
                 Status = session.Status,
                 CreatedAt = session.CreatedAt,
                 UpdatedAt = session.UpdatedAt
