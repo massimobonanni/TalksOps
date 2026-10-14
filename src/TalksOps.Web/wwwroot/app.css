@@ -151,6 +151,12 @@ input:focus, textarea:focus, select:focus { outline: 2px solid #6ba88c; outline-
 .editor-form { margin-top: 1rem; padding: 1rem; border: 1px solid var(--line); background: white; }
 .editor-form h3 { margin: 0 0 1rem; font-size: 1rem; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
+.website-field { display: grid; gap: .35rem; min-width: 0; }
+.website-input { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: center; gap: .35rem; }
+.website-link-slot { display: flex; align-items: center; justify-content: center; width: 32px; height: 40px; }
+.website-open-link { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 40px; }
+.website-open-link:hover { color: var(--green-deep); }
+.website-open-link:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
 .span-all { grid-column: 1 / -1; }
 .form-actions { display: flex; gap: .5rem; margin-top: 1.25rem; }
 .muted, .calendar-note { color: var(--muted); font-weight: 400; }

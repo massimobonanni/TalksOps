@@ -180,8 +180,34 @@ else
                 <div class="form-grid">
                     <label>Event name<input required maxlength="160" @bind="this.EventName" /></label>
                     <label>Location<input required maxlength="160" @bind="this.EventLocation" /></label>
-                    <label>Official website<input type="url" maxlength="2048" @bind="this.EventOfficialWebsiteUrl" /></label>
-                    <label>Call for paper website<input type="url" maxlength="2048" @bind="this.EventCallForPapersUrl" /></label>
+                    <div class="website-field">
+                        <label for="event-official-website">Official website</label>
+                        <div class="website-input">
+                            <span class="website-link-slot">
+                                @if (IsValidWebsiteUrl(this.EventOfficialWebsiteUrl))
+                                {
+                                    <a class="icon-button website-open-link" href="@this.EventOfficialWebsiteUrl" target="_blank" rel="noopener noreferrer" title="Open official website in a new tab" aria-label="Open official website in a new tab">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M21 14v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7" /></svg>
+                                    </a>
+                                }
+                            </span>
+                            <input id="event-official-website" type="url" maxlength="2048" @bind="this.EventOfficialWebsiteUrl" @bind:event="oninput" />
+                        </div>
+                    </div>
+                    <div class="website-field">
+                        <label for="event-call-for-papers-website">Call for paper website</label>
+                        <div class="website-input">
+                            <span class="website-link-slot">
+                                @if (IsValidWebsiteUrl(this.EventCallForPapersUrl))
+                                {
+                                    <a class="icon-button website-open-link" href="@this.EventCallForPapersUrl" target="_blank" rel="noopener noreferrer" title="Open call for paper website in a new tab" aria-label="Open call for paper website in a new tab">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M21 14v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7" /></svg>
+                                    </a>
+                                }
+                            </span>
+                            <input id="event-call-for-papers-website" type="url" maxlength="2048" @bind="this.EventCallForPapersUrl" @bind:event="oninput" />
+                        </div>
+                    </div>
                     <label>Event Start date<input type="date" required @bind="this.EventStartDate" @bind:after="this.RefreshEventOverlapAsync" /></label>
                     <label>Event End date<input type="date" required @bind="this.EventEndDate" @bind:after="this.RefreshEventOverlapAsync" /></label>
                     <label>Call for papers deadline<input type="date" @bind="this.EventCallForPapersDeadline" /></label>
@@ -233,6 +259,12 @@ else
     private DateOnly? ProposalSubmissionDate;
     private string? ErrorMessage;
     private string? SuccessMessage;
+
+    private static bool IsValidWebsiteUrl(string value) =>
+        Uri.IsWellFormedUriString(value, UriKind.Absolute)
+        && Uri.TryCreate(value, UriKind.Absolute, out var uri)
+        && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+        && !string.IsNullOrEmpty(uri.Host);
 
     protected override async Task OnInitializedAsync() => await this.LoadEventsAsync();
 
