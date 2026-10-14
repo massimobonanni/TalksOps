@@ -26,6 +26,11 @@
     <button class="button button-secondary" type="submit">Search</button>
 </form>
 
+<div class="calendar-legend" aria-label="Calendar status legend">
+    <span><i class="calendar-dot accepted"></i> Accepted</span><span><i class="calendar-dot submitted"></i> Submitted</span>
+    <span><i class="calendar-dot rejected"></i> Rejected</span><span><i class="calendar-dot cancelled"></i> Cancelled</span>
+</div>
+
 @if (this.IsLoading)
 {
     <p class="empty-state">Loading events...</p>
