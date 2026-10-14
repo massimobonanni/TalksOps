@@ -43,7 +43,7 @@ else
 {
     <div class="table-wrap">
         <table class="data-table">
-            <thead><tr><th>Event</th><th>Dates</th><th>Location</th><th>Costs</th><th>Proposals</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+            <thead><tr><th>Event</th><th>Dates</th><th>Location</th><th>Costs</th><th>Call for papers deadline</th><th>Proposals</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
             <tbody>
                 @foreach (var eventItem in this.EventItems)
                 {
@@ -76,6 +76,18 @@ else
                         <td>@eventItem.Location</td>
                         <td>@(eventItem.Costs.Count == 0 ? "None" : eventItem.TotalCosts.ToString("N2", CultureInfo.InvariantCulture))</td>
                         <td>
+                            @if (eventItem.CallForPapersDeadline is DateOnly deadline)
+                            {
+                                var deadlineStatus = CallForPapersDeadlineClassifier.Classify(deadline, DateOnly.FromDateTime(DateTime.Today));
+                                <span class="deadline-date @deadlineStatus.ColorClass">@deadline.ToString("MMM d, yyyy")</span>
+                                <span class="deadline-count @deadlineStatus.ColorClass">@deadlineStatus.RemainingLabel</span>
+                            }
+                            else
+                            {
+                                <span class="muted">Not set</span>
+                            }
+                        </td>
+                        <td>
                             <div class="proposal-summary">
                                 <button class="text-button" aria-expanded="@(this.ExpandedEventId == eventItem.Id)" @onclick="() => ToggleProposalsAsync(eventItem.Id)">
                                     @(this.ExpandedEventId == eventItem.Id ? "Hide" : "Manage") proposals
@@ -103,7 +115,7 @@ else
                     @if (this.ExpandedEventId == eventItem.Id)
                     {
                         <tr class="detail-row">
-                            <td colspan="6">
+                            <td colspan="7">
                                 <div class="detail-heading"><h2>Session proposals</h2><button class="button button-secondary button-small" @onclick="() => BeginCreateProposal(eventItem.Id)">Add proposal</button></div>
                                 @if (this.Proposals.TryGetValue(eventItem.Id, out var eventProposals) && eventProposals.Count > 0)
                                 {

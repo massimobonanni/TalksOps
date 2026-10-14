@@ -115,6 +115,13 @@ input:focus, textarea:focus, select:focus { outline: 2px solid #6ba88c; outline-
 .event-title-link:hover { text-decoration: underline; }
 .call-for-papers-link { display: block; margin-top: .15rem; color: var(--green); font-size: .88rem; font-style: italic; font-weight: 650; text-decoration: none; }
 .call-for-papers-link:hover { text-decoration: underline; }
+.deadline-date, .deadline-count { display: block; white-space: nowrap; }
+.deadline-date { font-weight: 650; }
+.deadline-count { margin-top: .2rem; font-size: .78rem; font-weight: 650; }
+.deadline-urgent { color: var(--status-rejected); }
+.deadline-soon { color: var(--status-submitted); }
+.deadline-upcoming { color: var(--status-accepted); }
+.deadline-expired { color: inherit; }
 .row-actions { display: flex; align-items: center; justify-content: end; gap: .75rem; white-space: nowrap; }
 .icon-button, .text-button { padding: .25rem; border: 0; background: transparent; color: var(--green); font-weight: 650; }
 .icon-button:hover, .text-button:hover { text-decoration: underline; }
