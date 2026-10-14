@@ -11,6 +11,9 @@ param resourceTags object = {}
 @description('Azure region selected for this AZD environment.')
 param location string
 
+@description('Linux App Service plan SKU for the web application.')
+param webPlanSku string = 'B1'
+
 @description('Object ID of the identity running AZD. It receives Key Vault Secrets Officer for deployment-time secret creation and the post-provision identity hook.')
 param deploymentPrincipalId string
 
@@ -103,6 +106,7 @@ module frontend 'modules/frontend.bicep' = {
     location: location
     webAppName: webAppName
     webPlanName: webPlanName
+    webPlanSku: webPlanSku
     functionEndpoint: backend.outputs.functionEndpoint
     keyVaultUri: keyVault.outputs.keyVaultUri
     loginEndpoint: environment().authentication.loginEndpoint

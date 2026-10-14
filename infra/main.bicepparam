@@ -5,5 +5,6 @@ param resourceTags = {
 	'azd-env-name': readEnvironmentVariable('AZURE_ENV_NAME')
 }
 param location = readEnvironmentVariable('AZURE_LOCATION')
+param webPlanSku = readEnvironmentVariable('AZURE_WEB_PLAN_SKU', 'B1')
 param deploymentPrincipalId = readEnvironmentVariable('AZURE_PRINCIPAL_ID')
 param deploymentPrincipalType = readEnvironmentVariable('AZURE_PRINCIPAL_TYPE', 'User')

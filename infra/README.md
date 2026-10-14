@@ -53,6 +53,8 @@ azd env set AZURE_LOCATION <azure-region>
 azd up -e talksops-dev
 ```
 
+`AZURE_WEB_PLAN_SKU` selects the Linux App Service plan SKU for the web app and defaults to `B1`. Set it before provisioning to choose another SKU, for example `azd env set AZURE_WEB_PLAN_SKU F1`; examples also include `S1` and `P1v3`. Free and Shared tiers run without Always On. SKU availability depends on the selected Azure region.
+
 ### AZD lifecycle hooks
 
 After Bicep provisions the Azure resources, the `postprovision` hook runs `configure-identity.ps1` on Windows or `configure-identity.sh` on POSIX. It uses the `AZURE_AD_APP_DISPLAY_NAME` output to create or update the tenant-scoped app registration for personal Microsoft accounts, configure the `/signin-oidc` redirect URI, and ensure its service principal exists. It saves the registration's nonsecret client ID as `AZURE_AD_APP_CLIENT_ID` in the AZD environment so the teardown hook can still identify it after Bicep outputs are gone. If the `web-client-secret` Key Vault secret is missing, the hook creates a client credential and stores it there; it then configures the Web App to use the Key Vault reference. The credential itself is not printed or stored in AZD outputs. This hook runs before the API and web app are deployed, so the login settings are ready when the frontend starts.
