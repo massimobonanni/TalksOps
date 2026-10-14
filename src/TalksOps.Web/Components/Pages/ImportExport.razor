@@ -37,7 +37,10 @@
     <div class="form-grid">
         <label class="span-all">JSON file<InputFile accept=".json,application/json" OnChange="SelectImportFile" /></label>
     </div>
-    <div class="form-actions"><button class="button button-primary" type="submit" disabled="@(this.IsBusy || this.ImportFile is null)">Import</button></div>
+    <div class="form-actions">
+        <button class="button button-primary" type="submit" disabled="@(this.IsBusy || this.ImportFile is null)">Import</button>
+        <button class="button" type="button" @onclick="DownloadTemplateAsync" disabled="@this.IsBusy">Download JSON template</button>
+    </div>
 </form>
 
 @code {
@@ -65,11 +68,7 @@
         try
         {
             var document = await this.Api.ExportEventsAsync(this.ExportFrom, this.ExportTo);
-            using var content = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(document, SerializerOptions));
-            using var streamReference = new DotNetStreamReference(content);
-            this.module ??= await this.JavaScript.InvokeAsync<IJSObjectReference>(
-                "import", $"./{Assets["Components/Pages/ImportExport.razor.js"]}");
-            await this.module.InvokeVoidAsync("downloadFile", $"talksops-events-{DateTime.Now:yyyyMMdd-HHmmss}.json", streamReference);
+            await this.DownloadDocumentAsync(document, $"talksops-events-{DateTime.Now:yyyyMMdd-HHmmss}.json");
             this.SuccessMessage = $"Exported {document.Events.Count} events with {document.Events.Sum(value => value.Sessions.Count)} sessions.";
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or JSException or TaskCanceledException)
@@ -80,6 +79,63 @@
         {
             this.IsBusy = false;
         }
+    }
+
+    private async Task DownloadTemplateAsync()
+    {
+        this.ErrorMessage = this.SuccessMessage = null;
+        this.IsBusy = true;
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+            var document = new EventsExportDocument
+            {
+                Events =
+                [
+                    new ExportedEvent
+                    {
+                        Name = "Example conference",
+                        Location = "Rome, Italy",
+                        OfficialWebsiteUrl = "https://example.com/conference",
+                        CallForPapersUrl = "https://example.com/conference/cfp",
+                        CallForPapersDeadline = new DateOnly(2027, 3, 1),
+                        StartDate = new DateOnly(2027, 6, 10),
+                        EndDate = new DateOnly(2027, 6, 11),
+                        Costs = new Dictionary<string, decimal> { ["Travel"] = 100, ["Hotel"] = 200 },
+                        Sessions =
+                        [
+                            new ExportedSession
+                            {
+                                Title = "Example session",
+                                Abstract = "Replace with your session abstract.",
+                                Notes = "Replace with your notes.",
+                                SubmissionDate = new DateOnly(2027, 2, 15),
+                                CreatedAt = now,
+                                UpdatedAt = now
+                            }
+                        ]
+                    }
+                ]
+            };
+            await this.DownloadDocumentAsync(document, "talksops-import-template.json");
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or JSException or TaskCanceledException)
+        {
+            this.ErrorMessage = $"Unable to download the import template. {exception.Message}";
+        }
+        finally
+        {
+            this.IsBusy = false;
+        }
+    }
+
+    private async Task DownloadDocumentAsync(EventsExportDocument document, string fileName)
+    {
+        using var content = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(document, SerializerOptions));
+        using var streamReference = new DotNetStreamReference(content);
+        this.module ??= await this.JavaScript.InvokeAsync<IJSObjectReference>(
+            "import", $"./{Assets["Components/Pages/ImportExport.razor.js"]}");
+        await this.module.InvokeVoidAsync("downloadFile", fileName, streamReference);
     }
 
     private void SelectImportFile(InputFileChangeEventArgs args)
