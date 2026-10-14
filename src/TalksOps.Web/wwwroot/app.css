@@ -79,7 +79,7 @@ h1:focus {
 body { margin: 0; background: var(--paper); color: var(--ink); }
 button, input, textarea, select { font: inherit; }
 button { cursor: pointer; }
-.app-shell { min-height: 100vh; }
+.app-shell { display: flex; min-height: 100vh; flex-direction: column; }
 .app-header { display: flex; align-items: center; gap: 3rem; min-height: 72px; padding: 0 clamp(1.25rem, 5vw, 5rem); background: var(--green-deep); color: white; }
 .wordmark { color: inherit; text-decoration: none; font-size: 1.35rem; font-weight: 750; letter-spacing: 0; }
 .app-header .wordmark img { display: block; width: 160px; max-width: 100%; height: 42px; object-fit: contain; object-position: left center; }
@@ -90,6 +90,10 @@ button { cursor: pointer; }
 .account-menu { display: flex; align-items: center; gap: 1rem; color: #d3e0da; font-size: .9rem; }
 .account-menu a { color: white; text-decoration: none; }
 .app-content { width: min(1280px, 100%); margin: 0 auto; padding: 3rem clamp(1rem, 4vw, 3.5rem) 5rem; }
+.app-content { flex: 1; }
+.app-footer { display: flex; flex-wrap: wrap; justify-content: center; gap: .75rem .75rem; padding: 1.25rem clamp(1rem, 4vw, 3.5rem); border-top: 1px solid var(--line); background: #e9eee8; font-size: .9rem; }
+.app-footer a { color: var(--green-deep); text-decoration: none; }
+.app-footer a:hover { text-decoration: underline; }
 .page-heading { display: flex; justify-content: space-between; align-items: end; gap: 1rem; margin-bottom: 2rem; }
 .page-heading h1, .login-page h1 { margin: .25rem 0 0; font-family: Georgia, "Times New Roman", serif; font-size: 2.5rem; font-weight: 500; letter-spacing: 0; }
 .eyebrow { margin: 0; color: var(--green); font-size: .72rem; font-weight: 750; letter-spacing: .12em; }
