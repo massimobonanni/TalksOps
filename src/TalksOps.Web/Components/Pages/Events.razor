@@ -208,7 +208,7 @@ else
                             <input id="event-call-for-papers-website" type="url" maxlength="2048" @bind="this.EventCallForPapersUrl" @bind:event="oninput" />
                         </div>
                     </div>
-                    <label>Event Start date<input type="date" required @bind="this.EventStartDate" @bind:after="this.RefreshEventOverlapAsync" /></label>
+                    <label>Event Start date<input type="date" required @bind="this.EventStartDate" @bind:after="this.OnEventStartDateChangedAsync" /></label>
                     <label>Event End date<input type="date" required @bind="this.EventEndDate" @bind:after="this.RefreshEventOverlapAsync" /></label>
                     <label>Call for papers deadline<input type="date" @bind="this.EventCallForPapersDeadline" /></label>
                     <label class="span-all">Costs <span class="muted">One item per line, formatted as name=amount</span><textarea rows="4" placeholder="Travel=250.00&#10;Hotel=600.00" @bind="this.EventCosts"></textarea></label>
@@ -437,6 +437,12 @@ else
         finally
         {
         }
+    }
+
+    private async Task OnEventStartDateChangedAsync()
+    {
+        this.EventEndDate = this.EventStartDate;
+        await this.RefreshEventOverlapAsync();
     }
 
     private async Task SaveEventAsync()
