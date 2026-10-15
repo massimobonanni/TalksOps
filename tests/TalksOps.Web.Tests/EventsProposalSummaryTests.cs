@@ -54,6 +54,28 @@ public sealed class EventsProposalSummaryTests : BunitContext
     }
 
     [Fact]
+    public void InvalidEventDates_ShowsValidationErrorInsideEventDialog()
+    {
+        using var handler = new ProposalHandler();
+        var component = this.RenderEvents(handler);
+        component.WaitForAssertion(() => Assert.Contains("Manage proposals", component.Markup));
+        component.Find(".page-heading button").Click();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(".event-dialog")));
+        var dateInputs = component.FindAll(".event-dialog input[type=date]");
+        dateInputs[0].Change("2026-10-15");
+        component.FindAll(".event-dialog input[type=date]")[1].Change("2026-10-14");
+
+        component.Find(".event-dialog form").Submit();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Contains("The end date cannot be before the start date.", component.Find(".event-dialog [role=alert]").TextContent);
+            Assert.Single(component.FindAll(".notice-error"));
+            Assert.Single(component.FindAll(".event-dialog .notice-error"));
+        });
+    }
+
+    [Fact]
     public void AddEditAndDelete_RefreshCountsAndCirclesWithoutAnotherCalendarRequest()
     {
         using var handler = new ProposalHandler();
