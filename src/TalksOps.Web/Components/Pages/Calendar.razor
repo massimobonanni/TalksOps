@@ -138,6 +138,14 @@ else
                         <article class="calendar-session" @key="proposal.Id">
                             <div class="calendar-session-heading"><h4>@proposal.Title</h4><span class="status-pill status-@CalendarStateClassifier.GetProposalState(proposal.Status.ToString())">@proposal.Status</span></div>
                             <p class="muted">Submitted: @(proposal.SubmissionDate?.ToString("MMM d, yyyy") ?? "Not specified")</p>
+                            @if (!string.IsNullOrWhiteSpace(proposal.Abstract))
+                            {
+                                <p>@proposal.Abstract</p>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(proposal.Notes))
+                            {
+                                <p class="muted">@proposal.Notes</p>
+                            }
                         </article>
                     }
                 </div>
