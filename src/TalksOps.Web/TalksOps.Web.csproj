@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.3" />
     <ProjectReference Include="..\TalksOps.ApiClient\TalksOps.ApiClient.csproj" />
     <PackageReference Include="Microsoft.Identity.Web" Version="4.4.0" />
   </ItemGroup>
