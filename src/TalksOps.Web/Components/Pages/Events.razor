@@ -2,6 +2,8 @@
 @attribute [Authorize]
 @inject ITalksOpsApiClient Api
 @inject IJSRuntime JavaScript
+@inject IServiceProvider ServiceProvider
+@using Microsoft.Extensions.DependencyInjection
 
 <PageTitle>Events | TalksOps</PageTitle>
 
@@ -210,8 +212,36 @@ else
                                 }
                             </span>
                             <input id="event-call-for-papers-website" type="url" maxlength="2048" @bind="this.EventCallForPapersUrl" @bind:event="oninput" />
+                            @if (IsAiExtractionEnabled)
+                            {
+                                <div class="extract-controls">
+                                    <button class="button button-quiet" type="button" @onclick="() => OpenExtractionDialog()">Extract from URL</button>
+                                    @if (IsExtracting)
+                                    {
+                                        <span class="muted">Extracting…</span>
+                                    }
+                                </div>
+                            }
                         </div>
                     </div>
+
+                    @if (IsAiExtractionDialogOpen)
+                    {
+                        <div class="modal-overlay" role="dialog" aria-modal="true">
+                            <div class="modal">
+                                <h2>Extract event details</h2>
+                                @if (!string.IsNullOrEmpty(ExtractError))
+                                {
+                                    <div class="notice notice-error">@ExtractError</div>
+                                }
+                                <label>Call-for-papers page URL<input id="extract-source-url" type="url" maxlength="2048" @bind="ExtractSourcePageUrl" @bind:event="oninput" /></label>
+                                <div class="form-actions">
+                                    <button class="button button-primary" @onclick="ExtractEventDataAsync">Extract</button>
+                                    <button class="button button-quiet" @onclick="CloseExtractionDialog">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    }
                     <label>Event Start date<input type="date" required @bind="this.EventStartDate" @bind:after="this.OnEventStartDateChangedAsync" /></label>
                     <label>Event End date<input type="date" required @bind="this.EventEndDate" @bind:after="this.RefreshEventOverlapAsync" /></label>
                     <label>Call for papers deadline<input type="date" @bind="this.EventCallForPapersDeadline" /></label>
@@ -255,6 +285,20 @@ else
     private DateTime EventStartDate = DateTime.Today;
     private DateTime EventEndDate = DateTime.Today;
     private string EventCosts = string.Empty;
+    // AI extraction feature flag and UI state
+    private bool IsAiExtractionEnabled
+    {
+        get
+        {
+            var config = ServiceProvider.GetService<IConfiguration>();
+            if (config is null) return false;
+            return bool.TryParse(config["Features:AiExtraction"], out var v) && v;
+        }
+    }
+    private bool IsAiExtractionDialogOpen;
+    private string ExtractSourcePageUrl = string.Empty;
+    private bool IsExtracting;
+    private string? ExtractError;
     private Guid? ProposalEditorEventId;
     private Guid? ProposalEditorId;
     private string ProposalTitle = string.Empty;
@@ -488,6 +532,118 @@ else
         {
             this.EventEditorErrorMessage = $"Unable to save event. {exception.Message}";
         }
+    }
+
+    private async Task ExtractEventDataAsync()
+    {
+        this.ExtractError = null;
+        if (string.IsNullOrWhiteSpace(this.ExtractSourcePageUrl))
+        {
+            this.ExtractError = "Enter a valid URL to extract from.";
+            return;
+        }
+
+        this.IsExtracting = true;
+        try
+        {
+            var result = await this.Api.ExtractEventDataAsync(new TalksOps.ApiClient.Contracts.ExtractEventDataRequest(this.ExtractSourcePageUrl));
+
+            // Prepopulate only empty fields so user can adjust any existing values.
+            if (!string.IsNullOrWhiteSpace(result.Name) && string.IsNullOrWhiteSpace(this.EventName))
+            {
+                this.EventName = result.Name;
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.Location) && string.IsNullOrWhiteSpace(this.EventLocation))
+            {
+                this.EventLocation = result.Location;
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.OfficialWebsiteUrl) && string.IsNullOrWhiteSpace(this.EventOfficialWebsiteUrl))
+            {
+                this.EventOfficialWebsiteUrl = result.OfficialWebsiteUrl;
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.CallForPapersUrl) && string.IsNullOrWhiteSpace(this.EventCallForPapersUrl))
+            {
+                this.EventCallForPapersUrl = result.CallForPapersUrl;
+            }
+
+            // Try parse dates into the editor fields when reasonable
+            if (!string.IsNullOrWhiteSpace(result.CallForPapersDeadline) && this.EventCallForPapersDeadline is null)
+            {
+                if (TryParseDateString(result.CallForPapersDeadline, out var deadline))
+                {
+                    this.EventCallForPapersDeadline = deadline;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.StartDate) && (this.EventStartDate == DateTime.Today))
+            {
+                if (TryParseDateString(result.StartDate, out var start))
+                {
+                    this.EventStartDate = start;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.EndDate) && (this.EventEndDate == DateTime.Today))
+            {
+                if (TryParseDateString(result.EndDate, out var end))
+                {
+                    this.EventEndDate = end;
+                }
+            }
+
+            this.SuccessMessage = "Extraction applied (partial values may be empty).";
+            this.IsAiExtractionDialogOpen = false;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException)
+        {
+            this.ExtractError = exception.Message;
+        }
+        finally
+        {
+            this.IsExtracting = false;
+            StateHasChanged();
+        }
+    }
+
+    private static bool TryParseDateString(string? dateStr, out DateTime parsed)
+    {
+        parsed = default;
+        if (string.IsNullOrWhiteSpace(dateStr))
+        {
+            return false;
+        }
+
+        // Try common formats: dd/MM/yyyy per Foundry plan, ISO, and RFC
+        var formats = new[] { "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd", "yyyy-MM-ddTHH:mm:ssZ", "MM/dd/yyyy" };
+        if (DateTime.TryParseExact(dateStr, formats, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var dt))
+        {
+            parsed = dt;
+            return true;
+        }
+
+        if (DateTime.TryParse(dateStr, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out dt))
+        {
+            parsed = dt;
+            return true;
+        }
+
+        return false;
+    }
+
+    private void OpenExtractionDialog()
+    {
+        this.ExtractError = null;
+        this.ExtractSourcePageUrl = this.EventCallForPapersUrl ?? string.Empty;
+        this.IsAiExtractionDialogOpen = true;
+    }
+
+    private void CloseExtractionDialog()
+    {
+        this.IsAiExtractionDialogOpen = false;
+        this.ExtractError = null;
     }
 
     private async Task DeleteEventAsync(EventDto eventItem)

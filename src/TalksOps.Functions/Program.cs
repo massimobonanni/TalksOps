@@ -1,8 +1,10 @@
 using Azure.Data.Tables;
+using System.Threading.RateLimiting;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using TalksOps.AI;
 using TalksOps.Core.Contracts;
 using TalksOps.Core.Services;
 using TalksOps.Functions;
@@ -21,6 +23,32 @@ builder.Services.AddScoped<ICurrentUserContext>(services => services.GetRequired
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<ISessionProposalService, SessionProposalService>();
 builder.Services.AddScoped<IEventImportExportService, EventImportExportService>();
+builder.Services.AddSingleton<PartitionedRateLimiter<string>>(_ =>
+    PartitionedRateLimiter.Create<string, string>(userId =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            userId,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 1,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            })));
+
+var foundryEndpoint = builder.Configuration["FoundryEndpoint"];
+var foundryProjectName = builder.Configuration["FoundryProjectName"];
+var foundryDeploymentName = builder.Configuration["FoundryDeploymentName"];
+if (Uri.TryCreate(foundryEndpoint, UriKind.Absolute, out var parsedFoundryEndpoint)
+    && !string.IsNullOrWhiteSpace(foundryProjectName)
+    && !string.IsNullOrWhiteSpace(foundryDeploymentName))
+{
+    builder.Services.AddSingleton<IEventPageFetcher, PublicEventPageFetcher>();
+    builder.Services.AddSingleton<IEventDataChatClient>(new FoundryEventDataChatClient(
+        parsedFoundryEndpoint,
+        foundryProjectName,
+        foundryDeploymentName));
+    builder.Services.AddScoped<IEventDataExtractionService, EventDataExtractionService>();
+}
 
 var tableName = builder.Configuration["StorageTableName"];
 if (string.IsNullOrWhiteSpace(tableName))

@@ -7,6 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Azure.Identity" Version="1.21.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.3" />
+    <PackageReference Include="OpenAI" Version="2.13.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- The prompt text is copied into the build output so Functions or other consumers can read it at runtime. -->
     <None Include="PromptFiles\ExtractEventDataPrompt.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
