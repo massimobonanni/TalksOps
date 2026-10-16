@@ -1,0 +1,19 @@
+# ExtractEventDataPrompt (text)
+
+# This file contains the plain-text prompt template used by the extraction service (TalksOps.AI).
+# Keep any existing ExtractEventDataPrompt.md unchanged; this .txt file is the machine-readable copy that will be deployed and read by the Functions project at runtime.
+
+# TEMPLATE START
+Please extract the following event fields from the provided HTML page:
+- title
+- subtitle (if any)
+- description (plain text)
+- speakers (name, affiliation)
+- date (DD/MM/YYYY)
+- time
+- location
+- url (source)
+
+Return a JSON object with nullable fields. If a value cannot be determined, set it to null. Dates MUST use the format DD/MM/YYYY. Do not return extra fields.
+
+# TEMPLATE END
