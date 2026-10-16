@@ -79,4 +79,10 @@ public interface ITalksOpsApiClient
     Task<EventImportResult> ImportEventsAsync(
         EventsExportDocument document,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Extracts event details from a call-for-papers page.</summary>
+    /// <exception cref="HttpRequestException">Thrown with the server error message when extraction fails.</exception>
+    Task<ExtractEventDataResultDto> ExtractEventDataAsync(
+        ExtractEventDataRequest request,
+        CancellationToken cancellationToken = default);
 }

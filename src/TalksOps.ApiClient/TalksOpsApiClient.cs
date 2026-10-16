@@ -138,6 +138,29 @@ public sealed class TalksOpsApiClient(HttpClient httpClient, ICurrentUserContext
             ?? throw new HttpRequestException("The TalksOps API returned an empty response body.");
     }
 
+    /// <inheritdoc />
+    public async Task<ExtractEventDataResultDto> ExtractEventDataAsync(
+        ExtractEventDataRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        using var response = await this.httpClient.PostAsJsonAsync(
+            "api/events/extract",
+            new ApiRequest<ExtractEventDataRequest>(this.currentUser.UserId, request),
+            cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadFromJsonAsync<ApiErrorDto>(cancellationToken);
+            throw new HttpRequestException(
+                error?.Message ?? $"Event extraction failed with status {(int)response.StatusCode}.",
+                null,
+                response.StatusCode);
+        }
+
+        return await response.Content.ReadFromJsonAsync<ExtractEventDataResultDto>(cancellationToken)
+            ?? throw new HttpRequestException("The TalksOps API returned an empty response body.");
+    }
+
     private async Task<T> GetRequiredAsync<T>(string path, CancellationToken cancellationToken)
     {
         using var response = await this.httpClient.GetAsync(path, cancellationToken);
