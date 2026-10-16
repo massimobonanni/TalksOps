@@ -177,6 +177,10 @@ else
         <section class="dialog event-dialog" role="dialog" aria-modal="true" aria-labelledby="event-editor-title" @onclick:stopPropagation>
             <div class="detail-heading"><h2 id="event-editor-title">@(this.EventEditorId is null ? "New event" : "Edit event")</h2><button class="icon-button" aria-label="Close" @onclick="CloseEventEditor">Close</button></div>
             <form @onsubmit="SaveEventAsync" @onsubmit:preventDefault>
+                @if (!string.IsNullOrWhiteSpace(this.EventEditorErrorMessage))
+                {
+                    <div class="notice notice-error" role="alert">@this.EventEditorErrorMessage</div>
+                }
                 <div class="form-grid">
                     <label>Event name<input required maxlength="160" @bind="this.EventName" /></label>
                     <label>Location<input required maxlength="160" @bind="this.EventLocation" /></label>
@@ -258,6 +262,7 @@ else
     private string ProposalAbstract = string.Empty;
     private DateOnly? ProposalSubmissionDate;
     private string? ErrorMessage;
+    private string? EventEditorErrorMessage;
     private string? SuccessMessage;
 
     private static bool IsValidWebsiteUrl(string value) =>
@@ -351,6 +356,7 @@ else
     private async Task BeginCreateEvent()
     {
         this.ErrorMessage = null;
+        this.EventEditorErrorMessage = null;
         this.SuccessMessage = null;
         this.CalendarEventsByYear.Clear();
         this.EventEditorId = null;
@@ -364,6 +370,7 @@ else
     private async Task BeginEditEvent(EventDto eventItem)
     {
         this.ErrorMessage = null;
+        this.EventEditorErrorMessage = null;
         this.SuccessMessage = null;
         this.CalendarEventsByYear.Clear();
         this.EventEditorId = eventItem.Id;
@@ -448,9 +455,10 @@ else
     private async Task SaveEventAsync()
     {
         this.ErrorMessage = null;
+        this.EventEditorErrorMessage = null;
         if (this.EventEndDate.Date < this.EventStartDate.Date)
         {
-            this.ErrorMessage = "The end date cannot be before the start date.";
+            this.EventEditorErrorMessage = "The end date cannot be before the start date.";
             return;
         }
 
@@ -478,7 +486,7 @@ else
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or FormatException or ArgumentException)
         {
-            this.ErrorMessage = $"Unable to save event. {exception.Message}";
+            this.EventEditorErrorMessage = $"Unable to save event. {exception.Message}";
         }
     }
 
@@ -634,6 +642,7 @@ else
         this.EventOverlapRequestVersion++;
         this.HasEventOverlap = false;
         this.EventOverlapCheckError = null;
+        this.EventEditorErrorMessage = null;
         this.IsEventEditorOpen = false;
     }
 
