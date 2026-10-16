@@ -65,7 +65,7 @@ classDiagram
 
 ## Import and export
 
-The authenticated Web app provides an **Import / Export** page for moving events and their session proposals as a JSON file, including each proposal's optional submission date. Export can be filtered by optional `from` and `to` dates; it includes events whose date range overlaps the requested range. Import accepts TalksOps export documents up to 10 MB and is additive: it creates new event and session IDs, assigns all imported records to the current user, and leaves existing data unchanged. Older documents without a session submission date remain valid; the complete import is validated before any records are written.
+The authenticated Web app provides an **Import / Export** page for moving events and their session proposals as a JSON file. Event data includes named costs; session data includes its status, timestamps, and optional submission date. Export can be filtered by optional `from` and `to` dates; it includes events whose date range overlaps the requested range. Import accepts TalksOps export documents up to 10 MB and is additive: it creates new event and session IDs, assigns all imported records to the current user, and leaves existing data unchanged. Older version 1 documents without a session submission date or event costs remain valid; the complete import is validated before any records are written.
 
 The Functions API exposes the corresponding export and import operations. For the JSON schema, status values, and a complete sample document, see [Import and export in TalksOps.Core](TalksOps.Core/README.md#import-and-export) and [`example-export.json`](TalksOps.Core/Export/example-export.json).
 
