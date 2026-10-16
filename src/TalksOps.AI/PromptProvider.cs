@@ -22,7 +22,8 @@ namespace TalksOps.AI
             {
                 throw new FileNotFoundException("ExtractEventDataPrompt.txt not found in output. Ensure the file is included in the TalksOps.AI project and CopyToOutputDirectory is set.", path);
             }
-n            return File.ReadAllText(path);
+
+            return File.ReadAllText(path);
         }
     }
 }
