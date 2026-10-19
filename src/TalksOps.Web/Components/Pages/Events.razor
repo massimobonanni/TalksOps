@@ -236,8 +236,8 @@ else
                                 }
                                 <label>Call-for-papers page URL<input id="extract-source-url" type="url" maxlength="2048" @bind="ExtractSourcePageUrl" @bind:event="oninput" /></label>
                                 <div class="form-actions">
-                                    <button class="button button-primary" @onclick="ExtractEventDataAsync">Extract</button>
-                                    <button class="button button-quiet" @onclick="CloseExtractionDialog">Cancel</button>
+                                    <button class="button button-primary" type="button" @onclick="ExtractEventDataAsync">Extract</button>
+                                    <button class="button button-quiet" type="button" @onclick="CloseExtractionDialog">Cancel</button>
                                 </div>
                             </div>
                         </div>

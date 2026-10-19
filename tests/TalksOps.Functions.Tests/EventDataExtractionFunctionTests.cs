@@ -30,8 +30,11 @@ public sealed class EventDataExtractionFunctionTests
 
     [Theory]
     [InlineData(EventDataExtractionErrorCode.InvalidSourceUrl, StatusCodes.Status400BadRequest, "invalid_source_url")]
+    [InlineData(EventDataExtractionErrorCode.UnsafeSourceAddress, StatusCodes.Status400BadRequest, "unsafe_source_address")]
     [InlineData(EventDataExtractionErrorCode.FetchFailed, StatusCodes.Status502BadGateway, "source_fetch_failed")]
+    [InlineData(EventDataExtractionErrorCode.TooManyRedirects, StatusCodes.Status502BadGateway, "too_many_redirects")]
     [InlineData(EventDataExtractionErrorCode.PageTooLarge, StatusCodes.Status413PayloadTooLarge, "source_page_too_large")]
+    [InlineData(EventDataExtractionErrorCode.InvalidModelResponse, StatusCodes.Status502BadGateway, "invalid_model_response")]
     [InlineData(EventDataExtractionErrorCode.NoEventData, StatusCodes.Status422UnprocessableEntity, "no_event_data")]
     public async Task ExtractEventData_MapsExtractionErrors(
         EventDataExtractionErrorCode errorCode,

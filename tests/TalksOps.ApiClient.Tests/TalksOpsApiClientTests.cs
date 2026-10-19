@@ -104,6 +104,22 @@ public sealed class TalksOpsApiClientTests
         Assert.Equal("The page URL is invalid.", exception.Message);
     }
 
+    [Fact]
+    public async Task ExtractEventDataAsync_PreservesRateLimitStatusAndMessage()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.TooManyRequests)
+        {
+            Content = new StringContent("""{"code":"rate_limited","message":"Please wait before retrying."}""")
+        });
+        var client = CreateClient(handler, "user-1");
+
+        var exception = await Assert.ThrowsAsync<HttpRequestException>(() =>
+            client.ExtractEventDataAsync(new ExtractEventDataRequest("https://example.com/cfp")));
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, exception.StatusCode);
+        Assert.Equal("Please wait before retrying.", exception.Message);
+    }
+
     private static ITalksOpsApiClient CreateClient(HttpMessageHandler handler, string userId)
     {
         var httpClient = new HttpClient(handler)

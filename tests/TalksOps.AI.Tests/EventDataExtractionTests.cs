@@ -41,6 +41,8 @@ public sealed class EventDataExtractionTests
     [Theory]
     [InlineData("not-json")]
     [InlineData("null")]
+    [InlineData("")]
+    [InlineData("  ")]
     public async Task ExtractAsync_RejectsMalformedOrNullModelOutput(string content)
     {
         var service = CreateService(content);

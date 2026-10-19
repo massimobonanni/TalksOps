@@ -41,6 +41,23 @@ public sealed class PublicEventPageFetcherTests
     }
 
     [Fact]
+    public async Task FetchAsync_StopsAfterMaximumRedirects()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.Found)
+            {
+                Headers = { Location = new Uri("/next", UriKind.Relative) }
+            });
+        using var fetcher = CreateFetcher(handler);
+
+        var exception = await Assert.ThrowsAsync<EventDataExtractionException>(
+            () => fetcher.FetchAsync("https://8.8.8.8/cfp"));
+
+        Assert.Equal(EventDataExtractionErrorCode.TooManyRedirects, exception.ErrorCode);
+        Assert.Equal(4, handler.RequestCount);
+    }
+
+    [Fact]
     public async Task FetchAsync_RejectsOversizedContent()
     {
         var handler = new StubHttpMessageHandler(_ =>

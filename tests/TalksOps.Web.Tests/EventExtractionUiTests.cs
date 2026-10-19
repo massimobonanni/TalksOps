@@ -16,6 +16,10 @@ public class EventExtractionUiTests
     {
         private readonly ExtractEventDataResultDto _extractResult;
 
+        public int CreateEventCallCount { get; private set; }
+        public int ExtractEventDataCallCount { get; private set; }
+        public SaveEventRequest? CreatedEventRequest { get; private set; }
+
         public StubApiClient(ExtractEventDataResultDto extractResult)
         {
             _extractResult = extractResult;
@@ -29,6 +33,8 @@ public class EventExtractionUiTests
         public Task<EventDto?> GetEventAsync(Guid eventId, CancellationToken cancellationToken = default) => Task.FromResult<EventDto?>(null);
                 public Task<EventDto> CreateEventAsync(SaveEventRequest request, CancellationToken cancellationToken = default)
                 {
+                    CreateEventCallCount++;
+                    CreatedEventRequest = request;
                     var created = new EventDto(
                         Guid.NewGuid(),
                         "test-owner",
@@ -70,6 +76,7 @@ public class EventExtractionUiTests
         public Task<EventImportResult> ImportEventsAsync(EventsExportDocument document, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<ExtractEventDataResultDto> ExtractEventDataAsync(ExtractEventDataRequest request, CancellationToken cancellationToken = default)
         {
+            ExtractEventDataCallCount++;
             return Task.FromResult(_extractResult);
         }
     }
@@ -110,7 +117,8 @@ public class EventExtractionUiTests
         }).Build();
 
         ctx.Services.AddSingleton<IConfiguration>(config);
-        ctx.Services.AddSingleton<ITalksOpsApiClient>(new StubApiClient(new ExtractEventDataResultDto(null, null, null, null, null, null, null)));
+        var apiClient = new StubApiClient(new ExtractEventDataResultDto(null, null, null, null, null, null, null));
+        ctx.Services.AddSingleton<ITalksOpsApiClient>(apiClient);
 
         var comp = ctx.Render<Events>();
 
@@ -119,6 +127,35 @@ public class EventExtractionUiTests
 
         var extractButtons = comp.FindAll("button").Where(b => b.TextContent.Contains("Extract from URL")).ToArray();
         Assert.Empty(extractButtons);
+    }
+
+    [Fact]
+    public async Task SavesEventManuallyWhenExtractionFeatureIsDisabled()
+    {
+        using var ctx = new TestContext();
+
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new[]
+        {
+            new KeyValuePair<string, string?>("Features:AiExtraction", "false")
+        }).Build();
+        var apiClient = new StubApiClient(new ExtractEventDataResultDto(null, null, null, null, null, null, null));
+
+        ctx.Services.AddSingleton<IConfiguration>(config);
+        ctx.Services.AddSingleton<ITalksOpsApiClient>(apiClient);
+
+        var comp = ctx.Render<Events>();
+        comp.Find("button.button-primary").Click();
+        comp.FindAll("label").Last(label => label.TextContent.Contains("Event name"))
+            .GetElementsByTagName("input").First().Change("Manual event");
+        comp.FindAll("label").Last(label => label.TextContent.Contains("Location"))
+            .GetElementsByTagName("input").First().Change("Rome");
+
+        comp.FindAll("button").First(button => button.TextContent.Trim() == "Save event").Click();
+
+        Assert.Equal(1, apiClient.CreateEventCallCount);
+        Assert.Equal(0, apiClient.ExtractEventDataCallCount);
+        Assert.Equal("Manual event", apiClient.CreatedEventRequest?.Name);
+        Assert.Equal("Rome", apiClient.CreatedEventRequest?.Location);
     }
 
     [Fact]
@@ -139,9 +176,10 @@ public class EventExtractionUiTests
             "01/09/2026",
             "2026-09-10",
             "2026-09-12");
+        var apiClient = new StubApiClient(extractResult);
 
         ctx.Services.AddSingleton<IConfiguration>(config);
-        ctx.Services.AddSingleton<ITalksOpsApiClient>(new StubApiClient(extractResult));
+        ctx.Services.AddSingleton<ITalksOpsApiClient>(apiClient);
 
         var comp = ctx.Render<Events>();
 
@@ -159,19 +197,29 @@ public class EventExtractionUiTests
 
         var extractButton = comp.FindAll("button").First(b => b.TextContent.Trim() == "Extract");
         extractButton.Click();
+        Assert.Equal(1, apiClient.ExtractEventDataCallCount);
+        Assert.Equal(0, apiClient.CreateEventCallCount);
 
         // Wait for async operations to complete and assert eventual values
         comp.WaitForAssertion(() =>
         {
             // Find Event name label and input value
-            var label = comp.FindAll("label").First(l => l.TextContent.Contains("Event name"));
+            var label = comp.FindAll("label").Last(l => l.TextContent.Contains("Event name"));
             var input = label.GetElementsByTagName("input").First();
             Assert.Equal("Extracted Event Name", input.GetAttribute("value"));
 
             // Location input
-            var locLabel = comp.FindAll("label").First(l => l.TextContent.Contains("Location"));
+            var locLabel = comp.FindAll("label").Last(l => l.TextContent.Contains("Location"));
             var locInput = locLabel.GetElementsByTagName("input").First();
             Assert.Equal("Extracted Location", locInput.GetAttribute("value"));
+
+            var officialWebsiteInput = comp.Find("#event-official-website");
+            Assert.Equal("https://official.example/", officialWebsiteInput.GetAttribute("value"));
+            var cfpInput = comp.Find("#event-call-for-papers-website");
+            Assert.Equal("https://cfp.example/", cfpInput.GetAttribute("value"));
+            Assert.Equal("2026-09-10", comp.FindAll("input[type=date]")[0].GetAttribute("value"));
+            Assert.Equal("2026-09-12", comp.FindAll("input[type=date]")[1].GetAttribute("value"));
+            Assert.Equal("2026-09-01", comp.FindAll("input[type=date]")[2].GetAttribute("value"));
         }, timeout: TimeSpan.FromSeconds(2));
     }
 }
