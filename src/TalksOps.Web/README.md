@@ -85,12 +85,14 @@ Relevant settings (JSON or environment/user-secrets configuration):
 | --- | --- |
 | `TalksOpsApi:BaseAddress` | Functions host base URL; defaults to `http://localhost:7071/`. |
 | `TalksOpsApi:FunctionKey` | Optional server-side Function key sent as `x-functions-key`; configure only when the local host requires it. |
-| `Features:AiExtraction` | Shows or hides the AI event extraction controls in the event editor. Defaults to `false` in `appsettings.json`; `appsettings.Development.json` sets it to `true` for local development. |
+| `Features:AiExtraction` | Shows or hides the extraction dropdown beside **New event** on the Events page. Defaults to `false` in `appsettings.json`; `appsettings.Development.json` sets it to `true` for local development. |
 | `Authentication:UseFakeAccount` | Development-only switch for local cookie sign-in. It is honored only in the Development environment. |
 | `Authentication:FakeAccountId` / `Authentication:FakeAccountName` | Optional identity values for the local fake account. |
 | `AzureAd:Instance`, `AzureAd:TenantId`, `AzureAd:ClientId`, `AzureAd:CallbackPath` | OpenID Connect configuration when fake account mode is disabled. Keep client secrets in user secrets or another secret store. |
 
-Set `Features:AiExtraction` to `true` to expose **Extract from URL** in the event editor, or `false` to keep the manual event workflow only. For example, use `Features__AiExtraction=true` as an environment variable, or set the value in the appropriate `appsettings` file. The Azure deployment controls the same flag through the `aiExtractionEnabled` parameter in [infra/main.bicep](../../infra/main.bicep), which defaults to `false`.
+Set `Features:AiExtraction` to `true` to expose the dropdown beside **New event**, or `false` to keep the manual event workflow only. Choose **Extract from URL** to open a separate call-for-papers URL dialog. A successful extraction closes that dialog and opens a new, unsaved event draft with the extracted values. Invalid URLs and extraction errors stay inside the extraction dialog, preserving the URL for correction or retry. Controls are disabled while extraction is running; **Cancel** dismisses the dialog when idle. The event editor itself does not offer extraction.
+
+For example, use `Features__AiExtraction=true` as an environment variable, or set the value in the appropriate `appsettings` file. The Azure deployment controls the same flag through the `aiExtractionEnabled` parameter in [infra/main.bicep](../../infra/main.bicep), which defaults to `false`.
 
 This flag controls only the Web UI. Extraction also requires the Functions backend to be configured with its Foundry deployment and rate-limit settings; see [TalksOps.Functions configuration](../TalksOps.Functions/README.md).
 
