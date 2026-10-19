@@ -22,6 +22,9 @@ param loginEndpoint string
 @description('Application Insights connection string.')
 param appInsightsConnectionString string
 
+@description('Whether the AI event extraction feature is available in the web UI.')
+param aiExtractionEnabled bool = false
+
 @description('Common resource tags.')
 param tags object
 
@@ -102,6 +105,10 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value: appInsightsConnectionString
+        }
+        {
+          name: 'Features__AiExtraction'
+          value: aiExtractionEnabled ? 'true' : 'false'
         }
       ]
     }

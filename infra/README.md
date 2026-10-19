@@ -5,6 +5,7 @@ The AZD project provisions a subscription-scoped Bicep deployment in `infra/main
 ## Modules and access
 
 - `modules/storage.bicep` creates the application data storage account and the `TalksOps` table. Shared-key access is disabled.
+- `modules/foundry.bicep` creates the Microsoft Foundry account and `c4pextraction` project, with a `gpt-4.1-nano` Global Standard deployment. The Function identity receives Foundry User at project scope for inference.
 - `modules/backend.bicep` creates a separate Functions storage account and private deployment package container, then creates the .NET isolated 10 Flex Consumption app and grants its identity Storage Blob Data Owner on that account. `AzureWebJobsStorage__accountName` and deployment storage point to this account; both use the Function App's system-assigned managed identity. The backend module completes this role assignment before the Key Vault module reads the host key.
 - `modules/frontend.bicep` creates the Linux App Service, which uses Key Vault references for both authentication and the Function key.
 - `modules/keyvault.bicep` creates the RBAC-mode Key Vault and the `function-api-key` secret. It reads the generated default host key from the Function App with the ARM `listKeys` function and writes that value directly to the vault; the key is not a Bicep output or parameter.
@@ -29,6 +30,7 @@ Queries, ownership checks, updates, and cascading proposal deletion use these sa
 
 - .NET 10 SDK, Azure CLI, Azure Developer CLI, and Bicep CLI.
 - An Azure subscription and region in which the selected App Service, Flex Consumption, Storage, Key Vault, and monitoring resources are available.
+- The selected region must support the Microsoft Foundry account and `gpt-4.1-nano` Global Standard deployment. Model availability does not guarantee subscription quota or deployment capacity; check both for the target subscription before provisioning.
 - AZD permissions to deploy at subscription scope, create the resource group, and create its resources and role assignments. The deployment identity is granted Key Vault Secrets Officer on the new vault by Bicep.
 - Microsoft Graph permission to create, update, and delete applications and service principals in the selected Entra tenant. Tenant policy may require administrator approval. The application accepts personal Microsoft accounts; it is not an App Service Easy Auth configuration.
 - The deployer must be able to create and delete service principals and manage application credentials through Microsoft Graph. Client credentials expire after two years; rotate the Key Vault secret and app registration credential before expiry.
@@ -54,6 +56,8 @@ azd up -e talksops-dev
 ```
 
 `AZURE_WEB_PLAN_SKU` selects the Linux App Service plan SKU for the web app and defaults to `B1`. Set it before provisioning to choose another SKU, for example `azd env set AZURE_WEB_PLAN_SKU F1`; examples also include `S1` and `P1v3`. Free and Shared tiers run without Always On. SKU availability depends on the selected Azure region.
+
+AI event extraction is disabled by default through the `aiExtractionEnabled` Bicep parameter. Enable it explicitly only after Foundry access and model capacity are ready. The backend rate limit defaults to one extraction request per user per 60-second window and can be configured with `eventExtractionRateLimitPermitLimit` and `eventExtractionRateLimitWindowSeconds`; it is per Function App instance, so scale-out increases the aggregate allowance.
 
 ### AZD lifecycle hooks
 

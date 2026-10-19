@@ -1,3 +1,4 @@
+using System.Globalization;
 using Azure.Data.Tables;
 using System.Threading.RateLimiting;
 using Microsoft.Azure.Functions.Worker;
@@ -23,14 +24,27 @@ builder.Services.AddScoped<ICurrentUserContext>(services => services.GetRequired
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<ISessionProposalService, SessionProposalService>();
 builder.Services.AddScoped<IEventImportExportService, EventImportExportService>();
+var extractionRateLimitPermitLimit = int.Parse(
+    builder.Configuration["EventDataExtraction:RateLimit:PermitLimit"] ?? "1",
+    NumberStyles.None,
+    CultureInfo.InvariantCulture);
+var extractionRateLimitWindowSeconds = int.Parse(
+    builder.Configuration["EventDataExtraction:RateLimit:WindowSeconds"] ?? "60",
+    NumberStyles.None,
+    CultureInfo.InvariantCulture);
+if (extractionRateLimitPermitLimit < 1 || extractionRateLimitWindowSeconds < 1)
+{
+    throw new InvalidOperationException("Event extraction rate-limit values must be greater than zero.");
+}
+
 builder.Services.AddSingleton<PartitionedRateLimiter<string>>(_ =>
     PartitionedRateLimiter.Create<string, string>(userId =>
         RateLimitPartition.GetFixedWindowLimiter(
             userId,
             _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 1,
-                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = extractionRateLimitPermitLimit,
+                Window = TimeSpan.FromSeconds(extractionRateLimitWindowSeconds),
                 QueueLimit = 0,
                 AutoReplenishment = true
             })));
