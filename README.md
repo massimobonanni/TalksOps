@@ -1,6 +1,14 @@
 ![TalksOps](src/TalksOps.Web/wwwroot/images/TalksOps-logo.svg)
 
-TalksOps is a .NET 10 application for managing speaking events, session proposals, and an annual calendar. A server-side Blazor application calls an Azure Functions API; Azure Tables stores application data.
+TalksOps is a .NET 10 application for managing speaking events, session proposals, and an annual calendar. Its six projects separate the domain and services, Azure Tables persistence, the REST client and Functions API, the AI extraction implementation, and the server-side Blazor application.
+
+## Features
+
+- Manage events with dates, location, official and call-for-papers URLs, CFP deadlines, and named costs.
+- Track session proposals per event, including abstracts, notes, submission dates, and lifecycle status.
+- View events and proposal status in an annual calendar, with on-demand event and proposal details.
+- Import and export events and proposals as version 1 JSON. Exports can be date-filtered; imports are additive and assign new IDs to the current user.
+- Optionally extract event details from a public call-for-papers page. The AI-assisted workflow fetches and cleans the page, asks a Microsoft Foundry model for structured event fields, and opens an editable, unsaved draft. The user reviews and saves it through the normal event workflow. Extraction is disabled by default and requires both UI enablement and backend Foundry configuration; requests are rate-limited per user and Function App instance.
 
 ## Documentation
 
@@ -52,16 +60,23 @@ This teardown deletes the provisioned data as well. Review the target subscripti
 
 ```mermaid
 flowchart LR
-	Browser[Browser] --> Web[Blazor Server BFF]
-	Web -->|OpenID Connect| Identity[Microsoft identity platform]
-	Web -->|Server-side HTTP and Function key| Api[Azure Functions API]
-	Api --> Core[Core business services]
-	Core --> Storage[Storage repositories]
-	Storage -->|Managed identity in Azure| Tables[Azure Tables]
-	Vault[Key Vault] -->|Managed identity and secret references| Web
-	Web -.-> Insights[Application Insights]
-	Api -.-> Insights
+    Browser[Browser] --> Web[TalksOps.Web<br/>Blazor Server BFF]
+    Web -->|OpenID Connect| Identity[Microsoft identity platform]
+    Web -->|Server-side API calls and Function key| Api[TalksOps.Functions<br/>HTTP API]
+    Api --> Core[TalksOps.Core<br/>Domain and application services]
+    Core --> Storage[TalksOps.Storage<br/>Azure Tables repositories]
+    Storage -->|Managed identity| Tables[(Azure Table: TalksOps)]
+    Api -->|POST /api/events/extract| AI[TalksOps.AI<br/>Extraction service]
+    AI -->|HTTPS fetch and cleaned page content| Page[Public CFP page]
+    AI -->|Model request| Foundry[Microsoft Foundry<br/>gpt-4.1-nano]
+    Api -->|Managed identity| Foundry
+    Api -.->|Structured fields for an unsaved draft| Web
+    Vault[Key Vault] -->|Secret references| Web
+    Web -.-> Insights[Application Insights]
+    Api -.-> Insights
 ```
+
+The Web app is the authenticated backend-for-frontend: it keeps the Function key server-side and derives the user ID from the signed-in principal. The Functions API handles event, proposal, calendar, and import/export requests through Core services; Storage repositories persist application data in Azure Tables. For AI extraction, the API delegates to the separate `TalksOps.AI` project, which retrieves a public CFP page and calls the configured Foundry deployment. Extracted fields return to the Web app as a draft and are not persisted until the user saves the event.
 
 ## Functions API security and configuration
 
