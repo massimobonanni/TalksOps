@@ -85,7 +85,7 @@ Relevant settings (JSON or environment/user-secrets configuration):
 | --- | --- |
 | `TalksOpsApi:BaseAddress` | Functions host base URL; defaults to `http://localhost:7071/`. |
 | `TalksOpsApi:FunctionKey` | Optional server-side Function key sent as `x-functions-key`; configure only when the local host requires it. |
-| `Features:AiExtraction` | Shows or hides the extraction dropdown beside **New event** on the Events page. Defaults to `false` in `appsettings.json`; `appsettings.Development.json` sets it to `true` for local development. |
+| `Features:AiExtraction` | Shows or hides the extraction dropdown beside **New event** on the Events page. Defaults to `false` in both `appsettings.json` and `appsettings.Development.json`; enable it only when the Functions backend is configured for extraction. |
 | `Authentication:UseFakeAccount` | Development-only switch for local cookie sign-in. It is honored only in the Development environment. |
 | `Authentication:FakeAccountId` / `Authentication:FakeAccountName` | Optional identity values for the local fake account. |
 | `AzureAd:Instance`, `AzureAd:TenantId`, `AzureAd:ClientId`, `AzureAd:CallbackPath` | OpenID Connect configuration when fake account mode is disabled. Keep client secrets in user secrets or another secret store. |
@@ -94,7 +94,7 @@ Set `Features:AiExtraction` to `true` to expose the dropdown beside **New event*
 
 For example, use `Features__AiExtraction=true` as an environment variable, or set the value in the appropriate `appsettings` file. The Azure deployment controls the same flag through the `aiExtractionEnabled` parameter in [infra/main.bicep](../../infra/main.bicep), which defaults to `false`.
 
-This flag controls only the Web UI. Extraction also requires the Functions backend to be configured with its Foundry deployment and rate-limit settings; see [TalksOps.Functions configuration](../TalksOps.Functions/README.md).
+This flag controls only the Web UI. For local extraction, also configure `FoundryEndpoint`, `FoundryProjectName`, and `FoundryDeploymentName` in the Functions host settings, and sign in with Azure credentials authorized to invoke that Foundry deployment. Without those backend settings, the API returns `Event extraction is not configured.` See [TalksOps.Functions configuration](../TalksOps.Functions/README.md).
 
 Run the Functions API first on port 7071 as described in [TalksOps.Functions](../TalksOps.Functions/README.md). Then run the Web project:
 

@@ -118,6 +118,8 @@ Prerequisites: .NET 10 SDK, Azure Functions Core Tools v4, and Azurite with Blob
 
 The rate-limit settings are optional and default to one extraction request per user per 60-second window when omitted. `EventDataExtraction__RateLimit__PermitLimit` sets the request count, and `EventDataExtraction__RateLimit__WindowSeconds` sets the window length; both must be positive integers. The limiter is held in memory per Function App instance, so scaling out increases the aggregate allowance.
 
+Event extraction is registered only when all three Foundry settings are present: `FoundryEndpoint` (the HTTPS resource endpoint), `FoundryProjectName`, and `FoundryDeploymentName`. Add them to the local Functions settings to enable extraction locally. The process identity must also be signed in through `DefaultAzureCredential` and authorized to use the Foundry deployment. If these settings are absent, the extraction endpoint returns HTTP 503 with `Event extraction is not configured.` Keep these values environment-specific; do not commit deployment-specific endpoints or credentials.
+
 Start Azurite in one terminal, then run the Functions host from this project directory:
 
 ```powershell
