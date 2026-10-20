@@ -149,6 +149,21 @@ Lifecycle values: `Submitted`, `Accepted`, `Rejected`, and `Cancelled`.
 
 All asynchronous service and repository methods accept an optional `CancellationToken`. Nullable return values from get/update operations indicate that the requested record was not found or is not owned by the caller.
 
+## AI event extraction
+
+The extraction contracts live in `Contracts`, while the data types exchanged by those contracts live in `Extraction`. This keeps the application boundary in Core and lets the AI implementation and Functions layer depend on shared contracts without Core depending on AI libraries.
+
+| Type | Members and behavior |
+| --- | --- |
+| `IEventPageFetcher` | `FetchAsync` downloads page HTML from a public HTTP(S) URL. |
+| `IEventHtmlCleaner` | `Clean` converts page HTML into concise model input and resolves links against the source URI. |
+| `IEventDataChatClient` | Exposes `DeploymentName` and `CompleteAsync`, which returns model content with input/output token usage metadata. |
+| `IEventDataExtractionService` | `ExtractAsync` fetches and extracts event details for a source URL and user ID. |
+| `EventDataModelResponse` | Model content, deployment name, and optional input/output token counts returned by a chat client. |
+| `ExtractedEventData` | Optional event name, location, website and CFP URLs, CFP deadline, and start/end dates. |
+
+The interfaces and records are in the `TalksOps.Core.Contracts` and `TalksOps.Core.Extraction` namespaces respectively. Their asynchronous methods support cancellation through an optional `CancellationToken`.
+
 ## Import and export
 
 `IEventImportExportService` exports the current user's events and their sessions as JSON. Each event contains its source `id`, `name`, `location`, optional website and call-for-papers URLs/deadline, `startDate`, `endDate`, named decimal `costs`, and `sessions`. Each session contains its source `id`, `title`, `abstract`, `notes`, optional `submissionDate` (`yyyy-MM-dd`), `status`, `createdAt`, and `updatedAt`; statuses are serialized by name. Optional `from` and `to` dates in the document are inclusive and select events whose date range overlaps the requested range. The document uses schema version `1`. The submission date is optional, so older version 1 documents without it import with no date; event costs can also be omitted and then import as empty. An import is additive: source IDs are replaced with new IDs, and all imported events and sessions are assigned to the current user. See [`Export/example-export.json`](Export/example-export.json) for a complete example of the current format.

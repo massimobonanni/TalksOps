@@ -1,4 +1,6 @@
-namespace TalksOps.AI;
+using TalksOps.Core.Extraction;
+
+namespace TalksOps.Core.Contracts;
 
 /// <summary>Generates structured event data from a prepared extraction prompt.</summary>
 public interface IEventDataChatClient

@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using TalksOps.AI;
 using TalksOps.Core.Contracts;
+using TalksOps.Core.Extraction;
 using TalksOps.Core.Services;
 using TalksOps.Functions;
 using TalksOps.Storage;
@@ -57,6 +58,7 @@ if (Uri.TryCreate(foundryEndpoint, UriKind.Absolute, out var parsedFoundryEndpoi
     && !string.IsNullOrWhiteSpace(foundryDeploymentName))
 {
     builder.Services.AddSingleton<IEventPageFetcher, PublicEventPageFetcher>();
+    builder.Services.AddSingleton<IEventHtmlCleaner, AngleSharpEventHtmlCleaner>();
     builder.Services.AddSingleton<IEventDataChatClient>(new FoundryEventDataChatClient(
         parsedFoundryEndpoint,
         foundryProjectName,

@@ -1,12 +1,15 @@
 using System.Globalization;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using TalksOps.Core.Contracts;
+using TalksOps.Core.Extraction;
 
 namespace TalksOps.AI;
 
 /// <summary>Fetches a CFP page and extracts event details using a Foundry deployment.</summary>
 public sealed class EventDataExtractionService(
     IEventPageFetcher pageFetcher,
+    IEventHtmlCleaner htmlCleaner,
     IEventDataChatClient chatClient,
     ILogger<EventDataExtractionService> logger) : IEventDataExtractionService
 {
@@ -24,6 +27,7 @@ public sealed class EventDataExtractionService(
         ArgumentException.ThrowIfNullOrWhiteSpace(sourcePageUrl);
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
         ArgumentNullException.ThrowIfNull(pageFetcher);
+        ArgumentNullException.ThrowIfNull(htmlCleaner);
         ArgumentNullException.ThrowIfNull(chatClient);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -33,9 +37,10 @@ public sealed class EventDataExtractionService(
             chatClient.DeploymentName);
 
         var html = await pageFetcher.FetchAsync(sourcePageUrl, cancellationToken);
+        var cleanedHtml = htmlCleaner.Clean(html, new Uri(sourcePageUrl, UriKind.Absolute));
         var prompt = PromptProvider.LoadExtractEventDataPromptText()
             .Replace("[SOURCE_PAGE_URL]", sourcePageUrl, StringComparison.Ordinal)
-            .Replace("[HTML_CONTENT]", html, StringComparison.Ordinal);
+            .Replace("[HTML_CONTENT]", cleanedHtml, StringComparison.Ordinal);
         var response = await chatClient.CompleteAsync(prompt, cancellationToken);
         logger.LogInformation(
             "Event extraction model usage for user {UserId} with deployment {DeploymentName}: input tokens {InputTokens}, output tokens {OutputTokens}.",

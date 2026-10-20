@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using TalksOps.AI;
+using TalksOps.Core.Contracts;
+using TalksOps.Core.Extraction;
 
 namespace TalksOps.AI.Tests;
 
@@ -23,6 +25,7 @@ public sealed class EventDataExtractionTests
             """);
         var service = new EventDataExtractionService(
             pageFetcher,
+            new AngleSharpEventHtmlCleaner(),
             modelClient,
             NullLogger<EventDataExtractionService>.Instance);
 
@@ -33,7 +36,8 @@ public sealed class EventDataExtractionTests
         Assert.Equal("04/05/2027", result.StartDate);
         Assert.Equal("06/05/2027", result.EndDate);
         Assert.Contains("https://example.org/cfp", modelClient.Prompt);
-        Assert.Contains("<html>Conference content</html>", modelClient.Prompt);
+        Assert.Contains("Conference content", modelClient.Prompt);
+        Assert.DoesNotContain("<html>", modelClient.Prompt);
         Assert.DoesNotContain("[SOURCE_PAGE_URL]", modelClient.Prompt);
         Assert.DoesNotContain("[HTML_CONTENT]", modelClient.Prompt);
     }
@@ -68,6 +72,7 @@ public sealed class EventDataExtractionTests
     private static EventDataExtractionService CreateService(string content) =>
         new(
             new StubPageFetcher("<html></html>"),
+            new AngleSharpEventHtmlCleaner(),
             new StubChatClient(content),
             NullLogger<EventDataExtractionService>.Instance);
 

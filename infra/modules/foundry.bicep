@@ -17,11 +17,13 @@ resource foundryAccount 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   sku: {
     name: 'S0'
   }
+  identity: {
+    type: 'SystemAssigned'
+  }
   tags: tags
   properties: {
     allowProjectManagement: true
     customSubDomainName: foundryAccountName
-    disableLocalAuth: true
     publicNetworkAccess: 'Enabled'
   }
 }
@@ -31,6 +33,9 @@ resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-0
   name: projectName
   location: location
   tags: tags
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     description: 'TalksOps event data extraction'
     displayName: 'TalksOps event data extraction'
@@ -40,9 +45,12 @@ resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-0
 resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
   parent: foundryAccount
   name: deploymentName
+  dependsOn: [
+    foundryProject
+  ]
   sku: {
     name: 'GlobalStandard'
-    capacity: 1
+    capacity: 50
   }
   properties: {
     model: {

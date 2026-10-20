@@ -1,4 +1,4 @@
-namespace TalksOps.AI;
+namespace TalksOps.Core.Contracts;
 
 /// <summary>Fetches HTML from a publicly reachable HTTP(S) page.</summary>
 public interface IEventPageFetcher

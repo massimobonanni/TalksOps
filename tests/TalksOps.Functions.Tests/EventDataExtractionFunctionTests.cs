@@ -7,6 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using TalksOps.AI;
 using TalksOps.ApiClient.Contracts;
+using TalksOps.Core.Contracts;
+using TalksOps.Core.Extraction;
 using TalksOps.Functions;
 
 namespace TalksOps.Functions.Tests;

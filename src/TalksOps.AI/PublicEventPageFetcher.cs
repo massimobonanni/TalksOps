@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using TalksOps.Core.Contracts;
 
 namespace TalksOps.AI;
 

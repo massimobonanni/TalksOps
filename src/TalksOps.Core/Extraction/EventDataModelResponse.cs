@@ -1,4 +1,4 @@
-namespace TalksOps.AI;
+namespace TalksOps.Core.Extraction;
 
 /// <summary>Contains the model output and the usage metadata returned by Foundry.</summary>
 public sealed record EventDataModelResponse(

@@ -1,4 +1,4 @@
-namespace TalksOps.AI;
+namespace TalksOps.Core.Extraction;
 
 /// <summary>Event data extracted from a call-for-papers page.</summary>
 public sealed record ExtractedEventData(

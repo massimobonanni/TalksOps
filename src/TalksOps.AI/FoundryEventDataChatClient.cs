@@ -3,6 +3,8 @@ using Azure.Identity;
 using OpenAI;
 using OpenAI.Chat;
 using System.ClientModel.Primitives;
+using TalksOps.Core.Contracts;
+using TalksOps.Core.Extraction;
 
 namespace TalksOps.AI;
 

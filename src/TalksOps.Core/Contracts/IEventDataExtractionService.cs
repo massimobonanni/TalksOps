@@ -1,4 +1,6 @@
-namespace TalksOps.AI;
+using TalksOps.Core.Extraction;
+
+namespace TalksOps.Core.Contracts;
 
 /// <summary>Extracts event information from a call-for-papers page.</summary>
 public interface IEventDataExtractionService

@@ -6,6 +6,8 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using TalksOps.AI;
 using TalksOps.ApiClient.Contracts;
+using TalksOps.Core.Contracts;
+using TalksOps.Core.Extraction;
 
 namespace TalksOps.Functions;
 
