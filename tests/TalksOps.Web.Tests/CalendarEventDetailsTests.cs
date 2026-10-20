@@ -14,6 +14,47 @@ namespace TalksOps.Web.Tests;
 public sealed class CalendarEventDetailsTests : BunitContext
 {
     [Fact]
+    public void CalendarCallForPapersLink_ShowsDeadlineStatusAndRemainingDays()
+    {
+        using var handler = new DetailsHandler
+        {
+            CalendarCallForPapersUrl = "https://example.com/cfp",
+            CalendarCallForPapersDeadline = DateOnly.FromDateTime(DateTime.Today).AddDays(3)
+        };
+        var component = this.RenderCalendar(handler);
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(".call-for-papers-link")));
+
+        var link = component.Find(".call-for-papers-link");
+        Assert.Contains("deadline-soon", link.GetAttribute("class"));
+        Assert.Equal("3 days", component.Find(".calendar-cfp-row .deadline-count").TextContent);
+    }
+
+    [Fact]
+    public void CalendarCallForPapersLink_WithoutDeadlineIsBlackAndHasNoLabel()
+    {
+        using var handler = new DetailsHandler { CalendarCallForPapersUrl = "https://example.com/cfp" };
+        var component = this.RenderCalendar(handler);
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(".call-for-papers-link")));
+
+        Assert.Contains("deadline-unset", component.Find(".call-for-papers-link").GetAttribute("class"));
+        Assert.Empty(component.FindAll(".calendar-cfp-row .deadline-count"));
+    }
+
+    [Fact]
+    public void CalendarCallForPapersLink_WithoutUrlShowsNothing()
+    {
+        using var handler = new DetailsHandler { CalendarCallForPapersDeadline = DateOnly.FromDateTime(DateTime.Today).AddDays(3) };
+        var component = this.RenderCalendar(handler);
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(".calendar-event")));
+
+        Assert.Empty(component.FindAll(".call-for-papers-link"));
+        Assert.Empty(component.FindAll(".calendar-cfp-row .deadline-count"));
+    }
+
+    [Fact]
     public void Open_LoadsDetailsOnDemandAndShowsEveryProposalStatus()
     {
         using var handler = new DetailsHandler();
@@ -182,6 +223,8 @@ public sealed class CalendarEventDetailsTests : BunitContext
         public bool FailProposals { get; set; }
         public bool MissingEvent { get; set; }
         public bool IncludeSecondEvent { get; set; }
+        public string? CalendarCallForPapersUrl { get; set; }
+        public DateOnly? CalendarCallForPapersDeadline { get; set; }
         public Guid SecondEventId { get; } = Guid.NewGuid();
         public TaskCompletionSource<HttpResponseMessage>? DelayedEvent { get; set; }
 
@@ -192,7 +235,9 @@ public sealed class CalendarEventDetailsTests : BunitContext
             {
                 var events = new List<CalendarEventDto>
                 {
-                    new(this.Event.Id, this.Event.Name, this.Event.StartDate, this.Event.EndDate, ["Submitted"])
+                    new(this.Event.Id, this.Event.Name, this.Event.StartDate, this.Event.EndDate, ["Submitted"],
+                        CallForPapersUrl: this.CalendarCallForPapersUrl,
+                        CallForPapersDeadline: this.CalendarCallForPapersDeadline)
                 };
                 if (this.IncludeSecondEvent)
                 {

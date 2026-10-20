@@ -205,6 +205,10 @@ input:focus, textarea:focus, select:focus { outline: 2px solid #6ba88c; outline-
 .calendar-event.state-submitted { border-color: var(--status-submitted); }
 .calendar-event.state-rejected { border-color: var(--status-rejected); }
 .calendar-event.state-cancelled, .calendar-event.state-none { border-color: var(--status-cancelled); }
+.calendar-cfp-row { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .6rem; }
+.calendar-cfp-row .call-for-papers-link { margin-top: 0; }
+.calendar-cfp-row .deadline-count { display: inline-flex; margin-top: 0; }
+.deadline-unset { color: #000; }
 .calendar-date { color: #506260; font-size: .78rem; font-weight: 700; }
 .calendar-event h3 { margin: 0; font-size: .95rem; }
 .calendar-event-actions { display: flex; align-items: center; justify-content: end; gap: .5rem; }

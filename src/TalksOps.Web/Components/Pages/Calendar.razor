@@ -50,6 +50,9 @@ else
                     @foreach (var eventItem in monthEvents)
                     {
                         var state = CalendarStateClassifier.GetState(eventItem.ProposalStatuses);
+                        var deadlineStatus = eventItem.CallForPapersDeadline is DateOnly deadline
+                            ? CallForPapersDeadlineClassifier.Classify(deadline, DateOnly.FromDateTime(DateTime.Today))
+                            : (CallForPapersDeadlineStatus?)null;
                         <article class="calendar-event state-@state">
                             <span class="calendar-date">@eventItem.StartDate.ToString("MMM d")@(eventItem.EndDate != eventItem.StartDate ? $" - {eventItem.EndDate:MMM d}" : string.Empty)</span>
                             <div>
@@ -65,7 +68,13 @@ else
                                 </h3>
                                 @if (!string.IsNullOrWhiteSpace(eventItem.CallForPapersUrl))
                                 {
-                                    <a class="call-for-papers-link" href="@eventItem.CallForPapersUrl" target="_blank" rel="noopener noreferrer">call for paper</a>
+                                    <div class="calendar-cfp-row">
+                                        <a class="call-for-papers-link @(deadlineStatus?.ColorClass ?? "deadline-unset")" href="@eventItem.CallForPapersUrl" target="_blank" rel="noopener noreferrer">call for paper</a>
+                                        @if (deadlineStatus is { } status)
+                                        {
+                                            <span class="status-pill deadline-count @status.ColorClass">@status.RemainingLabel</span>
+                                        }
+                                    </div>
                                 }
                             </div>
                             <div class="calendar-event-actions">
