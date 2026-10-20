@@ -15,7 +15,7 @@ Extract the following fields:
    The location where the event takes place. Return the most specific location supported by the HTML, such as venue, city, and country when available.
 
 3. Official Website
-   The URL of the event's official website. Do not use an organizer's website, venue website, registration provider, or social-media page unless the HTML explicitly identifies it as the event's official website.
+   The URL of the event's official website. Do not use venue website, registration provider, or social-media page unless the HTML explicitly identifies it as the event's official website.
 
 4. Call for Papers Website
    The URL of the page containing the event's call for papers, submissions, or paper-submission information.
