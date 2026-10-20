@@ -15,6 +15,7 @@ TalksOps is a .NET 10 application for managing speaking events, session proposal
 - [Source code guide and class diagrams](src/README.md)
 - [Infrastructure, architecture, and provisioning guide](infra/README.md)
 - [Core domain and business services](src/TalksOps.Core/README.md)
+- [AI event extraction](src/TalksOps.AI/README.md)
 - [REST contracts and HTTP client](src/TalksOps.ApiClient/README.md)
 - [Azure Tables persistence](src/TalksOps.Storage/README.md)
 - [Functions API](src/TalksOps.Functions/README.md)

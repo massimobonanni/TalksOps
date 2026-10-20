@@ -1,12 +1,13 @@
 # Source code guide
 
-`src` contains the five .NET 10 projects that implement TalksOps: domain and application services, Azure Tables persistence, an HTTP Functions API, a typed API client, and a server-side Blazor web application.
+`src` contains the six .NET 10 projects that implement TalksOps: domain and application services, AI event extraction, Azure Tables persistence, an HTTP Functions API, a typed API client, and a server-side Blazor web application.
 
 ## Project map
 
 | Project | Responsibility | Detailed documentation |
 | --- | --- | --- |
 | `TalksOps.Core` | Domain records, validation, service and repository contracts, and owner-scoped application services. | [TalksOps.Core](TalksOps.Core/README.md) |
+| `TalksOps.AI` | Public event-page fetching and cleaning, prompt-based extraction, and Microsoft Foundry integration. | [TalksOps.AI](TalksOps.AI/README.md) |
 | `TalksOps.Storage` | Azure Tables implementations of the event and proposal repositories. | [TalksOps.Storage](TalksOps.Storage/README.md) |
 | `TalksOps.ApiClient` | REST contracts and the typed HTTP client used by the web application. | [TalksOps.ApiClient](TalksOps.ApiClient/README.md) |
 | `TalksOps.Functions` | Function-key-protected HTTP endpoints that call Core services. | [TalksOps.Functions](TalksOps.Functions/README.md) |
