@@ -224,7 +224,7 @@ else
                     <div class="notice notice-error" role="alert">@this.EventEditorErrorMessage</div>
                 }
                 <div class="form-grid">
-                    <label>Event name<input required maxlength="160" @bind="this.EventName" /></label>
+                    <label>Event name<input required maxlength="160" @bind="this.EventName" @bind:event="oninput" @bind:after="this.RefreshDuplicateEventNameAsync" /></label>
                     <label>Location<input required maxlength="160" @bind="this.EventLocation" /></label>
                     <div class="website-field">
                         <label for="event-official-website">Official website</label>
@@ -251,7 +251,7 @@ else
                                     </a>
                                 }
                             </span>
-                            <input id="event-call-for-papers-website" type="url" maxlength="2048" @bind="this.EventCallForPapersUrl" @bind:event="oninput" />
+                            <input id="event-call-for-papers-website" type="url" maxlength="2048" @bind="this.EventCallForPapersUrl" @bind:event="oninput" @bind:after="this.RefreshEventOverlapAsync" />
                         </div>
                     </div>
                     <label>Event Start date<input type="date" required @bind="this.EventStartDate" @bind:after="this.OnEventStartDateChangedAsync" /></label>
@@ -266,6 +266,14 @@ else
                 else if (this.EventOverlapCheckError is not null)
                 {
                     <p class="notice notice-warning" role="status">Unable to check for overlapping events. You can still save this event.</p>
+                }
+                @if (this.HasDuplicateEvent)
+                {
+                    <p class="notice notice-warning" role="status">An event with the same title or call-for-papers URL and dates already exists.</p>
+                }
+                else if (this.DuplicateEventCheckError is not null)
+                {
+                    <p class="notice notice-warning" role="status">Unable to check for duplicate events. You can still save this event.</p>
                 }
                 <div class="form-actions"><button class="button button-primary" type="submit">Save event</button><button class="button button-quiet" type="button" @onclick="CloseEventEditor">Discard</button></div>
             </form>
@@ -286,8 +294,13 @@ else
     private int EventSearchRequestVersion;
     private bool IsEventEditorOpen;
     private bool HasEventOverlap;
+    private bool HasDuplicateEventTitle;
+    private bool HasDuplicateEventCallForPapers;
+    private bool HasDuplicateEvent => this.HasDuplicateEventTitle || this.HasDuplicateEventCallForPapers;
     private int EventOverlapRequestVersion;
     private string? EventOverlapCheckError;
+    private int DuplicateEventNameRequestVersion;
+    private string? DuplicateEventCheckError;
     private Guid? EventEditorId;
     private string EventName = string.Empty;
     private string EventLocation = string.Empty;
@@ -415,6 +428,7 @@ else
         this.ResetEventEditor();
         this.IsEventEditorOpen = true;
         await this.RefreshEventOverlapAsync();
+        await this.RefreshDuplicateEventNameAsync();
     }
 
     private void ResetEventEditor()
@@ -428,6 +442,9 @@ else
         this.EventName = this.EventLocation = this.EventOfficialWebsiteUrl = this.EventCallForPapersUrl = this.EventCosts = string.Empty;
         this.EventCallForPapersDeadline = null;
         this.EventStartDate = this.EventEndDate = DateTime.Today;
+        this.HasDuplicateEventTitle = false;
+        this.HasDuplicateEventCallForPapers = false;
+        this.DuplicateEventCheckError = null;
     }
 
     private async Task BeginEditEvent(EventDto eventItem)
@@ -447,12 +464,14 @@ else
         this.EventCosts = string.Join(Environment.NewLine, eventItem.Costs.Select(cost => $"{cost.Key}={cost.Value.ToString(CultureInfo.InvariantCulture)}"));
         this.IsEventEditorOpen = true;
         await this.RefreshEventOverlapAsync();
+        await this.RefreshDuplicateEventNameAsync();
     }
 
     private async Task RefreshEventOverlapAsync()
     {
         var requestVersion = ++this.EventOverlapRequestVersion;
         this.HasEventOverlap = false;
+        this.HasDuplicateEventCallForPapers = false;
         this.EventOverlapCheckError = null;
         if (!this.IsEventEditorOpen)
         {
@@ -496,6 +515,8 @@ else
                 .ToArray();
             this.HasEventOverlap = EventOverlapDetector.HasOverlap(
                 eventsToCheck, startDate, endDate, this.EventEditorId);
+            this.HasDuplicateEventCallForPapers = EventDuplicateDetector.HasSameCallForPapersAndDates(
+                eventsToCheck, this.EventCallForPapersUrl, startDate, endDate, this.EventEditorId);
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException)
         {
@@ -506,6 +527,51 @@ else
         }
         finally
         {
+        }
+    }
+
+    private async Task RefreshDuplicateEventNameAsync()
+    {
+        var requestVersion = ++this.DuplicateEventNameRequestVersion;
+        this.HasDuplicateEventTitle = false;
+        this.DuplicateEventCheckError = null;
+        var title = this.EventName.Trim();
+        if (!this.IsEventEditorOpen || title.Length == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            const int pageSize = 100;
+            var page = 1;
+            var totalCount = 0;
+            do
+            {
+                var result = await this.Api.SearchEventsAsync(new EventSearchRequest(
+                    Name: title, Page: page, PageSize: pageSize));
+                if (requestVersion != this.DuplicateEventNameRequestVersion)
+                {
+                    return;
+                }
+
+                if (EventDuplicateDetector.HasSameTitle(result.Items, title, this.EventEditorId))
+                {
+                    this.HasDuplicateEventTitle = true;
+                    return;
+                }
+
+                totalCount = result.TotalCount;
+                page++;
+            }
+            while ((page - 1) * pageSize < totalCount);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException)
+        {
+            if (requestVersion == this.DuplicateEventNameRequestVersion)
+            {
+                this.DuplicateEventCheckError = exception.Message;
+            }
         }
     }
 
@@ -598,6 +664,7 @@ else
             this.IsAiExtractionDialogOpen = false;
             this.IsEventEditorOpen = true;
             await this.RefreshEventOverlapAsync();
+            await this.RefreshDuplicateEventNameAsync();
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException)
         {
@@ -824,8 +891,12 @@ else
     private void CloseEventEditor()
     {
         this.EventOverlapRequestVersion++;
+        this.DuplicateEventNameRequestVersion++;
         this.HasEventOverlap = false;
+        this.HasDuplicateEventTitle = false;
+        this.HasDuplicateEventCallForPapers = false;
         this.EventOverlapCheckError = null;
+        this.DuplicateEventCheckError = null;
         this.EventEditorErrorMessage = null;
         this.IsEventEditorOpen = false;
     }
