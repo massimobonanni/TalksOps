@@ -1,9 +1,10 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using TalksOps.AI;
 using TalksOps.Core.Contracts;
 
-namespace TalksOps.AI;
+namespace TalksOps.AI.Services;
 
 /// <summary>Downloads bounded HTML from public HTTP(S) addresses without following unchecked redirects.</summary>
 public sealed class PublicEventPageFetcher : IEventPageFetcher, IDisposable

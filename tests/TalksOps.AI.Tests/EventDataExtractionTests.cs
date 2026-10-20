@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using TalksOps.AI;
+using TalksOps.AI.Providers;
+using TalksOps.AI.Services;
 using TalksOps.Core.Contracts;
 using TalksOps.Core.Extraction;
 

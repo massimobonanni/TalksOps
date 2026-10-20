@@ -6,7 +6,7 @@ using System.ClientModel.Primitives;
 using TalksOps.Core.Contracts;
 using TalksOps.Core.Extraction;
 
-namespace TalksOps.AI;
+namespace TalksOps.AI.Providers;
 
 /// <summary>Calls a Foundry project deployment using Microsoft Entra ID.</summary>
 public sealed class FoundryEventDataChatClient : IEventDataChatClient

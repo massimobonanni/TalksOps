@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace TalksOps.AI
+namespace TalksOps.AI.Providers
 {
     /// <summary>
     /// Helper to locate and read prompt files packaged with the TalksOps.AI project.

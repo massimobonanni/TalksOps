@@ -1,10 +1,12 @@
 using System.Globalization;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using TalksOps.AI;
+using TalksOps.AI.Providers;
 using TalksOps.Core.Contracts;
 using TalksOps.Core.Extraction;
 
-namespace TalksOps.AI;
+namespace TalksOps.AI.Services;
 
 /// <summary>Fetches a CFP page and extracts event details using a Foundry deployment.</summary>
 public sealed class EventDataExtractionService(

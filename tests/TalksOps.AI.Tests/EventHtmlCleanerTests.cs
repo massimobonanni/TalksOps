@@ -1,4 +1,4 @@
-using TalksOps.AI;
+using TalksOps.AI.Services;
 
 namespace TalksOps.AI.Tests;
 

@@ -33,6 +33,14 @@ flowchart LR
 | `PromptProvider` | Loads `PromptFiles/ExtractEventDataPrompt.txt` from the application output directory. |
 | `EventDataExtractionException` / `EventDataExtractionErrorCode` | Represents expected failures with a stable category for the Functions API to map to an HTTP response. |
 
+## Project structure
+
+| Folder | Contents |
+| --- | --- |
+| `Services/` | Event extraction orchestration, public event-page fetching, and HTML cleaning. |
+| `Providers/` | Foundry chat client and prompt-file provider. |
+| Project root | Shared extraction exception and error-code types. |
+
 The service depends on `IEventPageFetcher`, `IEventHtmlCleaner`, and `IEventDataChatClient` from Core. Extraction request and response records are also defined in Core (`ExtractedEventData` and `EventDataModelResponse`), keeping this implementation independent of the HTTP and persistence layers.
 
 ## Input and output

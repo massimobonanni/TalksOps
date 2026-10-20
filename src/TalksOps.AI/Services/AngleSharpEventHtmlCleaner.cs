@@ -2,9 +2,10 @@ using System.Text;
 using System.Text.Json;
 using AngleSharp.Dom;
 using AngleSharp.Html.Parser;
+using TalksOps.AI;
 using TalksOps.Core.Contracts;
 
-namespace TalksOps.AI;
+namespace TalksOps.AI.Services;
 
 /// <summary>Cleans event-page HTML using the AngleSharp HTML5 parser.</summary>
 public sealed class AngleSharpEventHtmlCleaner : IEventHtmlCleaner

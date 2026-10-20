@@ -6,6 +6,8 @@ using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using TalksOps.AI;
+using TalksOps.AI.Providers;
+using TalksOps.AI.Services;
 using TalksOps.Core.Contracts;
 using TalksOps.Core.Extraction;
 using TalksOps.Core.Services;
