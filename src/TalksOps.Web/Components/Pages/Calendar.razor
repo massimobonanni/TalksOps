@@ -15,7 +15,7 @@
     <span><i class="calendar-dot accepted"></i> Accepted</span><span><i class="calendar-dot submitted"></i> Submitted</span>
     <span><i class="calendar-dot rejected"></i> Rejected</span><span><i class="calendar-dot cancelled"></i> Cancelled</span>
 </div>
-<p class="calendar-note">Each circle represents a proposal and its current status. Event borders follow this precedence: Accepted, Submitted, Rejected, then Cancelled.</p>
+<p class="calendar-note">Each circle represents a proposal and its current status. Event borders follow this precedence: Accepted, Submitted, Rejected, then Cancelled. A red outline groups events with overlapping dates.</p>
 
 @if (!string.IsNullOrWhiteSpace(this.ErrorMessage))
 {
@@ -34,10 +34,10 @@ else
     <div class="calendar-months">
         @foreach (var monthNumber in Enumerable.Range(1, 12))
         {
+            var monthStart = new DateOnly(this.Year, monthNumber, 1);
+            var monthEnd = new DateOnly(this.Year, monthNumber, DateTime.DaysInMonth(this.Year, monthNumber));
             var monthEvents = this.Events
-                .Where(eventItem => eventItem.StartDate.Year <= this.Year && eventItem.EndDate.Year >= this.Year
-                    && eventItem.StartDate.Month <= monthNumber && eventItem.EndDate.Month >= monthNumber)
-                .OrderBy(eventItem => eventItem.StartDate)
+                .Where(eventItem => eventItem.StartDate <= monthEnd && eventItem.EndDate >= monthStart)
                 .ToList();
             <section class="calendar-month">
                 <h2>@CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(monthNumber)</h2>
@@ -47,51 +47,58 @@ else
                 }
                 else
                 {
-                    @foreach (var eventItem in monthEvents)
+                    @foreach (var group in EventOverlapDetector.GroupOverlappingEvents(monthEvents))
                     {
-                        var state = CalendarStateClassifier.GetState(eventItem.ProposalStatuses);
-                        var deadlineStatus = eventItem.CallForPapersDeadline is DateOnly deadline
-                            ? CallForPapersDeadlineClassifier.Classify(deadline, DateOnly.FromDateTime(DateTime.Today))
-                            : (CallForPapersDeadlineStatus?)null;
-                        <article class="calendar-event state-@state">
-                            <span class="calendar-date">@eventItem.StartDate.ToString("MMM d")@(eventItem.EndDate != eventItem.StartDate ? $" - {eventItem.EndDate:MMM d}" : string.Empty)</span>
-                            <div>
-                                <h3>
-                                    @if (!string.IsNullOrWhiteSpace(eventItem.OfficialWebsiteUrl))
-                                    {
-                                        <a class="event-title-link" href="@eventItem.OfficialWebsiteUrl" target="_blank" rel="noopener noreferrer">@eventItem.EventName</a>
-                                    }
-                                    else
-                                    {
-                                        @eventItem.EventName
-                                    }
-                                </h3>
-                                @if (!string.IsNullOrWhiteSpace(eventItem.CallForPapersUrl))
-                                {
-                                    <div class="calendar-cfp-row">
-                                        <a class="call-for-papers-link @(deadlineStatus?.ColorClass ?? "deadline-unset")" href="@eventItem.CallForPapersUrl" target="_blank" rel="noopener noreferrer">call for paper</a>
-                                        @if (deadlineStatus is { } status)
+                        <div class="@(group.Count > 1 ? "calendar-overlap-group" : null)"
+                             role="@(group.Count > 1 ? "group" : null)"
+                             aria-label="@(group.Count > 1 ? "Events with overlapping dates" : null)">
+                            @foreach (var eventItem in group)
+                            {
+                                var state = CalendarStateClassifier.GetState(eventItem.ProposalStatuses);
+                                var deadlineStatus = eventItem.CallForPapersDeadline is DateOnly deadline
+                                    ? CallForPapersDeadlineClassifier.Classify(deadline, DateOnly.FromDateTime(DateTime.Today))
+                                    : (CallForPapersDeadlineStatus?)null;
+                                <article class="calendar-event state-@state">
+                                    <span class="calendar-date">@eventItem.StartDate.ToString("MMM d")@(eventItem.EndDate != eventItem.StartDate ? $" - {eventItem.EndDate:MMM d}" : string.Empty)</span>
+                                    <div>
+                                        <h3>
+                                            @if (!string.IsNullOrWhiteSpace(eventItem.OfficialWebsiteUrl))
+                                            {
+                                                <a class="event-title-link" href="@eventItem.OfficialWebsiteUrl" target="_blank" rel="noopener noreferrer">@eventItem.EventName</a>
+                                            }
+                                            else
+                                            {
+                                                @eventItem.EventName
+                                            }
+                                        </h3>
+                                        @if (!string.IsNullOrWhiteSpace(eventItem.CallForPapersUrl))
                                         {
-                                            <span class="status-pill deadline-count @status.ColorClass">@status.RemainingLabel</span>
+                                            <div class="calendar-cfp-row">
+                                                <a class="call-for-papers-link @(deadlineStatus?.ColorClass ?? "deadline-unset")" href="@eventItem.CallForPapersUrl" target="_blank" rel="noopener noreferrer">call for paper</a>
+                                                @if (deadlineStatus is { } status)
+                                                {
+                                                    <span class="status-pill deadline-count @status.ColorClass">@status.RemainingLabel</span>
+                                                }
+                                            </div>
                                         }
                                     </div>
-                                }
-                            </div>
-                            <div class="calendar-event-actions">
-                            @if (eventItem.ProposalStatuses.Count > 0)
-                            {
-                                <span class="proposal-indicators" aria-label="@($"{eventItem.ProposalStatuses.Count} session proposals")">
-                                    @foreach (var status in eventItem.ProposalStatuses)
-                                    {
-                                        <span class="calendar-dot @CalendarStateClassifier.GetProposalState(status)" role="img" title="@status" aria-label="@($"Proposal status: {status}")"></span>
-                                    }
-                                </span>
+                                    <div class="calendar-event-actions">
+                                        @if (eventItem.ProposalStatuses.Count > 0)
+                                        {
+                                            <span class="proposal-indicators" aria-label="@($"{eventItem.ProposalStatuses.Count} session proposals")">
+                                                @foreach (var status in eventItem.ProposalStatuses)
+                                                {
+                                                    <span class="calendar-dot @CalendarStateClassifier.GetProposalState(status)" role="img" title="@status" aria-label="@($"Proposal status: {status}")"></span>
+                                                }
+                                            </span>
+                                        }
+                                        <button type="button" class="icon-button calendar-details-button" title="View event details" aria-label="@($"View details for {eventItem.EventName}")" aria-haspopup="dialog" @onclick="() => OpenEventDetailsAsync(eventItem)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
+                                        </button>
+                                    </div>
+                                </article>
                             }
-                                <button type="button" class="icon-button calendar-details-button" title="View event details" aria-label="@($"View details for {eventItem.EventName}")" aria-haspopup="dialog" @onclick="() => OpenEventDetailsAsync(eventItem)">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
-                                </button>
-                            </div>
-                        </article>
+                        </div>
                     }
                 }
             </section>

@@ -75,6 +75,8 @@ The shared layout, router, error/not-found pages, and static assets are under `C
 
 The calendar details dialog shows event location, dates, websites, call-for-papers deadline and itemized costs, followed by every proposal's title, abstract, notes, submission date and current status. It does not offer editing or status changes. Details are refreshed on each opening; calendar links and status indicators retain their existing behavior.
 
+Within each month, events with overlapping dates are grouped inside a single red outline, including events sharing only their start/end day and chains of overlapping events. Events spanning multiple months or years appear in each applicable month of the selected year; the outline groups only the events visible in that month. Individual event status borders and proposal indicators are unchanged.
+
 ## Local configuration and run
 
 Prerequisites: .NET 10 SDK and a running Functions API plus Azurite. `appsettings.Development.json` enables the local fake account by default (`Authentication:UseFakeAccount=true`); it issues a development cookie with a configurable fake ID/name and does not require Microsoft sign-in.
