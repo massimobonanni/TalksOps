@@ -26,8 +26,8 @@ public sealed class EventsProposalSummaryTests : BunitContext
         Assert.Single(component.FindAll(".proposal-indicators .submitted"));
         Assert.Single(component.FindAll(".proposal-indicators .rejected"));
         Assert.Single(component.FindAll(".proposal-indicators .cancelled"));
-        Assert.Equal("Proposal status: Submitted", component.Find(".submitted").GetAttribute("aria-label"));
-        Assert.Equal("Submitted", component.Find(".submitted").GetAttribute("title"));
+        Assert.Equal("Proposal status: Submitted", component.Find(".proposal-indicators .submitted").GetAttribute("aria-label"));
+        Assert.Equal("Submitted", component.Find(".proposal-indicators .submitted").GetAttribute("title"));
         Assert.Empty(component.FindAll(".detail-row"));
         Assert.Equal(1, handler.CalendarRequests);
         Assert.Equal(0, handler.ProposalRequests);
@@ -40,7 +40,7 @@ public sealed class EventsProposalSummaryTests : BunitContext
         var component = this.RenderEvents(handler);
 
         component.WaitForAssertion(() => Assert.Contains("Manage proposals (0)", SummaryText(component)));
-        Assert.Empty(component.FindAll(".calendar-dot"));
+        Assert.Empty(component.FindAll(".proposal-indicators .calendar-dot"));
     }
 
     [Fact]
@@ -98,7 +98,7 @@ public sealed class EventsProposalSummaryTests : BunitContext
         this.JSInterop.Setup<bool>("confirm", _ => true).SetResult(true);
         component.Find(".proposal-row .danger").Click();
         component.WaitForAssertion(() => Assert.Contains("Hide proposals (0)", SummaryText(component)));
-        Assert.Empty(component.FindAll(".calendar-dot"));
+        Assert.Empty(component.FindAll(".proposal-indicators .calendar-dot"));
         Assert.Empty(component.FindAll(".proposal-row"));
         component.Find(".proposal-summary button").Click();
         Assert.Contains("Manage proposals (0)", SummaryText(component));
@@ -140,7 +140,7 @@ public sealed class EventsProposalSummaryTests : BunitContext
 
         component.WaitForAssertion(() => Assert.Contains("Hide proposals (0)", SummaryText(component)));
         Assert.Empty(component.FindAll(".proposal-row"));
-        Assert.Empty(component.FindAll(".calendar-dot"));
+        Assert.Empty(component.FindAll(".proposal-indicators .calendar-dot"));
         Assert.Equal(2, handler.CalendarRequests);
     }
 
@@ -181,7 +181,7 @@ public sealed class EventsProposalSummaryTests : BunitContext
         var component = this.RenderEvents(handler);
         component.WaitForAssertion(() => Assert.Contains("Unable to load proposal summaries", component.Markup));
         Assert.Equal("Manage proposals", SummaryText(component));
-        Assert.Empty(component.FindAll(".calendar-dot"));
+        Assert.Empty(component.FindAll(".proposal-indicators .calendar-dot"));
 
         component.Find(".proposal-summary button").Click();
 

@@ -14,6 +14,17 @@ param location string
 @description('Linux App Service plan SKU for the web application.')
 param webPlanSku string = 'B1'
 
+@description('Enable the AI event extraction UI. Disabled by default.')
+param aiExtractionEnabled bool = false
+
+@description('Number of event extraction requests allowed per user in each rate-limit window.')
+@minValue(1)
+param eventExtractionRateLimitPermitLimit int = 1
+
+@description('Event extraction rate-limit window length in seconds.')
+@minValue(1)
+param eventExtractionRateLimitWindowSeconds int = 60
+
 @description('Object ID of the identity running AZD. It receives Key Vault Secrets Officer for deployment-time secret creation and the post-provision identity hook.')
 param deploymentPrincipalId string
 
@@ -34,6 +45,7 @@ var keyVaultName = take('${abbreviations.kv}-${compactProject}-${suffix}', 24)
 var webAppName = take('${abbreviations.app}-${environmentName}-web-${suffix}', 60)
 var functionAppName = take('${abbreviations.app}-${environmentName}-api-${suffix}', 60)
 var appInsightsName = take('${abbreviations.appi}-${environmentName}-${suffix}', 60)
+var foundryAccountName = take('${abbreviations.app}-${environmentName}-ai-${suffix}', 64)
 var workspaceName = take('${abbreviations.log}-${environmentName}-${suffix}', 63)
 var functionPlanName = take('${abbreviations.asp}-${environmentName}-api-${suffix}', 40)
 var webPlanName = take('${abbreviations.asp}-${environmentName}-web-${suffix}', 40)
@@ -71,6 +83,16 @@ module storage 'modules/storage.bicep' = {
   }
 }
 
+module foundry 'modules/foundry.bicep' = {
+  name: 'foundry-${suffix}'
+  scope: resourceGroup
+  params: {
+    location: location
+    foundryAccountName: foundryAccountName
+    tags: tags
+  }
+}
+
 module backend 'modules/backend.bicep' = {
   name: 'backend-${suffix}'
   scope: resourceGroup
@@ -82,6 +104,11 @@ module backend 'modules/backend.bicep' = {
     dataTableServiceUri: storage.outputs.tableServiceUri
     dataTableName: storage.outputs.tableName
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
+    foundryEndpoint: foundry.outputs.endpoint
+    foundryProjectName: foundry.outputs.projectName
+    foundryDeploymentName: foundry.outputs.deploymentName
+    eventExtractionRateLimitPermitLimit: eventExtractionRateLimitPermitLimit
+    eventExtractionRateLimitWindowSeconds: eventExtractionRateLimitWindowSeconds
     tags: tags
   }
 }
@@ -111,6 +138,7 @@ module frontend 'modules/frontend.bicep' = {
     keyVaultUri: keyVault.outputs.keyVaultUri
     loginEndpoint: environment().authentication.loginEndpoint
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
+    aiExtractionEnabled: aiExtractionEnabled
     tags: tags
   }
 }
@@ -124,6 +152,8 @@ module identity 'modules/identity.bicep' = {
     keyVaultName: keyVault.outputs.keyVaultName
     functionPrincipalId: backend.outputs.functionPrincipalId
     webPrincipalId: frontend.outputs.webPrincipalId
+    foundryAccountName: foundry.outputs.accountName
+    foundryProjectName: foundry.outputs.projectName
   }
 }
 

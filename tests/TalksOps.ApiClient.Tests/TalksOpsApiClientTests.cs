@@ -70,6 +70,56 @@ public sealed class TalksOpsApiClientTests
         Assert.Equal("user-1", request.RootElement.GetProperty("userId").GetString());
     }
 
+    [Fact]
+    public async Task ExtractEventDataAsync_WrapsRequestAndReturnsNullableFields()
+    {
+        var handler = new RecordingHandler(_ => JsonResponse("""{"name":"Summit","location":null,"officialWebsiteUrl":null,"callForPapersUrl":"https://example.com/cfp","callForPapersDeadline":null,"startDate":"01/05/2026","endDate":null}"""));
+        var client = CreateClient(handler, "user-1");
+
+        var result = await client.ExtractEventDataAsync(new ExtractEventDataRequest("https://example.com/cfp"));
+
+        Assert.Equal("Summit", result.Name);
+        Assert.Null(result.Location);
+        Assert.Equal("https://example.com/cfp", result.CallForPapersUrl);
+        using var request = JsonDocument.Parse(handler.RequestBody!);
+        Assert.Equal("user-1", request.RootElement.GetProperty("userId").GetString());
+        Assert.Equal(
+            "https://example.com/cfp",
+            request.RootElement.GetProperty("payload").GetProperty("sourcePageUrl").GetString());
+    }
+
+    [Fact]
+    public async Task ExtractEventDataAsync_SurfacesStructuredServerError()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.BadRequest)
+        {
+            Content = new StringContent("""{"code":"invalid_url","message":"The page URL is invalid."}""")
+        });
+        var client = CreateClient(handler, "user-1");
+
+        var exception = await Assert.ThrowsAsync<HttpRequestException>(() =>
+            client.ExtractEventDataAsync(new ExtractEventDataRequest("not a URL")));
+
+        Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
+        Assert.Equal("The page URL is invalid.", exception.Message);
+    }
+
+    [Fact]
+    public async Task ExtractEventDataAsync_PreservesRateLimitStatusAndMessage()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.TooManyRequests)
+        {
+            Content = new StringContent("""{"code":"rate_limited","message":"Please wait before retrying."}""")
+        });
+        var client = CreateClient(handler, "user-1");
+
+        var exception = await Assert.ThrowsAsync<HttpRequestException>(() =>
+            client.ExtractEventDataAsync(new ExtractEventDataRequest("https://example.com/cfp")));
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, exception.StatusCode);
+        Assert.Equal("Please wait before retrying.", exception.Message);
+    }
+
     private static ITalksOpsApiClient CreateClient(HttpMessageHandler handler, string userId)
     {
         var httpClient = new HttpClient(handler)

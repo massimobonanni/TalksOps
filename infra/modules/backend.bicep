@@ -19,6 +19,23 @@ param dataTableName string
 @description('Application Insights connection string.')
 param appInsightsConnectionString string
 
+@description('Microsoft Foundry account endpoint used by event extraction.')
+param foundryEndpoint string
+
+@description('Microsoft Foundry project name used by event extraction.')
+param foundryProjectName string
+
+@description('Microsoft Foundry model deployment name used by event extraction.')
+param foundryDeploymentName string
+
+@description('Number of event extraction requests allowed per user in each rate-limit window.')
+@minValue(1)
+param eventExtractionRateLimitPermitLimit int
+
+@description('Event extraction rate-limit window length in seconds.')
+@minValue(1)
+param eventExtractionRateLimitWindowSeconds int
+
 @description('Common resource tags.')
 param tags object
 
@@ -123,6 +140,26 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value: appInsightsConnectionString
+        }
+        {
+          name: 'FoundryEndpoint'
+          value: foundryEndpoint
+        }
+        {
+          name: 'FoundryProjectName'
+          value: foundryProjectName
+        }
+        {
+          name: 'FoundryDeploymentName'
+          value: foundryDeploymentName
+        }
+        {
+          name: 'EventDataExtraction__RateLimit__PermitLimit'
+          value: string(eventExtractionRateLimitPermitLimit)
+        }
+        {
+          name: 'EventDataExtraction__RateLimit__WindowSeconds'
+          value: string(eventExtractionRateLimitWindowSeconds)
         }
       ]
     }

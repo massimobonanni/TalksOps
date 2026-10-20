@@ -37,6 +37,9 @@ classDiagram
     class SaveEventRequest
     class SaveSessionProposalRequest
     class ChangeProposalStatusRequest
+    class ExtractEventDataRequest
+    class ExtractEventDataResultDto
+    class ApiErrorDto
     class PagedResponse~T~
     class ApiRequestExtensions {
         +WithUserId(path, userId)$ string
@@ -52,6 +55,8 @@ classDiagram
     TalksOpsApiClient ..> SaveEventRequest
     TalksOpsApiClient ..> SaveSessionProposalRequest
     TalksOpsApiClient ..> ChangeProposalStatusRequest
+    TalksOpsApiClient ..> ExtractEventDataRequest
+    TalksOpsApiClient ..> ExtractEventDataResultDto
     TalksOpsApiClient ..> PagedResponse
     ApiRequestExtensions ..> ICurrentUserContext
 ```
@@ -70,7 +75,11 @@ Records below expose positional properties with the listed names and types; reco
 | `SaveEventRequest` | `Name: string`, `Location: string`, `StartDate: DateOnly`, `EndDate: DateOnly`, `Costs: IReadOnlyDictionary<string, decimal>`, `OfficialWebsiteUrl: string?`, `CallForPapersUrl: string?`, `CallForPapersDeadline: DateOnly?`; fields accepted to create or update an event. |
 | `SaveSessionProposalRequest` | `Title: string`, `Abstract: string?`, `Notes: string?`; fields accepted to create or update a proposal. |
 | `ChangeProposalStatusRequest` | `Status: ProposalStatus`; desired proposal lifecycle state. |
+| `ExtractEventDataRequest` | `SourcePageUrl: string?`; URL of the call-for-papers page to analyze. |
+| `ExtractEventDataResultDto` | Nullable event fields returned by extraction; date values remain strings in `DD/MM/YYYY` format. |
+| `ApiErrorDto` | `Code: string?`, `Message: string?`; structured error returned when extraction fails. |
 | `PagedResponse<T>` | `Items: IReadOnlyList<T>`, `Page: int`, `PageSize: int`, `TotalCount: int`. |
+| `ExtractEventDataAsync(request, cancellationToken)` | Sends the current user's request to `api/events/extract` and returns nullable extracted fields. Structured failure messages are surfaced through `HttpRequestException`. |
 | `ITalksOpsApiClient` | Typed API contract; all methods accept optional cancellation tokens. |
 | `TalksOpsApiClient` | HTTP implementation; requires `HttpClient` and `ICurrentUserContext`. Optional GET methods return `null` on HTTP 404. Other non-success responses throw through `EnsureSuccessStatusCode`; required response bodies must not be empty. |
 | `ApiRequestExtensions.WithUserId` | Internal extension that URL-escapes `userId` and appends it using `?` or `&`, depending on the existing path. |

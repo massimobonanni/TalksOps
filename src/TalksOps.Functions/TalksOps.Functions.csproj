@@ -22,6 +22,7 @@
     <ProjectReference Include="..\TalksOps.Core\TalksOps.Core.csproj" />
     <ProjectReference Include="..\TalksOps.ApiClient\TalksOps.ApiClient.csproj" />
     <ProjectReference Include="..\TalksOps.Storage\TalksOps.Storage.csproj" />
+    <ProjectReference Include="..\TalksOps.AI\TalksOps.AI.csproj" />
   </ItemGroup>
 
 </Project>

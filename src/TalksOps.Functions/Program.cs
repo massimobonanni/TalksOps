@@ -1,9 +1,13 @@
+using System.Globalization;
 using Azure.Data.Tables;
+using System.Threading.RateLimiting;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using TalksOps.AI;
 using TalksOps.Core.Contracts;
+using TalksOps.Core.Extraction;
 using TalksOps.Core.Services;
 using TalksOps.Functions;
 using TalksOps.Storage;
@@ -21,6 +25,46 @@ builder.Services.AddScoped<ICurrentUserContext>(services => services.GetRequired
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<ISessionProposalService, SessionProposalService>();
 builder.Services.AddScoped<IEventImportExportService, EventImportExportService>();
+var extractionRateLimitPermitLimit = int.Parse(
+    builder.Configuration["EventDataExtraction:RateLimit:PermitLimit"] ?? "1",
+    NumberStyles.None,
+    CultureInfo.InvariantCulture);
+var extractionRateLimitWindowSeconds = int.Parse(
+    builder.Configuration["EventDataExtraction:RateLimit:WindowSeconds"] ?? "60",
+    NumberStyles.None,
+    CultureInfo.InvariantCulture);
+if (extractionRateLimitPermitLimit < 1 || extractionRateLimitWindowSeconds < 1)
+{
+    throw new InvalidOperationException("Event extraction rate-limit values must be greater than zero.");
+}
+
+builder.Services.AddSingleton<PartitionedRateLimiter<string>>(_ =>
+    PartitionedRateLimiter.Create<string, string>(userId =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            userId,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = extractionRateLimitPermitLimit,
+                Window = TimeSpan.FromSeconds(extractionRateLimitWindowSeconds),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            })));
+
+var foundryEndpoint = builder.Configuration["FoundryEndpoint"];
+var foundryProjectName = builder.Configuration["FoundryProjectName"];
+var foundryDeploymentName = builder.Configuration["FoundryDeploymentName"];
+if (Uri.TryCreate(foundryEndpoint, UriKind.Absolute, out var parsedFoundryEndpoint)
+    && !string.IsNullOrWhiteSpace(foundryProjectName)
+    && !string.IsNullOrWhiteSpace(foundryDeploymentName))
+{
+    builder.Services.AddSingleton<IEventPageFetcher, PublicEventPageFetcher>();
+    builder.Services.AddSingleton<IEventHtmlCleaner, AngleSharpEventHtmlCleaner>();
+    builder.Services.AddSingleton<IEventDataChatClient>(new FoundryEventDataChatClient(
+        parsedFoundryEndpoint,
+        foundryProjectName,
+        foundryDeploymentName));
+    builder.Services.AddScoped<IEventDataExtractionService, EventDataExtractionService>();
+}
 
 var tableName = builder.Configuration["StorageTableName"];
 if (string.IsNullOrWhiteSpace(tableName))
