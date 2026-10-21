@@ -21,7 +21,12 @@ public sealed class ImportExportTests : BunitContext
         {
             Assert.Equal("talksops-import-template.json", invocation.Arguments[0]);
             var reference = Assert.IsType<DotNetStreamReference>(invocation.Arguments[1]);
-            downloaded = JsonSerializer.Deserialize<EventsExportDocument>(reference.Stream, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            using var json = JsonDocument.Parse(reference.Stream);
+            var exportedEvent = Assert.Single(json.RootElement.GetProperty("events").EnumerateArray());
+            Assert.False(exportedEvent.TryGetProperty("id", out _));
+            var session = Assert.Single(exportedEvent.GetProperty("sessions").EnumerateArray());
+            Assert.False(session.TryGetProperty("id", out _));
+            downloaded = json.Deserialize<EventsExportDocument>(new JsonSerializerOptions(JsonSerializerDefaults.Web));
             return true;
         }).SetVoidResult();
         var component = this.RenderImportExport();

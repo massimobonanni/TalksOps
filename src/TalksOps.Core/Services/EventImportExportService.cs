@@ -199,7 +199,6 @@ public sealed class EventImportExportService(
 
     private static ExportedEvent ToExported(Event value, IReadOnlyList<SessionProposal> sessions) => new()
     {
-        Id = value.Id,
         Name = value.Name,
         Location = value.Location,
         OfficialWebsiteUrl = value.OfficialWebsiteUrl,
@@ -212,7 +211,6 @@ public sealed class EventImportExportService(
             .OrderBy(session => session.CreatedAt)
             .Select(session => new ExportedSession
             {
-                Id = session.Id,
                 Title = session.Title,
                 Abstract = session.Abstract,
                 Notes = session.Notes,

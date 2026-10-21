@@ -95,8 +95,12 @@ The default Functions route prefix is `/api`. Every trigger below requires Funct
 | `PATCH /api/events/{eventId}/proposals/{proposalId}/status` | Change lifecycle status from an `ApiRequest<ChangeProposalStatusRequest>` envelope. |
 | `DELETE /api/events/{eventId}/proposals/{proposalId}` | Delete a proposal. |
 | `GET /api/calendar?year={year}` | Return calendar events and their proposal statuses for the year. |
+| `GET /api/export` | Export events and sessions as version 1 JSON without event/session IDs; accepts optional `from` and `to` dates (`yyyy-MM-dd`). |
+| `POST /api/import` | Add events and sessions from an `ApiRequest<EventsExportDocument>` envelope, generating new IDs. Older documents containing IDs remain accepted; those IDs are ignored. |
 
 GET/DELETE operations take `userId` in the query string; write operations take it in the `ApiRequest<T>` body. The Web application derives this value from the authenticated principal. A Function key is a shared application credential, not user authentication: do not expose it or allow untrusted clients to choose another user's ID.
+
+The import/export JSON format and example are documented in [TalksOps.Core](../TalksOps.Core/README.md#import-and-export).
 
 ## Local configuration and run
 

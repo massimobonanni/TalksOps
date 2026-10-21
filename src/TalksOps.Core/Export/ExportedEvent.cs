@@ -4,9 +4,6 @@ namespace TalksOps.Core.Export;
 /// <remarks>The owner is intentionally omitted: on import, events are always assigned to the current user.</remarks>
 public sealed record ExportedEvent
 {
-    /// <summary>Gets the identifier the event had in the source system.</summary>
-    public Guid Id { get; init; }
-
     /// <summary>Gets the event name.</summary>
     public required string Name { get; init; }
 

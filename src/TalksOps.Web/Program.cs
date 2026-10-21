@@ -94,6 +94,7 @@ if (useFakeAccount)
         [
             new Claim("sub", userId),
             new Claim(ClaimTypes.NameIdentifier, userId),
+            new Claim("preferred_username", userId),
             new Claim(ClaimTypes.Name, displayName),
             new Claim(ClaimTypes.Email, $"{userId}@localhost")
         ],

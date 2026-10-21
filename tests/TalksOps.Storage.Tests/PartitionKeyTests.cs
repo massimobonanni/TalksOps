@@ -10,14 +10,26 @@ namespace TalksOps.Storage.Tests;
 public sealed class PartitionKeyTests
 {
     /// <summary>Verifies event persistence, parsing, queries, and updates use the event prefix.</summary>
-    [Fact]
-    public async Task EventOperations_UseEventsPartitionAndPreserveOwner()
+    [Theory]
+    [InlineData("owner|123", "events|owner|123")]
+    [InlineData("speaker@example.com", "events|speaker@example.com")]
+    [InlineData("speaker+talks@example.com", "events|speaker+talks@example.com")]
+    [InlineData("speaker_example.com#EXT#@tenant.onmicrosoft.com", "events|speaker_example.com%23EXT%23@tenant.onmicrosoft.com")]
+    [InlineData("speaker/name@example.com", "events|speaker%2Fname@example.com")]
+    [InlineData("domain\\speaker", "events|domain%5Cspeaker")]
+    [InlineData("speaker?@example.com", "events|speaker%3F@example.com")]
+    [InlineData("speaker%23@example.com", "events|speaker%2523@example.com")]
+    [InlineData("speaker#@example.com", "events|speaker%23@example.com")]
+    [InlineData("speaker\u0001@example.com", "events|speaker%01@example.com")]
+    [InlineData("speaker\u007f@example.com", "events|speaker%7F@example.com")]
+    [InlineData("speaker\u009f@example.com", "events|speaker%C2%9F@example.com")]
+    public async Task EventOperations_UseEventsPartitionAndPreserveOwner(string ownerId, string partitionKey)
     {
         var table = new RecordingTableClient();
         var repository = new AzureTableEventRepository(table);
         var value = new Event
         {
-            OwnerId = "owner|123",
+            OwnerId = ownerId,
             Name = "Summit",
             Location = "Rome",
             StartDate = new DateOnly(2026, 5, 1),
@@ -26,7 +38,7 @@ public sealed class PartitionKeyTests
 
         await repository.CreateAsync(value);
 
-        Assert.Equal("events|owner|123", table.Entity!.PartitionKey);
+        Assert.Equal(partitionKey, table.Entity!.PartitionKey);
         Assert.Equal(value.Id.ToString("N"), table.Entity.RowKey);
 
         var loaded = await repository.GetAsync(value.OwnerId, value.Id);
@@ -35,23 +47,26 @@ public sealed class PartitionKeyTests
 
         var results = await repository.SearchAsync(value.OwnerId, new EventSearchCriteria());
         Assert.Equal(value.OwnerId, Assert.Single(results.Items).OwnerId);
-        Assert.Equal("PartitionKey eq 'events|owner|123'", Assert.Single(table.Filters));
+        Assert.Equal($"PartitionKey eq '{partitionKey}'", Assert.Single(table.Filters));
 
         Assert.NotNull(await repository.UpdateAsync(value));
-        Assert.All(table.Lookups, lookup => Assert.Equal(("events|owner|123", value.Id.ToString("N")), lookup));
-        Assert.Equal("events|owner|123", table.Entity.PartitionKey);
+        Assert.All(table.Lookups, lookup => Assert.Equal((partitionKey, value.Id.ToString("N")), lookup));
+        Assert.Equal(partitionKey, table.Entity.PartitionKey);
     }
 
     /// <summary>Verifies proposal operations use session partitions and check the event partition.</summary>
-    [Fact]
-    public async Task ProposalOperations_UseSessionsPartitionAndPreserveEventId()
+    [Theory]
+    [InlineData("owner-123", "events|owner-123")]
+    [InlineData("speaker@example.com", "events|speaker@example.com")]
+    [InlineData("speaker#EXT#@example.com", "events|speaker%23EXT%23@example.com")]
+    public async Task ProposalOperations_UseSessionsPartitionAndPreserveEventId(string ownerId, string eventPartitionKey)
     {
         var table = new RecordingTableClient();
         var eventId = Guid.NewGuid();
         await new AzureTableEventRepository(table).CreateAsync(new Event
         {
             Id = eventId,
-            OwnerId = "owner-123",
+            OwnerId = ownerId,
             Name = "Summit",
             Location = "Rome",
             StartDate = new DateOnly(2026, 5, 1),
@@ -61,7 +76,7 @@ public sealed class PartitionKeyTests
         var proposal = new SessionProposal
         {
             EventId = eventId,
-            OwnerId = "owner-123",
+            OwnerId = ownerId,
             Title = "Storage",
             Abstract = "Partitioning",
             SubmissionDate = new DateOnly(2026, 3, 15)
@@ -72,7 +87,7 @@ public sealed class PartitionKeyTests
 
         Assert.Equal(partitionKey, table.Entity!.PartitionKey);
         Assert.Equal(proposal.Id.ToString("N"), table.Entity.RowKey);
-        Assert.Equal(("events|owner-123", eventId.ToString("N")), Assert.Single(table.Lookups));
+        Assert.Equal((eventPartitionKey, eventId.ToString("N")), Assert.Single(table.Lookups));
 
         var loaded = await repository.GetAsync(proposal.OwnerId, eventId, proposal.Id);
         Assert.Equal(eventId, loaded!.EventId);
@@ -123,8 +138,11 @@ public sealed class PartitionKeyTests
     }
 
     /// <summary>Verifies cascading deletion targets sessions before deleting the event.</summary>
-    [Fact]
-    public async Task DeleteEvent_UsesSessionsPartitionForCascade()
+    [Theory]
+    [InlineData("owner-123", "events|owner-123")]
+    [InlineData("speaker@example.com", "events|speaker@example.com")]
+    [InlineData("speaker#EXT#@example.com", "events|speaker%23EXT%23@example.com")]
+    public async Task DeleteEvent_UsesSessionsPartitionForCascade(string ownerId, string eventPartitionKey)
     {
         var eventId = Guid.NewGuid();
         var proposalId = Guid.NewGuid();
@@ -133,14 +151,14 @@ public sealed class PartitionKeyTests
             Entity = new TableEntity($"sessions|{eventId:N}", proposalId.ToString("N"))
         };
 
-        Assert.True(await new AzureTableEventRepository(table).DeleteAsync("owner-123", eventId));
+        Assert.True(await new AzureTableEventRepository(table).DeleteAsync(ownerId, eventId));
 
-        Assert.StartsWith($"PartitionKey eq 'sessions|{eventId:N}' and ", Assert.Single(table.Filters));
+        Assert.Equal($"PartitionKey eq 'sessions|{eventId:N}' and OwnerId eq '{ownerId}'", Assert.Single(table.Filters));
         var action = Assert.Single(table.TransactionActions);
         Assert.Equal(TableTransactionActionType.Delete, action.ActionType);
         Assert.Equal($"sessions|{eventId:N}", action.Entity.PartitionKey);
         Assert.Equal(proposalId.ToString("N"), action.Entity.RowKey);
-        Assert.Equal(("events|owner-123", eventId.ToString("N")), table.DeletedKey);
+        Assert.Equal((eventPartitionKey, eventId.ToString("N")), table.DeletedKey);
     }
 
     private sealed class RecordingTableClient : TableClient

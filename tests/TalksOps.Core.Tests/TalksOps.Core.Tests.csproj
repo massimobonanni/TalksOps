@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\TalksOps.Core\TalksOps.Core.csproj" />
+    <None Include="..\..\src\TalksOps.Core\Export\example-export.json" Link="example-export.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

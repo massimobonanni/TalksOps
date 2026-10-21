@@ -137,7 +137,7 @@ Lifecycle values: `Submitted`, `Accepted`, `Rejected`, and `Cancelled`.
 
 | Type | Members and behavior |
 | --- | --- |
-| `ICurrentUserContext` | `UserId` gets the stable ID of the authenticated/current request user. |
+| `ICurrentUserContext` | `UserId` gets the authenticated/current request user's owner key. The Web application supplies a trimmed, lowercase login username. |
 | `EventSearchCriteria` | `Year`, `Name`, and `Location` are optional filters; `Page` defaults to 1 and `PageSize` to 20. |
 | `PagedResult<T>` | Positional properties: `Items`, `Page`, `PageSize`, `TotalCount`. |
 | `IEventRepository` | Owner-scoped `SearchAsync`, `GetAsync`, `UpdateAsync`, and `DeleteAsync`; `CreateAsync` persists a new event. Delete also removes proposals for the event. All methods accept an optional cancellation token. |
@@ -166,7 +166,7 @@ The interfaces and records are in the `TalksOps.Core.Contracts` and `TalksOps.Co
 
 ## Import and export
 
-`IEventImportExportService` exports the current user's events and their sessions as JSON. Each event contains its source `id`, `name`, `location`, optional website and call-for-papers URLs/deadline, `startDate`, `endDate`, named decimal `costs`, and `sessions`. Each session contains its source `id`, `title`, `abstract`, `notes`, optional `submissionDate` (`yyyy-MM-dd`), `status`, `createdAt`, and `updatedAt`; statuses are serialized by name. Optional `from` and `to` dates in the document are inclusive and select events whose date range overlaps the requested range. The document uses schema version `1`. The submission date is optional, so older version 1 documents without it import with no date; event costs can also be omitted and then import as empty. An import is additive: source IDs are replaced with new IDs, and all imported events and sessions are assigned to the current user. See [`Export/example-export.json`](Export/example-export.json) for a complete example of the current format.
+`IEventImportExportService` exports the current user's events and their sessions as JSON. Each event contains `name`, `location`, optional website and call-for-papers URLs/deadline, `startDate`, `endDate`, named decimal `costs`, and `sessions`. Each session contains `title`, `abstract`, `notes`, optional `submissionDate` (`yyyy-MM-dd`), `status`, `createdAt`, and `updatedAt`; statuses are serialized by name. Event and session IDs are not part of the JSON format or the downloadable Web template: they are generated during import. Optional `from` and `to` dates in the document are inclusive and select events whose date range overlaps the requested range. The document uses schema version `1`. The submission date is optional, so older version 1 documents without it import with no date; event costs can also be omitted and then import as empty. Older documents containing `id` fields remain supported; those fields are ignored. An import is additive: new IDs are generated, and all imported events and sessions are assigned to the current user. See [`Export/example-export.json`](Export/example-export.json) for a complete example of the current format.
 
 ```json
 {
@@ -176,7 +176,6 @@ The interfaces and records are in the `TalksOps.Core.Contracts` and `TalksOps.Co
     "to": null,
     "events": [
         {
-            "id": "d2d0cb59-8f72-4dad-9ad5-956dfaa630c7",
             "name": "Cloud Native Days",
             "location": "Milan, Italy",
             "officialWebsiteUrl": "https://example.org/cloud-native-days",
@@ -190,7 +189,6 @@ The interfaces and records are in the `TalksOps.Core.Contracts` and `TalksOps.Co
             },
             "sessions": [
                 {
-                    "id": "ac390440-304d-4a81-8866-09e96b531e13",
                     "title": "Reliable event-driven systems",
                     "abstract": "Patterns for building resilient event-driven applications.",
                     "notes": "Bring a demo.",

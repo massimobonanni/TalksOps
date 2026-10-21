@@ -6,9 +6,6 @@ namespace TalksOps.Core.Export;
 /// <summary>JSON representation of an exported session proposal.</summary>
 public sealed record ExportedSession
 {
-    /// <summary>Gets the identifier the session had in the source system.</summary>
-    public Guid Id { get; init; }
-
     /// <summary>Gets the session title.</summary>
     public required string Title { get; init; }
 

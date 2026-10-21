@@ -1,3 +1,4 @@
+using System.Text;
 using Azure;
 using Azure.Data.Tables;
 using TalksOps.Core.Contracts;
@@ -128,14 +129,31 @@ public sealed class AzureTableEventRepository : IEventRepository
 
     internal static string Key(Guid id) => id.ToString("N");
 
-    internal static string EventPartitionKey(string ownerId) => $"events|{ownerId}";
+    /// <summary>Escapes invalid table-key characters and percent signs while keeping usernames readable.</summary>
+    internal static string EventPartitionKey(string ownerId)
+    {
+        var partitionKey = new StringBuilder("events|");
+        foreach (var character in ownerId)
+        {
+            if (character is '%' or '/' or '\\' or '#' or '?' || char.IsControl(character))
+            {
+                partitionKey.Append(Uri.EscapeDataString(character.ToString()));
+            }
+            else
+            {
+                partitionKey.Append(character);
+            }
+        }
+
+        return partitionKey.ToString();
+    }
 
     internal static string ProposalPartitionKey(Guid eventId) => $"sessions|{Key(eventId)}";
 
     internal static Event FromEntity(TableEntity entity) => new()
     {
         Id = Guid.ParseExact(entity.RowKey, "N"),
-        OwnerId = entity.PartitionKey["events|".Length..],
+        OwnerId = Uri.UnescapeDataString(entity.PartitionKey["events|".Length..]),
         Name = entity.GetString(nameof(Event.Name))!,
         Location = entity.GetString(nameof(Event.Location))!,
         OfficialWebsiteUrl = entity.GetString(nameof(Event.OfficialWebsiteUrl)),

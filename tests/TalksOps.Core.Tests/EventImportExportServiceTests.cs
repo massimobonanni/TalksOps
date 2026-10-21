@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using TalksOps.Core.Contracts;
 using TalksOps.Core.Domain;
 using TalksOps.Core.Export;
@@ -21,7 +22,8 @@ public sealed class EventImportExportServiceTests
         var document = await CreateService(store).ExportAsync(null, null);
 
         var exported = Assert.Single(document.Events);
-        Assert.Equal(own.Id, exported.Id);
+        Assert.Equal(own.Name, exported.Name);
+        Assert.Equal(own.StartDate, exported.StartDate);
         var session = Assert.Single(exported.Sessions);
         Assert.Equal("Talk A", session.Title);
         Assert.Equal(new DateOnly(2026, 4, 15), session.SubmissionDate);
@@ -37,7 +39,47 @@ public sealed class EventImportExportServiceTests
 
         var document = await CreateService(store).ExportAsync(new DateOnly(2026, 4, 1), new DateOnly(2026, 5, 31));
 
-        Assert.Equal(inRange.Id, Assert.Single(document.Events).Id);
+        Assert.Equal(inRange.StartDate, Assert.Single(document.Events).StartDate);
+    }
+
+    [Fact]
+    public async Task ExportAsync_JsonOmitsEventAndSessionIdentifiers()
+    {
+        var store = new InMemoryStore();
+        var own = store.AddEvent(UserId, new DateOnly(2026, 5, 1));
+        store.AddSession(own, "Talk A");
+
+        using var stream = new MemoryStream();
+        await CreateService(store).ExportAsync(stream, null, null);
+        stream.Position = 0;
+        using var document = await JsonDocument.ParseAsync(stream);
+
+        var exported = Assert.Single(document.RootElement.GetProperty("events").EnumerateArray());
+        Assert.False(exported.TryGetProperty("id", out _));
+        var session = Assert.Single(exported.GetProperty("sessions").EnumerateArray());
+        Assert.False(session.TryGetProperty("id", out _));
+        Assert.Equal("Talk A", session.GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task ImportAsync_ProjectExampleOmitsIdentifiersAndImportsSuccessfully()
+    {
+        var store = new InMemoryStore();
+        using var stream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "example-export.json"));
+        using var document = await JsonDocument.ParseAsync(stream);
+        var exported = Assert.Single(document.RootElement.GetProperty("events").EnumerateArray());
+        Assert.False(exported.TryGetProperty("id", out _));
+        Assert.False(Assert.Single(exported.GetProperty("sessions").EnumerateArray()).TryGetProperty("id", out _));
+        stream.Position = 0;
+
+        var result = await CreateService(store).ImportAsync(stream);
+
+        Assert.Equal(new EventImportResult(1, 1), result);
+        var imported = Assert.Single(store.Events);
+        Assert.NotEqual(Guid.Empty, imported.Id);
+        var session = Assert.Single(store.Sessions);
+        Assert.NotEqual(Guid.Empty, session.Id);
+        Assert.Equal(imported.Id, session.EventId);
     }
 
     [Fact]
@@ -67,24 +109,32 @@ public sealed class EventImportExportServiceTests
         Assert.Equal(UserId, imported.OwnerId);
         Assert.Equal(original.CallForPapersDeadline, imported.CallForPapersDeadline);
         var session = Assert.Single(store.Sessions, value => value.EventId == imported.Id);
+        Assert.NotEqual(Guid.Empty, imported.Id);
+        Assert.NotEqual(Guid.Empty, session.Id);
+        Assert.DoesNotContain(store.Sessions, value => value.EventId == original.Id && value.Id == session.Id);
         Assert.Equal(ProposalStatus.Accepted, session.Status);
         Assert.Equal(new DateOnly(2026, 4, 15), session.SubmissionDate);
     }
 
-    [Fact]
-    public async Task ImportAsync_AssignsImportedDataToCurrentUser()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ImportAsync_AssignsNewIdentifiersAndCurrentUser(bool includeLegacyIds)
     {
         var store = new InMemoryStore();
-        var json = """
+        var legacyId = Guid.NewGuid();
+        var idProperty = includeLegacyIds ? $"\"id\": \"{legacyId}\"," : string.Empty;
+        var json = $$"""
             {
               "schemaVersion": 1,
               "events": [
                 {
+                  {{idProperty}}
                   "name": "Conf",
                   "location": "Milan",
                   "startDate": "2026-05-01",
                   "endDate": "2026-05-02",
-                  "sessions": [ { "title": "Talk", "abstract": "Abstract", "status": "Rejected" } ]
+                  "sessions": [ { {{idProperty}} "title": "Talk", "abstract": "Abstract", "status": "Rejected" } ]
                 }
               ]
             }
@@ -93,9 +143,15 @@ public sealed class EventImportExportServiceTests
         await CreateService(store).ImportAsync(new MemoryStream(Encoding.UTF8.GetBytes(json)));
 
         var imported = Assert.Single(store.Events);
+        Assert.NotEqual(Guid.Empty, imported.Id);
+        Assert.NotEqual(legacyId, imported.Id);
         Assert.Equal(UserId, imported.OwnerId);
         Assert.Null(imported.CallForPapersDeadline);
         var session = Assert.Single(store.Sessions);
+        Assert.NotEqual(Guid.Empty, session.Id);
+        Assert.NotEqual(legacyId, session.Id);
+        Assert.Equal(imported.Id, session.EventId);
+        Assert.Equal(UserId, session.OwnerId);
         Assert.Equal(ProposalStatus.Rejected, session.Status);
         Assert.Null(session.SubmissionDate);
     }
