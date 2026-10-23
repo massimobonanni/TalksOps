@@ -66,7 +66,7 @@ if (Uri.TryCreate(foundryEndpoint, UriKind.Absolute, out var parsedFoundryEndpoi
     && !string.IsNullOrWhiteSpace(foundryDeploymentName))
 {
     builder.Services.AddSingleton<IEventPageFetcher, PublicEventPageFetcher>();
-    builder.Services.AddSingleton<IEventHtmlCleaner, AngleSharpEventHtmlCleaner>();
+    builder.Services.AddSingleton<IEventHtmlCleaner, ReverseMarkdownEventHtmlCleaner>();
     builder.Services.AddSingleton<IEventDataChatClient>(new FoundryEventDataChatClient(
         parsedFoundryEndpoint,
         foundryProjectName,

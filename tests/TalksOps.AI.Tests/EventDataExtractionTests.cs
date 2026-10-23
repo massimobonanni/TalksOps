@@ -44,6 +44,17 @@ public sealed class EventDataExtractionTests
         Assert.DoesNotContain("[HTML_CONTENT]", modelClient.Prompt);
     }
 
+    [Fact]
+    public async Task ExtractAsync_UsesNormalizedSourceUrlAsCallForPapersUrl()
+    {
+        var service = CreateService(
+            """{"name":"Example Conf","location":null,"officialWebsiteUrl":null,"callForPapersUrl":"https://model.example/cfp","callForPapersDeadline":null,"startDate":null,"endDate":null}""");
+
+        var result = await service.ExtractAsync("HTTPS://EXAMPLE.ORG:443/cfp", "user-123");
+
+        Assert.Equal("https://example.org/cfp", result.CallForPapersUrl);
+    }
+
     [Theory]
     [InlineData("not-json")]
     [InlineData("null")]

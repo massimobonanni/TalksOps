@@ -103,6 +103,11 @@ public sealed class EventDataExtractionService(
                 "No event information could be reliably extracted from the page.");
         }
 
+        normalized = normalized with
+        {
+            CallForPapersUrl = NormalizeUrl(sourcePageUrl)
+        };
+        
         return normalized;
     }
 
