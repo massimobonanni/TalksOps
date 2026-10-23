@@ -13,8 +13,14 @@ using TalksOps.Core.Extraction;
 using TalksOps.Core.Services;
 using TalksOps.Functions;
 using TalksOps.Storage;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.ApplicationInsights;
 
 var builder = FunctionsApplication.CreateBuilder(args);
+
+builder.Logging.AddFilter<ApplicationInsightsLoggerProvider>(
+    typeof(EventDataExtractionService).FullName!,
+    LogLevel.Information);
 
 builder.ConfigureFunctionsWebApplication();
 

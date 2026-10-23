@@ -43,7 +43,13 @@ public sealed class EventDataExtractionService(
         var prompt = PromptProvider.LoadExtractEventDataPromptText()
             .Replace("[SOURCE_PAGE_URL]", sourcePageUrl, StringComparison.Ordinal)
             .Replace("[HTML_CONTENT]", cleanedHtml, StringComparison.Ordinal);
+
+        logger.LogInformation(
+            "Prompt sending to model: {Prompt}", 
+            prompt);
+
         var response = await chatClient.CompleteAsync(prompt, cancellationToken);
+        
         logger.LogInformation(
             "Event extraction model usage for user {UserId} with deployment {DeploymentName}: input tokens {InputTokens}, output tokens {OutputTokens}.",
             userId,
