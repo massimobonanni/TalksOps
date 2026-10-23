@@ -66,7 +66,7 @@ flowchart LR
     Web -->|Server-side API calls and Function key| Api[TalksOps.Functions<br/>HTTP API]
     Api --> Core[TalksOps.Core<br/>Domain and application services]
     Core --> Storage[TalksOps.Storage<br/>Azure Tables repositories]
-    Storage -->|Managed identity| Tables[(Azure Table: TalksOps)]
+    Storage -->|Managed identity| Tables[(Azure Tables: TalksOps and TokensConsumption)]
     Api -->|POST /api/events/extract| AI[TalksOps.AI<br/>Extraction service]
     AI -->|HTTPS fetch and cleaned page content| Page[Public CFP page]
     AI -->|Model request| Foundry[Microsoft Foundry<br/>gpt-4.1-nano]
@@ -77,11 +77,11 @@ flowchart LR
     Api -.-> Insights
 ```
 
-The Web app is the authenticated backend-for-frontend: it keeps the Function key server-side and derives the user ID from the signed-in principal. The Functions API handles event, proposal, calendar, and import/export requests through Core services; Storage repositories persist application data in Azure Tables. For AI extraction, the API delegates to the separate `TalksOps.AI` project, which retrieves a public CFP page and calls the configured Foundry deployment. Extracted fields return to the Web app as a draft and are not persisted until the user saves the event.
+The Web app is the authenticated backend-for-frontend: it keeps the Function key server-side and derives the user ID from the signed-in principal. The Functions API handles event, proposal, calendar, and import/export requests through Core services; Storage repositories persist application data in Azure Tables. For AI extraction, the API delegates to the separate `TalksOps.AI` project, which retrieves a public CFP page and calls the configured Foundry deployment. Extracted fields return to the Web app as a draft and are not persisted until the user saves the event. Successful model calls also write token usage metadata to the separate `TokensConsumption` table; this telemetry is best effort and never blocks extraction.
 
 ## Functions API security and configuration
 
-All HTTP-triggered Functions require a Function key. Keep the key in server-side web configuration or Key Vault; never send it to browser code or publish it as an infrastructure output. Configure the Functions host with `StorageUri` set to the Azure Table service endpoint and `StorageTableName` set to the shared table name. The Function App uses its managed identity through `DefaultAzureCredential` to access Tables. Events and session proposals share that table: events use `events|{ownerId}` partition keys, and session proposals use `sessions|{eventId}` partition keys, where `eventId` is a GUID formatted as 32 hexadecimal digits without hyphens. Row keys remain the event or proposal GUID in the same format.
+All HTTP-triggered Functions require a Function key. Keep the key in server-side web configuration or Key Vault; never send it to browser code or publish it as an infrastructure output. Configure the Functions host with `StorageUri` set to the Azure Table service endpoint, `StorageTableName` for events and proposals, and `StorageTokensConsumptionTableName` for token usage (defaults to `TokensConsumption`). The Function App uses its managed identity through `DefaultAzureCredential` to access both tables. Events and session proposals share `TalksOps`: events use `events|{ownerId}` partition keys, and session proposals use `sessions|{eventId}` partition keys, where `eventId` is a GUID formatted as 32 hexadecimal digits without hyphens. Token records are stored separately in `TokensConsumption`, partitioned by escaped user ID and keyed by a unique GUID.
 
 ### Local Functions development
 
@@ -94,12 +94,15 @@ Install Azure Functions Core Tools v4 and Azurite, then start Azurite with its B
 		"AzureWebJobsStorage": "UseDevelopmentStorage=true",
 		"FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
 		"StorageTableName": "TalksOps",
+		"StorageTokensConsumptionTableName": "TokensConsumption",
 		"StorageConnectionString": "UseDevelopmentStorage=true"
 	}
 }
 ```
 
-From `src/TalksOps.Functions`, run `dotnet run`. When `StorageConnectionString` is configured, the application uses shared-key authentication and creates the application table if it does not exist. Azurite must be running before the Functions start. The standard development connection string uses the Table endpoint at `http://127.0.0.1:10002/devstoreaccount1`; use a custom connection string if your emulator has different endpoints.
+From `src/TalksOps.Functions`, run `dotnet run`. When `StorageConnectionString` is configured, the application uses shared-key authentication and creates both application tables if they do not exist. Azurite must be running before the Functions start. The standard development connection string uses the Table endpoint at `http://127.0.0.1:10002/devstoreaccount1`; use a custom connection string if your emulator has different endpoints.
+
+Each `TokensConsumption` row records the user ID, UTC model-call timestamp, deployment name, optional input/output token counts, and CFP URL. A successful Foundry response is recorded before parsing, so malformed model output still has usage telemetry. A persistence failure is logged and extraction continues; failed model calls do not create a record.
 
 `StorageConnectionString` takes precedence over `StorageUri`. Leave it unset in Azure to retain `DefaultAzureCredential` authentication. Do not commit connection strings containing real account keys.
 

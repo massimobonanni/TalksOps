@@ -4,26 +4,27 @@ The AZD project provisions a subscription-scoped Bicep deployment in `infra/main
 
 ## Modules and access
 
-- `modules/storage.bicep` creates the application data storage account and the `TalksOps` table. Shared-key access is disabled.
+- `modules/storage.bicep` creates the application data storage account and the `TalksOps` and `TokensConsumption` tables. Shared-key access is disabled.
 - `modules/foundry.bicep` creates the Microsoft Foundry account and `c4pextraction` project, with a `gpt-4.1-nano` Global Standard deployment. The Function identity receives Foundry User at project scope for inference.
 - `modules/backend.bicep` creates a separate Functions storage account and private deployment package container, then creates the .NET isolated 10 Flex Consumption app and grants its identity Storage Blob Data Owner on that account. `AzureWebJobsStorage__accountName` and deployment storage point to this account; both use the Function App's system-assigned managed identity. The backend module completes this role assignment before the Key Vault module reads the host key.
 - `modules/frontend.bicep` creates the Linux App Service, which uses Key Vault references for both authentication and the Function key.
 - `modules/keyvault.bicep` creates the RBAC-mode Key Vault and the `function-api-key` secret. It reads the generated default host key from the Function App with the ARM `listKeys` function and writes that value directly to the vault; the key is not a Bicep output or parameter.
 - `modules/monitoring.bicep` creates Log Analytics and workspace-based Application Insights.
-- `modules/identity.bicep` grants the Function identity Storage Table Data Contributor scoped only to the `TalksOps` table in `datastore`, and grants the Web identity Key Vault Secrets User. Host-storage access belongs to the backend module so host-key retrieval does not block the role assignment it needs. No Queue role is assigned because the current Functions app has no queue binding; add one only if a future trigger or binding requires it. The Key Vault module grants the AZD deployment principal Key Vault Secrets Officer so Bicep can create the Function-key secret and the post-provision hook can add the web client secret.
+- `modules/identity.bicep` grants the Function identity Storage Table Data Contributor separately on the `TalksOps` and `TokensConsumption` tables in `datastore`, and grants the Web identity Key Vault Secrets User. Host-storage access belongs to the backend module so host-key retrieval does not block the role assignment it needs. No Queue role is assigned because the current Functions app has no queue binding; add one only if a future trigger or binding requires it. The Key Vault module grants the AZD deployment principal Key Vault Secrets Officer so Bicep can create the Function-key secret and the post-provision hook can add the web client secret.
 
 The web app registration is tenant-scoped and therefore handled by the AZD `postprovision` hook, not the resource-group Bicep deployment. The hook creates or updates a `PersonalMicrosoftAccount` registration for personal Microsoft accounts only, matching the frontend's `consumers` authority, its service principal, and the production `/signin-oidc` redirect URI. It creates a two-year client credential only if `web-client-secret` is not already present, stores that credential in Key Vault, and configures App Service with a Key Vault reference. The Function key is created by the Functions resource provider and copied into Key Vault by Bicep during provisioning. Neither secret is a Bicep parameter or output.
 
 ## Application data partitions
 
-Events and session proposals share the `TalksOps` table in the application data storage account:
+Events and session proposals share the `TalksOps` table in the application data storage account. Model-call token usage is kept in a separate `TokensConsumption` table:
 
 | Record | Partition key | Row key |
 | --- | --- | --- |
 | Event | `events\|{ownerId}` | Event GUID in `N` format (32 hexadecimal digits, no hyphens) |
 | Session proposal | `sessions\|{eventId:N}` | Proposal GUID in `N` format |
+| Token consumption | Escaped user ID | Unique GUID in `N` format |
 
-Queries, ownership checks, updates, and cascading proposal deletion use these same partition keys. Session proposals also retain their `OwnerId` property for owner filtering.
+Token-consumption rows store the user ID, UTC timestamp, Foundry deployment, optional input/output token counts, and source CFP URL. Queries, ownership checks, updates, and cascading proposal deletion for events and proposals use their listed partition keys. Session proposals also retain their `OwnerId` property for owner filtering. The Function identity's Table Data Contributor role is limited to these two application tables.
 
 
 ## Prerequisites

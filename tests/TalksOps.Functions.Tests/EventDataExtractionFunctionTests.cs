@@ -27,6 +27,7 @@ public sealed class EventDataExtractionFunctionTests
         var response = Assert.IsType<OkObjectResult>(result);
         Assert.Equal(StatusCodes.Status200OK, response.StatusCode ?? StatusCodes.Status200OK);
         Assert.Equal("user-123", service.UserId);
+        Assert.Equal("https://example.org/cfp", service.SourcePageUrl);
         Assert.Equal("Example Conference", Assert.IsType<ExtractEventDataResultDto>(response.Value).Name);
     }
 
@@ -137,6 +138,7 @@ public sealed class EventDataExtractionFunctionTests
     private sealed class StubExtractionService(EventDataExtractionErrorCode? errorCode = null) : IEventDataExtractionService
     {
         public string? UserId { get; private set; }
+        public string? SourcePageUrl { get; private set; }
         public int CallCount { get; private set; }
 
         public Task<ExtractedEventData> ExtractAsync(
@@ -145,6 +147,7 @@ public sealed class EventDataExtractionFunctionTests
             CancellationToken cancellationToken = default)
         {
             this.UserId = userId;
+            this.SourcePageUrl = sourcePageUrl;
             this.CallCount++;
             if (errorCode is { } code)
             {

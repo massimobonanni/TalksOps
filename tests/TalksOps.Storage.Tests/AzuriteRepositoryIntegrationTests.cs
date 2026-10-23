@@ -8,6 +8,50 @@ namespace TalksOps.Storage.Tests;
 public sealed class AzuriteRepositoryIntegrationTests
 {
     [AzuriteFact]
+    public async Task TokensConsumptionRepository_PersistsConsumptionWithAzurite()
+    {
+        var connectionString = Environment.GetEnvironmentVariable("AZURITE_TABLE_CONNECTION_STRING")!;
+        var table = new TableClient(connectionString, $"t{Guid.NewGuid():N}");
+        await table.CreateIfNotExistsAsync();
+
+        try
+        {
+            var repository = new AzureTableTokensConsumptionRepository(table);
+            var value = new TokensConsumption
+            {
+                UserId = "integration-user/name",
+                Timestamp = new DateTimeOffset(2026, 10, 23, 17, 12, 0, TimeSpan.FromHours(-2)),
+                DeploymentName = "integration-deployment",
+                InputTokens = 123,
+                OutputTokens = null,
+                CallForPapersUrl = "https://example.org/cfp"
+            };
+
+            var created = await repository.CreateAsync(value);
+            var entities = new List<TableEntity>();
+            await foreach (var entity in table.QueryAsync<TableEntity>(
+                filter: "PartitionKey eq 'integration-user%2Fname'"))
+            {
+                entities.Add(entity);
+            }
+
+            var tokenEntity = Assert.Single(entities);
+            Assert.Equal(value.Timestamp.ToUniversalTime(), created.Timestamp);
+            Assert.Equal("integration-user%2Fname", tokenEntity.PartitionKey);
+            Assert.True(Guid.TryParseExact(tokenEntity.RowKey, "N", out _));
+            Assert.Equal("integration-deployment", tokenEntity.GetString(nameof(TokensConsumption.DeploymentName)));
+            Assert.Equal(value.Timestamp.ToUniversalTime(), tokenEntity.GetDateTimeOffset(nameof(TokensConsumption.Timestamp)));
+            Assert.Equal(123, tokenEntity.GetInt32(nameof(TokensConsumption.InputTokens)));
+            Assert.Null(tokenEntity.GetInt32(nameof(TokensConsumption.OutputTokens)));
+            Assert.Equal("https://example.org/cfp", tokenEntity.GetString(nameof(TokensConsumption.CallForPapersUrl)));
+        }
+        finally
+        {
+            await table.DeleteAsync();
+        }
+    }
+
+    [AzuriteFact]
     public async Task Repositories_PersistOwnershipAndCascadeWithAzurite()
     {
         var connectionString = Environment.GetEnvironmentVariable("AZURITE_TABLE_CONNECTION_STRING")!;

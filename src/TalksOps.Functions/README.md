@@ -40,8 +40,10 @@ classDiagram
     class SessionProposalService
     class IEventRepository
     class ISessionProposalRepository
+    class ITokensConsumptionRepository
     class AzureTableEventRepository
     class AzureTableSessionProposalRepository
+    class AzureTableTokensConsumptionRepository
     class ApiRequest~T~
     class EventDto
     class SessionProposalDto
@@ -60,6 +62,7 @@ classDiagram
     SessionProposalService --> ISessionProposalRepository
     AzureTableEventRepository ..|> IEventRepository
     AzureTableSessionProposalRepository ..|> ISessionProposalRepository
+    AzureTableTokensConsumptionRepository ..|> ITokensConsumptionRepository
     EventsFunctions ..> ApiRequest : request envelope
     EventsFunctions ..> EventDto : response
     EventsFunctions ..> SessionProposalDto : response
@@ -73,7 +76,7 @@ classDiagram
 | `EventsFunctions` | Constructor injects `IEventService`, `ISessionProposalService`, and `RequestCurrentUserContext`. Public trigger methods: `SearchEvents`, `GetEvent`, `CreateEvent`, `UpdateEvent`, `DeleteEvent`, `ListProposals`, `GetProposal`, `CreateProposal`, `UpdateProposal`, `ChangeProposalStatus`, and `DeleteProposal`. They implement event/proposal search and CRUD plus status changes. Event request/response mapping includes the optional `CallForPapersDeadline`. Private helpers parse request envelopes and query integers, initialize query/body user IDs, convert request DTOs to domain records and domain records to DTOs, and create 400/409 results. |
 | `CalendarFunction` | Injects the event/proposal services and request context. `GetCalendar` validates `userId` and year, pages through all matching events, and returns each event with its proposal status list. |
 | `RequestCurrentUserContext` | Scoped implementation of `ICurrentUserContext`. `TryInitialize(string? value)` trims and stores a non-empty value; `UserId` throws `InvalidOperationException` until initialized. It has no public setter property. |
-| `Program` (top-level statements) | Configures the isolated Functions worker, Application Insights, scoped Core services and user context, plus Storage registrations. It requires `StorageTableName`; a configured `StorageConnectionString` takes precedence over `StorageUri`. With a connection string, it creates the table if absent. |
+| `Program` (top-level statements) | Configures the isolated Functions worker, Application Insights, scoped Core services and user context, plus Storage registrations. It requires `StorageTableName`; `StorageTokensConsumptionTableName` defaults to `TokensConsumption`. A configured `StorageConnectionString` takes precedence over `StorageUri`. With a connection string, it creates both tables if absent. |
 
 There are no additional public data properties on the endpoint classes. Request/response records, including `ApiRequest<T>`, `EventDto`, `SessionProposalDto`, and `CalendarEventDto`, are documented in [TalksOps.ApiClient](../TalksOps.ApiClient/README.md).
 
@@ -113,9 +116,10 @@ Prerequisites: .NET 10 SDK, Azure Functions Core Tools v4, and Azurite with Blob
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
     "StorageTableName": "TalksOps",
-        "StorageConnectionString": "UseDevelopmentStorage=true",
-        "EventDataExtraction__RateLimit__PermitLimit": "1",
-        "EventDataExtraction__RateLimit__WindowSeconds": "60"
+    "StorageTokensConsumptionTableName": "TokensConsumption",
+    "StorageConnectionString": "UseDevelopmentStorage=true",
+    "EventDataExtraction__RateLimit__PermitLimit": "1",
+    "EventDataExtraction__RateLimit__WindowSeconds": "60"
   }
 }
 ```
@@ -131,6 +135,8 @@ azurite
 func start --port 7071
 ```
 
-Azurite's standard Table endpoint is `http://127.0.0.1:10002/devstoreaccount1`. With a local connection string, the application creates the `TalksOps` table on startup. The Web project's development API base address defaults to `http://localhost:7071/`; use the same port or update `TalksOpsApi:BaseAddress`. If your local host uses Function keys, configure the matching key in Web user secrets as `TalksOpsApi:FunctionKey`; leave it empty if the local host accepts requests without a key.
+Azurite's standard Table endpoint is `http://127.0.0.1:10002/devstoreaccount1`. With a local connection string, the application creates both `TalksOps` and `TokensConsumption` on startup. `StorageTokensConsumptionTableName` can override the latter; it must be different from `StorageTableName`. The Web project's development API base address defaults to `http://localhost:7071/`; use the same port or update `TalksOpsApi:BaseAddress`. If your local host uses Function keys, configure the matching key in Web user secrets as `TalksOpsApi:FunctionKey`; leave it empty if the local host accepts requests without a key.
+
+Every successful Foundry call records the user ID, UTC completion timestamp, deployment, available input/output token counts, and source CFP URL in the separate table. The record is written before parsing the model response. Storage failures are logged but do not block the extraction response; failed Foundry calls are not recorded.
 
 `StorageConnectionString` takes precedence over `StorageUri`. For Azure, leave the connection string unset and configure `StorageUri` with the Table service endpoint so `DefaultAzureCredential` is used. Do not put real account keys in source control. See the root [README](../../README.md) and [infrastructure guide](../../infra/README.md) for security boundaries and Azure configuration.
