@@ -50,6 +50,7 @@ var workspaceName = take('${abbreviations.log}-${environmentName}-${suffix}', 63
 var functionPlanName = take('${abbreviations.asp}-${environmentName}-api-${suffix}', 40)
 var webPlanName = take('${abbreviations.asp}-${environmentName}-web-${suffix}', 40)
 var appRegistrationDisplayName = 'TalksOps-${environmentName}-${suffix}'
+var querypackName = '${abbreviations.laqp}-${environmentName}-${suffix}'
 var tags = union({
   project: environmentName
   managedBy: 'azd'
@@ -69,6 +70,7 @@ module monitoring 'modules/monitoring.bicep' = {
     appInsightsName: appInsightsName
     workspaceName: workspaceName
     tags: tags
+    querypackName: querypackName
   }
 }
 

@@ -14,8 +14,6 @@ redirect_uri="${WEB_ENDPOINT_URL%/}/signin-oidc"
 client_id=$(az ad app list --display-name "$app_name" --query '[0].appId' --output tsv)
 if [ -z "$client_id" ] || [ "$client_id" = "None" ]; then
   client_id=$(az ad app create --display-name "$app_name" --sign-in-audience PersonalMicrosoftAccount --web-redirect-uris "$redirect_uri" --enable-id-token-issuance true --query appId --output tsv)
-else
-  az ad app update --id "$client_id" --sign-in-audience PersonalMicrosoftAccount --web-redirect-uris "$redirect_uri" --enable-id-token-issuance true --output none
 fi
 [ -n "$client_id" ] || { printf '%s\n' 'Creating or updating the personal-account app registration failed.' >&2; exit 1; }
 
