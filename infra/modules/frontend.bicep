@@ -23,7 +23,7 @@ param loginEndpoint string
 param appInsightsConnectionString string
 
 @description('Whether the AI event extraction feature is available in the web UI.')
-param aiExtractionEnabled bool = false
+param aiExtractionEnabled bool = true
 
 @description('Common resource tags.')
 param tags object
