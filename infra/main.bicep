@@ -80,7 +80,8 @@ module storage 'modules/storage.bicep' = {
   params: {
     location: location
     storageAccountName: dataStorageAccountName
-    tableName: 'TalksOps'
+    eventTableName: 'TalksOps'
+    consumptionTableName: 'TokensConsumption'
     tags: tags
   }
 }
@@ -104,7 +105,8 @@ module backend 'modules/backend.bicep' = {
     functionPlanName: functionPlanName
     functionStorageAccountName: functionStorageAccountName
     dataTableServiceUri: storage.outputs.tableServiceUri
-    dataTableName: storage.outputs.tableName
+    eventTableName: storage.outputs.eventTableName
+    consumptionTableName: storage.outputs.consumptionTableName
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
     foundryEndpoint: foundry.outputs.endpoint
     foundryProjectName: foundry.outputs.projectName
@@ -150,7 +152,8 @@ module identity 'modules/identity.bicep' = {
   scope: resourceGroup
   params: {
     dataStorageAccountName: storage.outputs.storageAccountName
-    dataTableName: storage.outputs.tableName
+    eventTableName: storage.outputs.eventTableName
+    consumptionTableName: storage.outputs.consumptionTableName
     keyVaultName: keyVault.outputs.keyVaultName
     functionPrincipalId: backend.outputs.functionPrincipalId
     webPrincipalId: frontend.outputs.webPrincipalId

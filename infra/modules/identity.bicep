@@ -1,8 +1,11 @@
-@description('Storage account that contains the TalksOps application table.')
+@description('Storage account that contains the TalksOps application tables.')
 param dataStorageAccountName string
 
-@description('Name of the TalksOps application table.')
-param dataTableName string
+@description('Name of the TalksOps event and proposal table.')
+param eventTableName string
+
+@description('Name of the TalksOps token-consumption table.')
+param consumptionTableName string
 
 @description('Key Vault name containing server-side application credentials.')
 param keyVaultName string
@@ -32,9 +35,14 @@ resource dataTableService 'Microsoft.Storage/storageAccounts/tableServices@2023-
   name: 'default'
 }
 
-resource dataTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-01' existing = {
+resource eventTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-01' existing = {
   parent: dataTableService
-  name: dataTableName
+  name: eventTableName
+}
+
+resource consumptionTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-01' existing = {
+  parent: dataTableService
+  name: consumptionTableName
 }
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
@@ -50,9 +58,19 @@ resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-0
   name: foundryProjectName
 }
 
-resource functionAppTableAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(dataTable.id, functionPrincipalId, tableDataContributorRoleId)
-  scope: dataTable
+resource functionAppEventTableAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(eventTable.id, functionPrincipalId, tableDataContributorRoleId)
+  scope: eventTable
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', tableDataContributorRoleId)
+    principalId: functionPrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource functionAppConsumptionTableAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(consumptionTable.id, functionPrincipalId, tableDataContributorRoleId)
+  scope: consumptionTable
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', tableDataContributorRoleId)
     principalId: functionPrincipalId

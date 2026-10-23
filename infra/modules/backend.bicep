@@ -13,8 +13,11 @@ param functionStorageAccountName string
 @description('Azure Table service endpoint for TalksOps application data.')
 param dataTableServiceUri string
 
-@description('Azure Table name used by TalksOps application data.')
-param dataTableName string
+@description('Azure Table name used by TalksOps event and proposal data.')
+param eventTableName string
+
+@description('Azure Table name used by TalksOps token-consumption data.')
+param consumptionTableName string
 
 @description('Application Insights connection string.')
 param appInsightsConnectionString string
@@ -135,7 +138,11 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         }
         {
           name: 'StorageTableName'
-          value: dataTableName
+          value: eventTableName
+        }
+        {
+          name: 'StorageTokensConsumptionTableName'
+          value: consumptionTableName
         }
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'

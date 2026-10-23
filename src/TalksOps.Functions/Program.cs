@@ -74,16 +74,19 @@ if (Uri.TryCreate(foundryEndpoint, UriKind.Absolute, out var parsedFoundryEndpoi
     builder.Services.AddScoped<IEventDataExtractionService, EventDataExtractionService>();
 }
 
-var tableName = builder.Configuration["StorageTableName"];
-if (string.IsNullOrWhiteSpace(tableName))
+var eventTableName = builder.Configuration["StorageTableName"];
+if (string.IsNullOrWhiteSpace(eventTableName))
 {
     throw new InvalidOperationException("The StorageTableName setting must contain the shared Azure Table name.");
 }
 
+var tokensConsumptionTableName = builder.Configuration["StorageTokensConsumptionTableName"]
+    ?? AzureTablesStorageExtensions.TokensConsumptionTableClientKey;
+
 var storageConnectionString = builder.Configuration["StorageConnectionString"];
 if (!string.IsNullOrWhiteSpace(storageConnectionString))
 {
-    builder.Services.AddTalksOpsAzureTables(storageConnectionString, tableName);
+    builder.Services.AddTalksOpsAzureTables(storageConnectionString, eventTableName, tokensConsumptionTableName);
 }
 else
 {
@@ -93,13 +96,16 @@ else
         throw new InvalidOperationException("Configure StorageConnectionString for local storage or StorageUri with the Azure Tables endpoint URI.");
     }
 
-    builder.Services.AddTalksOpsAzureTables(parsedTableServiceUri, tableName);
+    builder.Services.AddTalksOpsAzureTables(parsedTableServiceUri, eventTableName, tokensConsumptionTableName);
 }
 
 using var host = builder.Build();
 if (!string.IsNullOrWhiteSpace(storageConnectionString))
 {
     await host.Services.GetRequiredService<TableClient>().CreateIfNotExistsAsync();
+    await host.Services
+        .GetRequiredKeyedService<TableClient>(AzureTablesStorageExtensions.TokensConsumptionTableClientKey)
+        .CreateIfNotExistsAsync();
 }
 
 await host.RunAsync();

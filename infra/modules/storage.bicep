@@ -4,8 +4,11 @@ param location string
 @description('Globally unique data storage account name, 3-24 lowercase letters and numbers.')
 param storageAccountName string
 
-@description('Table used by TalksOps application data.')
-param tableName string
+@description('Table used by TalksOps event and proposal data.')
+param eventTableName string
+
+@description('Table used by TalksOps token-consumption data.')
+param consumptionTableName string
 
 @description('Common resource tags.')
 param tags object
@@ -32,11 +35,17 @@ resource tableService 'Microsoft.Storage/storageAccounts/tableServices@2023-05-0
   name: 'default'
 }
 
-resource appTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-01' = {
+resource eventTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-01' = {
   parent: tableService
-  name: tableName
+  name: eventTableName
+}
+
+resource consumptionTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-01' = {
+  parent: tableService
+  name: consumptionTableName
 }
 
 output storageAccountName string = storageAccount.name
-output tableName string = appTable.name
+output eventTableName string = eventTable.name
+output consumptionTableName string = consumptionTable.name
 output tableServiceUri string = 'https://${storageAccount.name}.table.${environment().suffixes.storage}/'
