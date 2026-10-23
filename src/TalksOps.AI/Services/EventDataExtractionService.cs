@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using TalksOps.AI;
 using TalksOps.AI.Providers;
 using TalksOps.Core.Contracts;
+using TalksOps.Core.Domain;
 using TalksOps.Core.Extraction;
 
 namespace TalksOps.AI.Services;
@@ -13,6 +14,7 @@ public sealed class EventDataExtractionService(
     IEventPageFetcher pageFetcher,
     IEventHtmlCleaner htmlCleaner,
     IEventDataChatClient chatClient,
+    ITokensConsumptionRepository tokensConsumptionRepository,
     ILogger<EventDataExtractionService> logger) : IEventDataExtractionService
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -31,6 +33,7 @@ public sealed class EventDataExtractionService(
         ArgumentNullException.ThrowIfNull(pageFetcher);
         ArgumentNullException.ThrowIfNull(htmlCleaner);
         ArgumentNullException.ThrowIfNull(chatClient);
+        ArgumentNullException.ThrowIfNull(tokensConsumptionRepository);
         ArgumentNullException.ThrowIfNull(logger);
 
         logger.LogInformation(
@@ -49,7 +52,29 @@ public sealed class EventDataExtractionService(
             prompt);
 
         var response = await chatClient.CompleteAsync(prompt, cancellationToken);
-        
+
+        try
+        {
+            await tokensConsumptionRepository.CreateAsync(
+                new TokensConsumption
+                {
+                    UserId = userId,
+                    DeploymentName = response.DeploymentName,
+                    InputTokens = response.InputTokens,
+                    OutputTokens = response.OutputTokens,
+                    CallForPapersUrl = sourcePageUrl
+                },
+                cancellationToken);
+        }
+        catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogError(
+                exception,
+                "Failed to record event extraction token consumption for user {UserId} with deployment {DeploymentName}.",
+                userId,
+                response.DeploymentName);
+        }
+
         logger.LogInformation(
             "Event extraction model usage for user {UserId} with deployment {DeploymentName}: input tokens {InputTokens}, output tokens {OutputTokens}.",
             userId,
