@@ -130,10 +130,13 @@ public sealed class AzureTableEventRepository : IEventRepository
     internal static string Key(Guid id) => id.ToString("N");
 
     /// <summary>Escapes invalid table-key characters and percent signs while keeping usernames readable.</summary>
-    internal static string EventPartitionKey(string ownerId)
+    internal static string EventPartitionKey(string ownerId) => $"events|{EscapePartitionKey(ownerId)}";
+
+    /// <summary>Escapes characters that are invalid in Azure Table partition and row keys.</summary>
+    internal static string EscapePartitionKey(string value)
     {
-        var partitionKey = new StringBuilder("events|");
-        foreach (var character in ownerId)
+        var partitionKey = new StringBuilder(value.Length);
+        foreach (var character in value)
         {
             if (character is '%' or '/' or '\\' or '#' or '?' || char.IsControl(character))
             {

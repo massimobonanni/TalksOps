@@ -14,18 +14,30 @@ public sealed class AzureTablesStorageExtensionsTests
     {
         var services = new ServiceCollection();
 
-        Assert.Same(services, services.AddTalksOpsAzureTables("UseDevelopmentStorage=true", "TalksOps"));
+        Assert.Same(services, services.AddTalksOpsAzureTables(
+            "UseDevelopmentStorage=true", "TalksOps", "TokensConsumption"));
 
         var service = Assert.IsType<TableServiceClient>(
             Assert.Single(services, descriptor => descriptor.ServiceType == typeof(TableServiceClient)).ImplementationInstance);
         var table = Assert.IsType<TableClient>(
-            Assert.Single(services, descriptor => descriptor.ServiceType == typeof(TableClient)).ImplementationInstance);
+            Assert.Single(services, descriptor =>
+                descriptor.ServiceType == typeof(TableClient) && descriptor.ServiceKey is null).ImplementationInstance);
+        var consumptionDescriptor = Assert.Single(services, descriptor =>
+            descriptor.ServiceType == typeof(TableClient)
+            && Equals(descriptor.ServiceKey, AzureTablesStorageExtensions.TokensConsumptionTableClientKey));
+        var consumptionTable = Assert.IsType<TableClient>(consumptionDescriptor.KeyedImplementationFactory!(
+            null!, AzureTablesStorageExtensions.TokensConsumptionTableClientKey));
         Assert.Equal(new Uri("http://127.0.0.1:10002/devstoreaccount1"), service.Uri);
         Assert.Equal("TalksOps", table.Name);
+        Assert.Equal("TokensConsumption", consumptionTable.Name);
+        Assert.NotSame(table, consumptionTable);
+        Assert.NotNull(consumptionDescriptor.KeyedImplementationFactory);
         Assert.Equal(typeof(AzureTableEventRepository),
             Assert.Single(services, descriptor => descriptor.ServiceType == typeof(IEventRepository)).ImplementationType);
         Assert.Equal(typeof(AzureTableSessionProposalRepository),
             Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ISessionProposalRepository)).ImplementationType);
+        Assert.Equal(typeof(AzureTableTokensConsumptionRepository),
+            Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ITokensConsumptionRepository)).ImplementationType);
         Assert.All(services, descriptor => Assert.Equal(ServiceLifetime.Singleton, descriptor.Lifetime));
     }
 
@@ -36,18 +48,27 @@ public sealed class AzureTablesStorageExtensionsTests
         var services = new ServiceCollection();
         var serviceUri = new Uri("https://talksops.table.core.windows.net");
 
-        services.AddTalksOpsAzureTables(serviceUri, "TalksOps");
+        services.AddTalksOpsAzureTables(serviceUri, "TalksOps", "TokensConsumption");
 
         var service = Assert.IsType<TableServiceClient>(
             Assert.Single(services, descriptor => descriptor.ServiceType == typeof(TableServiceClient)).ImplementationInstance);
         var table = Assert.IsType<TableClient>(
-            Assert.Single(services, descriptor => descriptor.ServiceType == typeof(TableClient)).ImplementationInstance);
+            Assert.Single(services, descriptor =>
+                descriptor.ServiceType == typeof(TableClient) && descriptor.ServiceKey is null).ImplementationInstance);
+        var consumptionDescriptor = Assert.Single(services, descriptor =>
+            descriptor.ServiceType == typeof(TableClient)
+            && Equals(descriptor.ServiceKey, AzureTablesStorageExtensions.TokensConsumptionTableClientKey));
+        var consumptionTable = Assert.IsType<TableClient>(consumptionDescriptor.KeyedImplementationFactory!(
+            null!, AzureTablesStorageExtensions.TokensConsumptionTableClientKey));
         Assert.Equal(serviceUri, service.Uri);
         Assert.Equal("TalksOps", table.Name);
+        Assert.Equal("TokensConsumption", consumptionTable.Name);
         Assert.Equal(typeof(AzureTableEventRepository),
             Assert.Single(services, descriptor => descriptor.ServiceType == typeof(IEventRepository)).ImplementationType);
         Assert.Equal(typeof(AzureTableSessionProposalRepository),
             Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ISessionProposalRepository)).ImplementationType);
+        Assert.Equal(typeof(AzureTableTokensConsumptionRepository),
+            Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ITokensConsumptionRepository)).ImplementationType);
     }
 
     /// <summary>Verifies missing connection strings are rejected before constructing a client.</summary>
@@ -70,5 +91,13 @@ public sealed class AzureTablesStorageExtensionsTests
     {
         Assert.ThrowsAny<ArgumentException>(() =>
             new ServiceCollection().AddTalksOpsAzureTables("UseDevelopmentStorage=true", tableName!));
+    }
+
+    /// <summary>Verifies event and token-consumption data cannot share a table.</summary>
+    [Fact]
+    public void ConnectionString_RejectsSameTableNames()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            new ServiceCollection().AddTalksOpsAzureTables("UseDevelopmentStorage=true", "TalksOps", "TalksOps"));
     }
 }
