@@ -44,6 +44,24 @@ public sealed class DomainRulesTests
     }
 
     [Fact]
+    public void EventRules_RejectsCallForPapersDeadlineAfterEndDate()
+    {
+        var value = new Event
+        {
+            OwnerId = "user-1",
+            Name = "Tech conference",
+            Location = "Milan",
+            StartDate = new DateOnly(2026, 5, 1),
+            EndDate = new DateOnly(2026, 5, 2),
+            CallForPapersDeadline = new DateOnly(2026, 5, 3)
+        };
+
+        Assert.Contains(EventRules.Validate(value), error => error.Contains("call for papers deadline"));
+        Assert.Empty(EventRules.Validate(value with { CallForPapersDeadline = value.EndDate }));
+        Assert.Empty(EventRules.Validate(value with { CallForPapersDeadline = null }));
+    }
+
+    [Fact]
     public void EventRules_RejectsNegativeCosts()
     {
         var value = new Event
