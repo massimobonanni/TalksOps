@@ -180,6 +180,42 @@ public class EventExtractionUiTests
         Assert.Equal("Rome", apiClient.CreatedEventRequest?.Location);
     }
 
+    /// <summary>Checks that invalid deadlines stay in the editor and can be corrected before saving.</summary>
+    [Theory]
+    [InlineData("2026-10-26")]
+    [InlineData("2026-10-27")]
+    [InlineData("")]
+    public void DeadlineAfterEventEnd_ShowsValidationErrorAndAllowsCorrection(string correctedDeadline)
+    {
+        using var context = new BunitContext();
+        var apiClient = new StubApiClient(new ExtractEventDataResultDto(null, null, null, null, null, null, null));
+        context.Services.AddSingleton<ITalksOpsApiClient>(apiClient);
+        var component = context.Render<Events>();
+        component.Find("button.button-primary").Click();
+        var dialog = component.Find(".event-dialog");
+        dialog.QuerySelector("input[required][maxlength='160']")!.Input("Manual event");
+        dialog.QuerySelectorAll("input[required][maxlength='160']")[1].Change("Rome");
+        component.FindAll(".event-dialog input[type=date]")[0].Change("2026-10-27");
+        component.FindAll(".event-dialog input[type=date]")[1].Change("2026-10-27");
+        component.FindAll(".event-dialog input[type=date]")[2].Change("2026-10-28");
+
+        component.Find(".event-dialog form").Submit();
+
+        Assert.Equal("The call for papers deadline must be on or before the event end date.",
+            component.Find(".event-dialog [role=alert]").TextContent);
+        Assert.Equal(0, apiClient.CreateEventCallCount);
+        Assert.Equal(0, apiClient.UpdateEventCallCount);
+        Assert.Equal("2026-10-28", component.FindAll(".event-dialog input[type=date]")[2].GetAttribute("value"));
+
+        component.FindAll(".event-dialog input[type=date]")[2].Change(correctedDeadline);
+        component.Find(".event-dialog form").Submit();
+
+        Assert.Equal(1, apiClient.CreateEventCallCount);
+        Assert.Equal(correctedDeadline.Length == 0 ? (DateOnly?)null : DateOnly.Parse(correctedDeadline),
+            apiClient.CreatedEventRequest?.CallForPapersDeadline);
+        Assert.Empty(component.FindAll(".event-dialog"));
+    }
+
     [Fact]
     public void ExtractEventData_OpensPrefilledNewEventEditorOnlyAfterSuccess()
     {

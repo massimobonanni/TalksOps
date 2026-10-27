@@ -591,6 +591,12 @@ else
             return;
         }
 
+        if (this.EventCallForPapersDeadline is DateTime callForPapersDeadline && callForPapersDeadline.Date > this.EventEndDate.Date)
+        {
+            this.EventEditorErrorMessage = "The call for papers deadline must be on or before the event end date.";
+            return;
+        }
+
         try
         {
             var startDate = DateOnly.FromDateTime(this.EventStartDate);
