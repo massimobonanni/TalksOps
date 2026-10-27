@@ -39,6 +39,11 @@ public static class EventRules
             errors.Add("The event end date must be on or after its start date.");
         }
 
+        if (value.CallForPapersDeadline is DateOnly deadline && deadline > value.EndDate)
+        {
+            errors.Add("The call for papers deadline must be on or before the event end date.");
+        }
+
         foreach (var (costName, amount) in value.Costs)
         {
             if (string.IsNullOrWhiteSpace(costName))
