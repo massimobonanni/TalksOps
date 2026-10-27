@@ -144,7 +144,7 @@ Lifecycle values: `Submitted`, `Accepted`, `Rejected`, and `Cancelled`.
 
 ### `EventRules`
 
-`Validate(Event value)` returns validation messages for missing owner/name/location, invalid date range, empty cost names, or negative costs. An empty result means valid input.
+`Validate(Event value)` returns validation messages for missing owner/name/location, an end date before the start date, a call-for-papers deadline after the event end date, empty cost names, or negative costs. An empty result means valid input.
 
 ### `SessionProposalRules`
 
