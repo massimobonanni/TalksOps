@@ -15,7 +15,33 @@
     <span><i class="calendar-dot accepted"></i> Accepted</span><span><i class="calendar-dot submitted"></i> Submitted</span>
     <span><i class="calendar-dot rejected"></i> Rejected</span><span><i class="calendar-dot cancelled"></i> Cancelled</span>
 </div>
+<div class="calendar-status-filters" role="group" aria-label="Filter events by proposal status">
+    <span class="calendar-status-filter-label">Filter by proposal status</span>
+    @foreach (var status in ProposalStatusFilters)
+    {
+        var isSelected = this.SelectedProposalStatuses.Contains(status);
+        <button type="button"
+                class="calendar-status-filter"
+                aria-pressed="@(isSelected ? "true" : "false")"
+                @onclick="() => this.ToggleProposalStatus(status)">
+            <i class="calendar-dot @CalendarStateClassifier.GetProposalState(status)" aria-hidden="true"></i>
+            @status
+        </button>
+    }
+    @if (this.SelectedProposalStatuses.Count > 0)
+    {
+        <button type="button" class="calendar-status-filter calendar-status-filter-clear" @onclick="this.ClearProposalStatusFilters">
+            Clear filters
+        </button>
+    }
+</div>
 <p class="calendar-note">Each circle represents a proposal and its current status. Event borders follow this precedence: Accepted, Submitted, Rejected, then Cancelled. A red outline groups events with overlapping dates.</p>
+
+@{
+    var filteredEvents = this.Events
+        .Where(eventItem => CalendarStateClassifier.MatchesStatusFilter(eventItem.ProposalStatuses, this.SelectedProposalStatuses))
+        .ToArray();
+}
 
 @if (!string.IsNullOrWhiteSpace(this.ErrorMessage))
 {
@@ -29,6 +55,13 @@ else if (this.Events.Count == 0)
 {
     <section class="empty-state"><h2>No events in @this.Year</h2><p>Events in this year will appear here.</p></section>
 }
+else if (filteredEvents.Length == 0)
+{
+    <section class="empty-state" role="status">
+        <h2>No events match the selected statuses</h2>
+        <p>Try selecting different proposal statuses or clear the filters.</p>
+    </section>
+}
 else
 {
     <div class="calendar-months">
@@ -36,14 +69,14 @@ else
         {
             var monthStart = new DateOnly(this.Year, monthNumber, 1);
             var monthEnd = new DateOnly(this.Year, monthNumber, DateTime.DaysInMonth(this.Year, monthNumber));
-            var monthEvents = this.Events
+            var monthEvents = filteredEvents
                 .Where(eventItem => eventItem.StartDate <= monthEnd && eventItem.EndDate >= monthStart)
                 .ToList();
             <section class="calendar-month">
                 <h2>@CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(monthNumber)</h2>
                 @if (monthEvents.Count == 0)
                 {
-                    <p class="month-empty">No events</p>
+                    <p class="month-empty">@(this.SelectedProposalStatuses.Count > 0 ? "No events match selected statuses" : "No events")</p>
                 }
                 else
                 {
@@ -171,8 +204,10 @@ else
 </dialog>
 
 @code {
+    private static readonly string[] ProposalStatusFilters = ["Accepted", "Submitted", "Rejected", "Cancelled"];
     private int Year = DateTime.Today.Year;
     private IReadOnlyList<CalendarEventDto> Events = [];
+    private HashSet<string> SelectedProposalStatuses = new(StringComparer.OrdinalIgnoreCase);
     private bool IsLoading;
     private string? ErrorMessage;
     private CalendarEventDto? SelectedCalendarEvent;
@@ -187,6 +222,16 @@ else
     private bool disposed;
 
     protected override async Task OnInitializedAsync() => await this.LoadCalendarAsync();
+
+    private void ToggleProposalStatus(string status)
+    {
+        if (!this.SelectedProposalStatuses.Add(status))
+        {
+            this.SelectedProposalStatuses.Remove(status);
+        }
+    }
+
+    private void ClearProposalStatusFilters() => this.SelectedProposalStatuses.Clear();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

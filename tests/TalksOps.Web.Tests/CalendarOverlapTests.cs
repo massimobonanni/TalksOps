@@ -98,6 +98,47 @@ public sealed class CalendarOverlapTests : BunitContext
         Assert.Empty(component.FindAll(".calendar-overlap-group"));
     }
 
+    [Fact]
+    public void StatusFilters_MatchAnySelectedStatusAndCanBeCleared()
+    {
+        var year = DateTime.Today.Year;
+        var component = this.RenderCalendar([
+            new(Guid.NewGuid(), "Accepted and submitted", new DateOnly(year, 1, 5), new DateOnly(year, 1, 5), ["Accepted", "Submitted"]),
+            CreateEvent("Rejected", new DateOnly(year, 2, 5), new DateOnly(year, 2, 5), "Rejected"),
+            new(Guid.NewGuid(), "No proposals", new DateOnly(year, 2, 6), new DateOnly(year, 2, 6), [])
+        ]);
+        component.FindAll(".calendar-status-filter").Single(button => button.TextContent.Trim() == "Accepted").Click();
+
+        Assert.Equal("true", component.FindAll(".calendar-status-filter").Single(button => button.TextContent.Trim() == "Accepted").GetAttribute("aria-pressed"));
+        Assert.Equal(["Accepted and submitted"], component.FindAll(".calendar-event h3").Select(heading => heading.TextContent.Trim()));
+        Assert.Contains("No events match selected statuses", component.Find(".calendar-months").TextContent);
+
+        component.FindAll(".calendar-status-filter").Single(button => button.TextContent.Trim() == "Rejected").Click();
+
+        Assert.Equal(["Accepted and submitted", "Rejected"], component.FindAll(".calendar-event h3").Select(heading => heading.TextContent.Trim()));
+        component.Find(".calendar-status-filter-clear").Click();
+
+        Assert.Equal(3, component.FindAll(".calendar-event").Count);
+        Assert.Empty(component.FindAll(".calendar-status-filter-clear"));
+        Assert.Equal("false", component.FindAll(".calendar-status-filter").Single(button => button.TextContent.Trim() == "Accepted").GetAttribute("aria-pressed"));
+        Assert.Contains(component.FindAll(".month-empty"), empty => empty.TextContent.Trim() == "No events");
+    }
+
+    [Fact]
+    public void StatusFilters_WithNoMatchingEvents_ShowFilteredEmptyState()
+    {
+        var year = DateTime.Today.Year;
+        var component = this.RenderCalendar([
+            CreateEvent("Cancelled", new DateOnly(year, 2, 5), new DateOnly(year, 2, 5), "Cancelled")
+        ]);
+
+        component.FindAll(".calendar-status-filter").Single(button => button.TextContent.Trim() == "Accepted").Click();
+
+        Assert.Contains("No events match the selected statuses", component.Find("[role=status]").TextContent);
+        Assert.Empty(component.FindAll(".calendar-month"));
+        Assert.DoesNotContain("No events in", component.Markup);
+    }
+
     private IRenderedComponent<Calendar> RenderCalendar(IReadOnlyList<CalendarEventDto> events)
     {
         this.JSInterop.Mode = JSRuntimeMode.Loose;
