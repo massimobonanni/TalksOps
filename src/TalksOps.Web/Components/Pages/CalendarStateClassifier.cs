@@ -39,4 +39,16 @@ public static class CalendarStateClassifier
             ? "cancelled"
             : "none";
     }
+
+    /// <summary>Returns whether an event matches any selected proposal status, or all events when none are selected.</summary>
+    public static bool MatchesStatusFilter(
+        IReadOnlyCollection<string> proposalStatuses,
+        IReadOnlyCollection<string> selectedStatuses)
+    {
+        ArgumentNullException.ThrowIfNull(proposalStatuses);
+        ArgumentNullException.ThrowIfNull(selectedStatuses);
+
+        return selectedStatuses.Count == 0
+            || proposalStatuses.Any(status => selectedStatuses.Contains(status, StringComparer.OrdinalIgnoreCase));
+    }
 }

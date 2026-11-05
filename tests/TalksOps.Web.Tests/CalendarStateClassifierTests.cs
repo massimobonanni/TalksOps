@@ -40,4 +40,25 @@ public sealed class CalendarStateClassifierTests
         Assert.Equal("accepted", CalendarStateClassifier.GetState(["aCcEpTeD"]));
         Assert.Equal("none", CalendarStateClassifier.GetState([]));
     }
+
+    [Fact]
+    public void MatchesStatusFilter_ShowsEveryEventWhenNoStatusesAreSelected()
+    {
+        Assert.True(CalendarStateClassifier.MatchesStatusFilter([], []));
+        Assert.True(CalendarStateClassifier.MatchesStatusFilter(["Accepted"], []));
+    }
+
+    [Fact]
+    public void MatchesStatusFilter_MatchesAnySelectedStatusWithoutCaseSensitivity()
+    {
+        Assert.True(CalendarStateClassifier.MatchesStatusFilter(["Rejected"], ["Accepted", "rejected"]));
+        Assert.False(CalendarStateClassifier.MatchesStatusFilter(["Submitted"], ["Accepted", "Rejected"]));
+    }
+
+    [Fact]
+    public void MatchesStatusFilter_HidesEventsWithoutMatchingProposals()
+    {
+        Assert.False(CalendarStateClassifier.MatchesStatusFilter([], ["Accepted"]));
+        Assert.False(CalendarStateClassifier.MatchesStatusFilter(["Cancelled"], ["Accepted"]));
+    }
 }
