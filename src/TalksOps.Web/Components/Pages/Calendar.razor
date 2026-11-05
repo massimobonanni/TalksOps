@@ -11,10 +11,6 @@
     <div class="year-control"><button class="icon-button" aria-label="Previous year" @onclick="() => ChangeYearAsync(-1)">&larr;</button><strong>@this.Year</strong><button class="icon-button" aria-label="Next year" @onclick="() => ChangeYearAsync(1)">&rarr;</button></div>
 </div>
 
-<div class="calendar-legend" aria-label="Calendar status legend">
-    <span><i class="calendar-dot accepted"></i> Accepted</span><span><i class="calendar-dot submitted"></i> Submitted</span>
-    <span><i class="calendar-dot rejected"></i> Rejected</span><span><i class="calendar-dot cancelled"></i> Cancelled</span>
-</div>
 <div class="calendar-status-filters" role="group" aria-label="Filter events by proposal status">
     <span class="calendar-status-filter-label">Filter by proposal status</span>
     @foreach (var status in ProposalStatusFilters)

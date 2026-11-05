@@ -107,6 +107,8 @@ public sealed class CalendarOverlapTests : BunitContext
             CreateEvent("Rejected", new DateOnly(year, 2, 5), new DateOnly(year, 2, 5), "Rejected"),
             new(Guid.NewGuid(), "No proposals", new DateOnly(year, 2, 6), new DateOnly(year, 2, 6), [])
         ]);
+        Assert.Empty(component.FindAll(".calendar-legend"));
+
         component.FindAll(".calendar-status-filter").Single(button => button.TextContent.Trim() == "Accepted").Click();
 
         Assert.Equal("true", component.FindAll(".calendar-status-filter").Single(button => button.TextContent.Trim() == "Accepted").GetAttribute("aria-pressed"));
