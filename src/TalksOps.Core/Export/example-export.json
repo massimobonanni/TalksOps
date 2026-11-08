@@ -24,7 +24,20 @@
           "submissionDate": "2026-06-15",
           "status": "Accepted",
           "createdAt": "2026-06-01T09:30:00+00:00",
-          "updatedAt": "2026-07-15T14:00:00+00:00"
+          "updatedAt": "2026-07-15T14:00:00+00:00",
+          "feedbackSettings": {
+            "validFrom": "2026-10-20T08:00:00+00:00",
+            "validTo": "2026-10-22T08:00:00+00:00",
+            "timeZoneId": "Europe/Rome"
+          },
+          "feedback": [
+            {
+              "sessionRating": 8,
+              "speakerRating": 9,
+              "comment": "Clear and engaging.",
+              "timestamp": "2026-10-20T10:30:00+00:00"
+            }
+          ]
         }
       ]
     }

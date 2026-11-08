@@ -9,7 +9,8 @@ namespace TalksOps.Core.Services;
 public sealed class EventImportExportService(
     IEventRepository events,
     ISessionProposalRepository proposals,
-    ICurrentUserContext currentUser) : IEventImportExportService
+    ICurrentUserContext currentUser,
+    IFeedbackService feedback) : IEventImportExportService
 {
     // Repository searches clamp the page size to 100, so export pages through results at that size.
     private const int ExportPageSize = 100;
@@ -22,6 +23,7 @@ public sealed class EventImportExportService(
     private readonly IEventRepository events = events ?? throw new ArgumentNullException(nameof(events));
     private readonly ISessionProposalRepository proposals = proposals ?? throw new ArgumentNullException(nameof(proposals));
     private readonly ICurrentUserContext currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
+    private readonly IFeedbackService feedback = feedback ?? throw new ArgumentNullException(nameof(feedback));
 
     /// <inheritdoc />
     public async Task<EventsExportDocument> ExportAsync(
@@ -47,7 +49,7 @@ public sealed class EventImportExportService(
             foreach (var value in result.Items.Where(value => Overlaps(value, from, to)))
             {
                 var sessions = await this.proposals.ListByEventAsync(ownerId, value.Id, cancellationToken);
-                exported.Add(ToExported(value, sessions));
+                exported.Add(await this.ToExportedAsync(value, sessions, cancellationToken));
             }
 
             if (result.Items.Count == 0 || page * result.PageSize >= result.TotalCount)
@@ -92,7 +94,7 @@ public sealed class EventImportExportService(
         // Map and validate everything up front so an invalid file does not leave a partial import behind.
         var ownerId = this.currentUser.UserId;
         var errors = new List<string>();
-        var toCreate = new List<(Event Event, IReadOnlyList<SessionProposal> Sessions)>();
+        var toCreate = new List<ImportedEvent>();
         foreach (var (exportedEvent, eventIndex) in (document.Events ?? []).Select((value, index) => (value, index)))
         {
             if (exportedEvent is null)
@@ -117,7 +119,7 @@ public sealed class EventImportExportService(
             };
             errors.AddRange(EventRules.Validate(value).Select(error => $"Event #{eventIndex + 1}: {error}"));
 
-            var sessions = new List<SessionProposal>();
+            var sessions = new List<ImportedSession>();
             foreach (var (exportedSession, sessionIndex) in (exportedEvent.Sessions ?? []).Select((s, i) => (s, i)))
             {
                 var prefix = $"Event #{eventIndex + 1}, session #{sessionIndex + 1}:";
@@ -146,10 +148,46 @@ public sealed class EventImportExportService(
                     UpdatedAt = exportedSession.UpdatedAt
                 };
                 errors.AddRange(SessionProposalRules.Validate(session).Select(error => $"{prefix} {error}"));
-                sessions.Add(session);
+
+                FeedbackSettings? settings = null;
+                if (exportedSession.FeedbackSettings is { } exportedSettings)
+                {
+                    settings = new FeedbackSettings
+                    {
+                        SessionId = session.Id,
+                        EventId = value.Id,
+                        ValidFrom = exportedSettings.ValidFrom,
+                        ValidTo = exportedSettings.ValidTo,
+                        TimeZoneId = exportedSettings.TimeZoneId
+                    };
+                    errors.AddRange(FeedbackRules.Validate(settings).Select(error => $"{prefix} feedback settings: {error}"));
+                }
+
+                var feedback = new List<SessionFeedbackImport>();
+                foreach (var (exportedFeedback, feedbackIndex) in (exportedSession.Feedback ?? []).Select((item, index) => (item, index)))
+                {
+                    if (exportedFeedback is null)
+                    {
+                        errors.Add($"{prefix} feedback #{feedbackIndex + 1} is empty.");
+                        continue;
+                    }
+
+                    var importedFeedback = new SessionFeedbackImport
+                    {
+                        SessionRating = exportedFeedback.SessionRating,
+                        SpeakerRating = exportedFeedback.SpeakerRating,
+                        Comment = exportedFeedback.Comment,
+                        Timestamp = exportedFeedback.Timestamp
+                    };
+                    errors.AddRange(FeedbackRules.ValidateImportedFeedback(importedFeedback)
+                        .Select(error => $"{prefix} feedback #{feedbackIndex + 1}: {error}"));
+                    feedback.Add(importedFeedback);
+                }
+
+                sessions.Add(new ImportedSession(session, settings, feedback));
             }
 
-            toCreate.Add((value, sessions));
+            toCreate.Add(new ImportedEvent(value, sessions));
         }
 
         if (errors.Count > 0)
@@ -158,17 +196,28 @@ public sealed class EventImportExportService(
         }
 
         var sessionCount = 0;
-        foreach (var (value, sessions) in toCreate)
+        var feedbackCount = 0;
+        foreach (var item in toCreate)
         {
-            await this.events.CreateAsync(value, cancellationToken);
-            foreach (var session in sessions)
+            await this.events.CreateAsync(item.Event, cancellationToken);
+            foreach (var session in item.Sessions)
             {
-                await this.proposals.CreateAsync(session, cancellationToken);
+                await this.proposals.CreateAsync(session.Proposal, cancellationToken);
+                if (session.Settings is not null || session.Feedback.Count > 0)
+                {
+                    await this.feedback.ImportSessionAsync(
+                        session.Proposal.Id,
+                        session.Settings,
+                        session.Feedback,
+                        cancellationToken);
+                }
+
                 sessionCount++;
+                feedbackCount += session.Feedback.Count;
             }
         }
 
-        return new EventImportResult(toCreate.Count, sessionCount);
+        return new EventImportResult(toCreate.Count, sessionCount, feedbackCount);
     }
 
     /// <inheritdoc />
@@ -197,19 +246,17 @@ public sealed class EventImportExportService(
     private static bool Overlaps(Event value, DateOnly? from, DateOnly? to) =>
         (from is null || value.EndDate >= from) && (to is null || value.StartDate <= to);
 
-    private static ExportedEvent ToExported(Event value, IReadOnlyList<SessionProposal> sessions) => new()
+    private async Task<ExportedEvent> ToExportedAsync(
+        Event value,
+        IReadOnlyList<SessionProposal> sessions,
+        CancellationToken cancellationToken)
     {
-        Name = value.Name,
-        Location = value.Location,
-        OfficialWebsiteUrl = value.OfficialWebsiteUrl,
-        CallForPapersUrl = value.CallForPapersUrl,
-        CallForPapersDeadline = value.CallForPapersDeadline,
-        StartDate = value.StartDate,
-        EndDate = value.EndDate,
-        Costs = value.Costs,
-        Sessions = sessions
-            .OrderBy(session => session.CreatedAt)
-            .Select(session => new ExportedSession
+        var exportedSessions = new List<ExportedSession>(sessions.Count);
+        foreach (var session in sessions.OrderBy(session => session.CreatedAt))
+        {
+            var settings = await this.feedback.GetSettingsAsync(session.Id, cancellationToken);
+            var feedback = await this.feedback.ListBySessionAsync(session.Id, cancellationToken);
+            exportedSessions.Add(new ExportedSession
             {
                 Title = session.Title,
                 Abstract = session.Abstract,
@@ -217,8 +264,43 @@ public sealed class EventImportExportService(
                 SubmissionDate = session.SubmissionDate,
                 Status = session.Status,
                 CreatedAt = session.CreatedAt,
-                UpdatedAt = session.UpdatedAt
-            })
-            .ToArray()
-    };
+                UpdatedAt = session.UpdatedAt,
+                FeedbackSettings = settings is null
+                    ? null
+                    : new ExportedFeedbackSettings
+                    {
+                        ValidFrom = settings.ValidFrom,
+                        ValidTo = settings.ValidTo,
+                        TimeZoneId = settings.TimeZoneId
+                    },
+                Feedback = feedback.Select(item => new ExportedFeedback
+                {
+                    SessionRating = item.SessionRating,
+                    SpeakerRating = item.SpeakerRating,
+                    Comment = item.Comment,
+                    Timestamp = item.Timestamp
+                }).ToArray()
+            });
+        }
+
+        return new ExportedEvent
+        {
+            Name = value.Name,
+            Location = value.Location,
+            OfficialWebsiteUrl = value.OfficialWebsiteUrl,
+            CallForPapersUrl = value.CallForPapersUrl,
+            CallForPapersDeadline = value.CallForPapersDeadline,
+            StartDate = value.StartDate,
+            EndDate = value.EndDate,
+            Costs = value.Costs,
+            Sessions = exportedSessions
+        };
+    }
+
+    private sealed record ImportedEvent(Event Event, IReadOnlyList<ImportedSession> Sessions);
+
+    private sealed record ImportedSession(
+        SessionProposal Proposal,
+        FeedbackSettings? Settings,
+        IReadOnlyList<SessionFeedbackImport> Feedback);
 }

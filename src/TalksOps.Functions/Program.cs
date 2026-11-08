@@ -4,6 +4,7 @@ using System.Threading.RateLimiting;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using TalksOps.AI;
 using TalksOps.AI.Providers;
@@ -33,6 +34,17 @@ builder.Services.AddScoped<ICurrentUserContext>(services => services.GetRequired
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<ISessionProposalService, SessionProposalService>();
 builder.Services.AddScoped<IEventImportExportService, EventImportExportService>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddKeyedSingleton<PartitionedRateLimiter<string>>(
+    FeedbackFunctions.RateLimiterKey,
+    (_, _) => PartitionedRateLimiter.Create<string, string>(ipAddress =>
+        RateLimitPartition.GetFixedWindowLimiter(ipAddress, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 60,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        })));
 var extractionRateLimitPermitLimit = int.Parse(
     builder.Configuration["EventDataExtraction:RateLimit:PermitLimit"] ?? "1",
     NumberStyles.None,
@@ -84,9 +96,11 @@ var tokensConsumptionTableName = builder.Configuration["StorageTokensConsumption
     ?? AzureTablesStorageExtensions.TokensConsumptionTableClientKey;
 
 var storageConnectionString = builder.Configuration["StorageConnectionString"];
+var feedbackTableName = builder.Configuration["StorageFeedbackTableName"]
+    ?? AzureTablesStorageExtensions.StorageFeedbackTableName;
 if (!string.IsNullOrWhiteSpace(storageConnectionString))
 {
-    builder.Services.AddTalksOpsAzureTables(storageConnectionString, eventTableName, tokensConsumptionTableName);
+    builder.Services.AddTalksOpsAzureTables(storageConnectionString, eventTableName, tokensConsumptionTableName, feedbackTableName);
 }
 else
 {
@@ -96,15 +110,19 @@ else
         throw new InvalidOperationException("Configure StorageConnectionString for local storage or StorageUri with the Azure Tables endpoint URI.");
     }
 
-    builder.Services.AddTalksOpsAzureTables(parsedTableServiceUri, eventTableName, tokensConsumptionTableName);
+    builder.Services.AddTalksOpsAzureTables(parsedTableServiceUri, eventTableName, tokensConsumptionTableName, feedbackTableName);
 }
 
+builder.Services.Replace(ServiceDescriptor.Scoped<IFeedbackService, FeedbackService>());
 using var host = builder.Build();
 if (!string.IsNullOrWhiteSpace(storageConnectionString))
 {
     await host.Services.GetRequiredService<TableClient>().CreateIfNotExistsAsync();
     await host.Services
         .GetRequiredKeyedService<TableClient>(AzureTablesStorageExtensions.TokensConsumptionTableClientKey)
+        .CreateIfNotExistsAsync();
+    await host.Services
+        .GetRequiredKeyedService<TableClient>(AzureTablesStorageExtensions.FeedbackTableClientKey)
         .CreateIfNotExistsAsync();
 }
 

@@ -1,6 +1,6 @@
 # TalksOps.Storage
 
-`TalksOps.Storage` implements Core repository contracts with Azure Table Storage. Events and session proposals use one configured table and distinct partition-key prefixes; token-consumption records use a separate table. The repositories enforce owner/event scoping when reading and mutating event and proposal records.
+`TalksOps.Storage` implements Core persistence contracts with Azure Table Storage. Events, session proposals, and feedback settings use one configured table and distinct partition-key prefixes; token-consumption records and participant feedback use separate tables. Event and proposal repositories enforce owner/event scoping, while feedback management is scoped by session.
 
 ## Class diagram
 
@@ -48,21 +48,32 @@ classDiagram
     class AzureTableTokensConsumptionRepository {
         +CreateAsync(value, cancellationToken)
     }
+    class FeedbackService {
+        +GetSessionTitleAsync(sessionId, cancellationToken)
+        +GetSettingsAsync(sessionId, cancellationToken)
+        +SaveSettingsAsync(settings, cancellationToken)
+        +ListBySessionAsync(sessionId, cancellationToken)
+        +CreateAsync(sessionId, submission, metadata, cancellationToken)
+        +ImportSessionAsync(sessionId, settings, feedback, cancellationToken)
+    }
     class AzureTablesStorageExtensions {
-        +AddTalksOpsAzureTables(services, serviceUri, eventTableName, consumptionTableName)$ IServiceCollection
-        +AddTalksOpsAzureTables(services, connectionString, eventTableName, consumptionTableName)$ IServiceCollection
+        +AddTalksOpsAzureTables(services, serviceUri, eventTableName, consumptionTableName, feedbackTableName)$ IServiceCollection
+        +AddTalksOpsAzureTables(services, connectionString, eventTableName, consumptionTableName, feedbackTableName)$ IServiceCollection
     }
     class TableClient
 
     AzureTableEventRepository ..|> IEventRepository
     AzureTableSessionProposalRepository ..|> ISessionProposalRepository
     AzureTableTokensConsumptionRepository ..|> ITokensConsumptionRepository
+    FeedbackService ..|> IFeedbackService
     AzureTableEventRepository --> TableClient
     AzureTableSessionProposalRepository --> TableClient
     AzureTableTokensConsumptionRepository --> TableClient
+    FeedbackService --> TableClient
     AzureTablesStorageExtensions ..> AzureTableEventRepository : registers
     AzureTablesStorageExtensions ..> AzureTableSessionProposalRepository : registers
     AzureTablesStorageExtensions ..> AzureTableTokensConsumptionRepository : registers
+    AzureTablesStorageExtensions ..> FeedbackService : registers
     AzureTableEventRepository ..> Event
     AzureTableSessionProposalRepository ..> SessionProposal
     AzureTableTokensConsumptionRepository ..> TokensConsumption
@@ -75,15 +86,24 @@ classDiagram
 | `AzureTableEventRepository` | Constructor takes a `TableClient`. Implements `SearchAsync`, `GetAsync`, `CreateAsync`, `UpdateAsync`, and `DeleteAsync` from `IEventRepository`. Search filters by owner, optional year/name/location, sorts by date/name/ID, and clamps page size to 1–100. Delete removes proposals and then the event. |
 | `AzureTableSessionProposalRepository` | Constructor takes a `TableClient`. Implements `ListByEventAsync`, `GetAsync`, `CreateAsync`, `UpdateAsync`, and `DeleteAsync` from `ISessionProposalRepository`. It verifies that the owner owns the parent event and filters proposals by owner. |
 | `AzureTableTokensConsumptionRepository` | Uses a keyed `TableClient` for the dedicated consumption table. `CreateAsync` stores the UTC timestamp, deployment, optional token counts, and CFP URL. |
-| `AzureTablesStorageExtensions` | `AddTalksOpsAzureTables(IServiceCollection, Uri, string, string)` configures `DefaultAzureCredential`; the connection-string overload supports Azurite. Both create distinct table clients for event/proposal and consumption data, and register singleton repositories. |
+| `FeedbackService` | Stores settings in the shared event table and anonymous feedback in a dedicated keyed table. Resolves public session titles with point reads, reads settings by partition/row key, and returns partition-scoped feedback newest-first. Supports server-created submissions and additive import with preserved timestamps. |
+| `AzureTablesStorageExtensions` | Both `AddTalksOpsAzureTables` overloads accept the event table name and optional token-consumption and feedback table names. The URI overload configures `DefaultAzureCredential`; the connection-string overload supports Azurite. Both register distinct table clients and persistence services; the Functions host replaces the feedback-service registration with a scoped registration. |
 
 `AzureTableEventRepository` also provides internal conversion/key helpers: `Key(Guid)` formats IDs using the GUID `N` format; `EventPartitionKey(ownerId)` returns `events|{escapedOwnerId}`; `ProposalPartitionKey(eventId)` returns `sessions|{eventId:N}`; `FromEntity` and `ToEntity` map event records to/from table entities. Proposal entity mapping and parent ownership checks are private to `AzureTableSessionProposalRepository`.
 
 ## Table layout
 
-Events and proposals share the `TalksOps` table by default. Event rows use partition key `events|{escapedOwnerId}` and event GUID row keys. The Web application supplies the trimmed, lowercase login username as the owner. Common usernames remain readable (for example, `events|speaker@example.com`); `%`, `/`, `\`, `#`, `?`, and control characters are percent-encoded in the key and decoded when reading the event. A guest UPN such as `speaker#ext#@example.com` therefore uses `events|speaker%23ext%23@example.com`. Encoding `%` prevents collisions with literal escape sequences. Proposal rows use partition key `sessions|{eventId:N}` and proposal GUID row keys; each row also stores the unescaped `OwnerId`. GUIDs use 32 hexadecimal characters without hyphens. See [infra/README.md](../../infra/README.md#application-data-partitions) for migration implications when changing partition prefixes.
+Events and proposals share the `TalksOps` table by default. Event rows use partition key `events|{escapedOwnerId}` and event GUID row keys. The Web application supplies the trimmed, lowercase login username as the owner. Common usernames remain readable (for example, `events|speaker@example.com`); `%`, `/`, `\`, `#`, `?`, and control characters are percent-encoded in the key and decoded when reading the event. A guest UPN such as `speaker#ext#@example.com` therefore uses `events|speaker%23ext%23@example.com`. Encoding `%` prevents collisions with literal escape sequences. Proposal rows use partition key `sessions|{eventId:N}` and proposal GUID row keys; each row also stores the unescaped `OwnerId` and optional `SubmissionDate`. GUIDs use 32 hexadecimal characters without hyphens. See [infra/README.md](../../infra/README.md#application-data-partitions) for migration implications when changing partition prefixes.
 
 Authentication is selected by the registration overload: Azure uses `DefaultAzureCredential` with the table service URI; local development uses the Azurite connection string. The Functions host chooses `StorageConnectionString` when set, otherwise `StorageUri`.
+
+## Session-feedback tables
+
+Feedback settings share the `TalksOps` table. Each settings row uses `feedbacksettings|{sessionId:N}` as its partition key and `{sessionId:N}` as its row key; validity instants are stored in UTC and the selected `TimeZoneId` is retained. Feedback rows use the dedicated `SessionsFeedback` table by default, configurable through `StorageFeedbackTableName`. Their partition key is `feedback|{sessionId:N}` and row key is a unique feedback GUID in `N` format. A row stores both ratings, the optional comment, `FeedbackTimestamp` in UTC, and `MetadataJson` containing request IP and user-agent values for submissions. `FeedbackTimestamp` is separate from Azure Table's reserved `Timestamp` property so imports can preserve the original submission instant; reads fall back to the legacy property for existing rows. Feedback reads query only the session partition and sort by timestamp descending.
+
+Settings also retain an internal `EventId` in `N` format, obtained from an ownership-checked speaker request. `GetSessionTitleAsync(sessionId)` resolves the configured session with point reads of its settings, `sessions|{eventId:N}` row, and parent event. It does not depend on the current user and returns only the title, not owner/routing data. Missing settings, missing sessions/events, and legacy settings without an event reference return null; legacy settings need an authorized re-save. The public Functions endpoints apply the validity window separately before exposing this title or accepting a submission.
+
+The `SessionsFeedback` table is kept separate from event and token-consumption tables. The Function identity needs `Storage Table Data Contributor` on this table as well as the existing application tables; the Web identity has no application-table permissions. Table provisioning and local startup configuration are handled by the Functions/infrastructure setup. Event/session import-export transfers only feedback votes, comment and timestamp plus settings interval/time zone; it excludes request metadata and internal IDs/references. Imported feedback receives a new ID and empty request metadata while preserving its timestamp.
 
 ## Token-consumption table
 

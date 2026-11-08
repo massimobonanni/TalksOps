@@ -182,6 +182,7 @@ else
                     {
                         <article class="calendar-session" @key="proposal.Id">
                             <div class="calendar-session-heading"><h4>@proposal.Title</h4><span class="status-pill status-@CalendarStateClassifier.GetProposalState(proposal.Status.ToString())">@proposal.Status</span></div>
+                            <a class="button button-secondary button-small feedback-management-link" href="@($"/events/{details.Id:D}/proposals/{proposal.Id:D}/feedback")">Feedback</a>
                             <p class="muted">Submitted: @(proposal.SubmissionDate?.ToString("MMM d, yyyy") ?? "Not specified")</p>
                             @if (!string.IsNullOrWhiteSpace(proposal.Abstract))
                             {

@@ -7,7 +7,9 @@ TalksOps is a .NET 10 application for managing speaking events, session proposal
 - Manage events with dates, location, official and call-for-papers URLs, CFP deadlines, and named costs.
 - Track session proposals per event, including abstracts, notes, submission dates, and lifecycle status.
 - View events and proposal status in an annual calendar, with on-demand event and proposal details.
-- Import and export events and proposals as version 1 JSON without event or session IDs, including in the downloadable template. Exports can be date-filtered; imports are additive and generate new IDs for records assigned to the current user. Older files containing IDs remain supported; those IDs are ignored.
+- Configure feedback periods for sessions, share participant feedback links and QR codes, review received ratings/comments, and download feedback without participant request metadata.
+- Collect anonymous session and speaker ratings through a public feedback page. Feedback availability is enforced by the API; participant IP and user-agent metadata are captured server-side for diagnostics.
+- Import and export events, proposals, feedback settings, and received feedback as version 1 JSON without event, session, or feedback IDs, including in the downloadable template. Exports can be date-filtered; imports are additive and generate new IDs for records assigned to the current user. Older files containing IDs remain supported; those IDs are ignored.
 - Optionally extract event details from a public call-for-papers page. The AI-assisted workflow fetches and cleans the page, asks a Microsoft Foundry model for structured event fields, and opens an editable, unsaved draft. The user reviews and saves it through the normal event workflow. Extraction is disabled by default and requires both UI enablement and backend Foundry configuration; requests are rate-limited per user and Function App instance.
 
 ## Documentation
@@ -63,25 +65,26 @@ This teardown deletes the provisioned data as well. Review the target subscripti
 flowchart LR
     Browser[Browser] --> Web[TalksOps.Web<br/>Blazor Server BFF]
     Web -->|OpenID Connect| Identity[Microsoft identity platform]
-    Web -->|Server-side API calls and Function key| Api[TalksOps.Functions<br/>HTTP API]
+    Web -->|Server-side API calls; key for speaker routes| Api[TalksOps.Functions<br/>HTTP API]
     Api --> Core[TalksOps.Core<br/>Domain and application services]
     Core --> Storage[TalksOps.Storage<br/>Azure Tables repositories]
-    Storage -->|Managed identity| Tables[(Azure Tables: TalksOps and TokensConsumption)]
+    Storage -->|Managed identity| Tables[(Azure Tables: TalksOps, TokensConsumption, SessionsFeedback)]
     Api -->|POST /api/events/extract| AI[TalksOps.AI<br/>Extraction service]
     AI -->|HTTPS fetch and cleaned page content| Page[Public CFP page]
     AI -->|Model request| Foundry[Microsoft Foundry<br/>gpt-4.1-nano]
     Api -->|Managed identity| Foundry
     Api -.->|Structured fields for an unsaved draft| Web
+    Web -->|Anonymous participant feedback| Api
     Vault[Key Vault] -->|Secret references| Web
     Web -.-> Insights[Application Insights]
     Api -.-> Insights
 ```
 
-The Web app is the authenticated backend-for-frontend: it keeps the Function key server-side and derives the user ID from the signed-in principal. The Functions API handles event, proposal, calendar, and import/export requests through Core services; Storage repositories persist application data in Azure Tables. For AI extraction, the API delegates to the separate `TalksOps.AI` project, which retrieves a public CFP page and calls the configured Foundry deployment. Extracted fields return to the Web app as a draft and are not persisted until the user saves the event. Successful model calls also write token usage metadata to the separate `TokensConsumption` table; this telemetry is best effort and never blocks extraction.
+The Web app is the authenticated backend-for-frontend: it keeps the Function key server-side and derives the user ID from the signed-in principal. The Functions API handles event, proposal, calendar, import/export, and speaker feedback-management requests through Core services; Storage persists application data in Azure Tables. The public participant feedback page calls anonymous API routes and exposes only a session title while feedback is available. For AI extraction, the API delegates to the separate `TalksOps.AI` project, which retrieves a public CFP page and calls the configured Foundry deployment. Extracted fields return to the Web app as a draft and are not persisted until the user saves the event. Successful model calls also write token usage metadata to the separate `TokensConsumption` table; this telemetry is best effort and never blocks extraction.
 
 ## Functions API security and configuration
 
-All HTTP-triggered Functions require a Function key. Keep the key in server-side web configuration or Key Vault; never send it to browser code or publish it as an infrastructure output. Configure the Functions host with `StorageUri` set to the Azure Table service endpoint, `StorageTableName` for events and proposals, and `StorageTokensConsumptionTableName` for token usage (defaults to `TokensConsumption`). The Function App uses its managed identity through `DefaultAzureCredential` to access both tables. Events and session proposals share `TalksOps`: events use `events|{ownerId}` partition keys, and session proposals use `sessions|{eventId}` partition keys, where `eventId` is a GUID formatted as 32 hexadecimal digits without hyphens. Token records are stored separately in `TokensConsumption`, partitioned by escaped user ID and keyed by a unique GUID.
+Speaker-facing HTTP-triggered Functions require a Function key. The participant routes `GET` and `POST /api/feedback/{sessionId}` are intentionally anonymous; the Function key remains server-side and is never sent to browser code or published as an infrastructure output. Configure the Functions host with `StorageUri` set to the Azure Table service endpoint, `StorageTableName` for events and proposals, `StorageTokensConsumptionTableName` for token usage (defaults to `TokensConsumption`), and `StorageFeedbackTableName` for feedback (defaults to `SessionsFeedback`). The Function App uses its managed identity through `DefaultAzureCredential` to access all three tables. Events, proposals, and feedback settings share `TalksOps`; events use `events|{ownerId}` partition keys, proposals use `sessions|{eventId}` and settings use `feedbacksettings|{sessionId}`. Token records are stored separately in `TokensConsumption`, partitioned by escaped user ID and keyed by a unique GUID. Anonymous submissions are stored in the separate `SessionsFeedback` table.
 
 ### Local Functions development
 
@@ -95,12 +98,13 @@ Install Azure Functions Core Tools v4 and Azurite, then start Azurite with its B
 		"FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
 		"StorageTableName": "TalksOps",
 		"StorageTokensConsumptionTableName": "TokensConsumption",
+		"StorageFeedbackTableName": "SessionsFeedback",
 		"StorageConnectionString": "UseDevelopmentStorage=true"
 	}
 }
 ```
 
-From `src/TalksOps.Functions`, run `dotnet run`. When `StorageConnectionString` is configured, the application uses shared-key authentication and creates both application tables if they do not exist. Azurite must be running before the Functions start. The standard development connection string uses the Table endpoint at `http://127.0.0.1:10002/devstoreaccount1`; use a custom connection string if your emulator has different endpoints.
+From `src/TalksOps.Functions`, run `dotnet run`. When `StorageConnectionString` is configured, the application uses shared-key authentication and creates all three application tables if they do not exist. Azurite must be running before the Functions start. The standard development connection string uses the Table endpoint at `http://127.0.0.1:10002/devstoreaccount1`; use a custom connection string if your emulator has different endpoints.
 
 Each `TokensConsumption` row records the user ID, UTC model-call timestamp, deployment name, optional input/output token counts, and CFP URL. A successful Foundry response is recorded before parsing, so malformed model output still has usage telemetry. A persistence failure is logged and extraction continues; failed model calls do not create a record.
 

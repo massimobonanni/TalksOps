@@ -70,6 +70,12 @@ public sealed class CalendarEventDetailsTests : BunitContext
         Assert.Contains("Session abstract", component.Find("dialog").TextContent);
         Assert.Equal(1, handler.EventRequests);
         Assert.Equal(1, handler.ProposalRequests);
+        Assert.Equal(4, component.FindAll(".feedback-management-link").Count);
+        foreach (var proposal in handler.Proposals)
+        {
+            Assert.Contains(component.FindAll(".feedback-management-link"), link =>
+                link.GetAttribute("href") == $"/events/{handler.Event.Id:D}/proposals/{proposal.Id:D}/feedback");
+        }
         foreach (var status in Enum.GetValues<ProposalStatus>())
         {
             Assert.Contains(status.ToString(), component.Find("dialog").TextContent);
@@ -218,6 +224,7 @@ public sealed class CalendarEventDetailsTests : BunitContext
             new Dictionary<string, decimal>() { ["Travel"] = 25m });
         public int EventRequests { get; private set; }
         public int ProposalRequests { get; private set; }
+        public IReadOnlyList<SessionProposalDto> Proposals { get; private set; } = [];
         public bool HasProposals { get; set; } = true;
         public bool FailEvent { get; set; }
         public bool FailProposals { get; set; }
@@ -255,9 +262,10 @@ public sealed class CalendarEventDetailsTests : BunitContext
                     return Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
                 }
 
-                return Task.FromResult(JsonResponse((this.HasProposals ? Enum.GetValues<ProposalStatus>() : []).Select(status =>
+                this.Proposals = (this.HasProposals ? Enum.GetValues<ProposalStatus>() : []).Select(status =>
                     new SessionProposalDto(Guid.NewGuid(), this.Event.Id, "test-user", $"Session {status}",
-                        "Session abstract", "Session notes", status, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null)).ToArray()));
+                        "Session abstract", "Session notes", status, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null)).ToArray();
+                return Task.FromResult(JsonResponse(this.Proposals));
             }
 
             this.EventRequests++;

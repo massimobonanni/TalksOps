@@ -53,6 +53,10 @@ public sealed class ImportExportTests : BunitContext
             Costs = exportedEvent.Costs
         }));
         var session = Assert.Single(exportedEvent.Sessions);
+        Assert.Equal("UTC", session.FeedbackSettings!.TimeZoneId);
+        var feedback = Assert.Single(session.Feedback!);
+        Assert.Equal(8, feedback.SessionRating);
+        Assert.Equal(9, feedback.SpeakerRating);
         Assert.True(Enum.IsDefined(session.Status));
         Assert.Empty(SessionProposalRules.Validate(new SessionProposal
         {

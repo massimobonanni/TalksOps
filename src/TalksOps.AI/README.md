@@ -9,7 +9,7 @@ flowchart LR
     Function[EventDataExtractionFunction] --> Service[EventDataExtractionService]
     Service --> Fetcher[PublicEventPageFetcher]
     Fetcher --> Page[Public CFP page]
-    Service --> Cleaner[AngleSharpEventHtmlCleaner]
+    Service --> Cleaner[ReverseMarkdownEventHtmlCleaner]
     Cleaner --> Prompt[ExtractEventDataPrompt.txt]
     Prompt --> Client[FoundryEventDataChatClient]
     Client --> Foundry[Microsoft Foundry deployment]
@@ -18,7 +18,7 @@ flowchart LR
 ```
 
 1. `PublicEventPageFetcher` retrieves the submitted URL after validating the URL, DNS results, and every redirect.
-2. `AngleSharpEventHtmlCleaner` parses the HTML and builds concise input from page metadata, JSON-LD event data, relevant links, and visible content.
+2. `ReverseMarkdownEventHtmlCleaner` parses the HTML, removes non-content elements and event-handler/style attributes, resolves safe relative HTTP(S) links, and converts the selected page content to Markdown.
 3. `EventDataExtractionService` loads the prompt, inserts the source URL and cleaned content, and calls `IEventDataChatClient`.
 4. The service parses the JSON response, trims text, validates URLs, normalizes dates to `DD/MM/YYYY`, and returns `ExtractedEventData`.
 
@@ -28,7 +28,7 @@ flowchart LR
 | --- | --- |
 | `EventDataExtractionService` | Orchestrates fetch, clean, prompt construction, model completion, response parsing, and normalization. Implements Core's `IEventDataExtractionService`. |
 | `PublicEventPageFetcher` | Fetches bounded HTML from public HTTP(S) addresses. Disables automatic redirects and validates redirect targets. |
-| `AngleSharpEventHtmlCleaner` | Uses AngleSharp's HTML parser to extract bounded, relevant page content and resolve useful links against the source URL. |
+| `ReverseMarkdownEventHtmlCleaner` | The registered cleaner; uses AngleSharp and ReverseMarkdown to remove page chrome, select `main`, `article`, or `body` content, resolve safe URLs against the source URL, and convert the result to bounded Markdown. |
 | `FoundryEventDataChatClient` | Calls a named Foundry project deployment using Microsoft Entra authentication through `DefaultAzureCredential`, with JSON response mode. |
 | `PromptProvider` | Loads `PromptFiles/ExtractEventDataPrompt.txt` from the application output directory. |
 | `EventDataExtractionException` / `EventDataExtractionErrorCode` | Represents expected failures with a stable category for the Functions API to map to an HTTP response. |
@@ -57,7 +57,7 @@ Dates are returned as `DD/MM/YYYY`. Invalid date values and URLs are normalized 
 
 The page fetcher accepts absolute HTTP or HTTPS URLs without user information. It requires every DNS result to be public, pins connections to validated public addresses, disables automatic redirects, and validates each redirect target. It allows at most three redirects, has a 15-second fetch timeout, and reads at most 2 MiB of HTML.
 
-The cleaner prefers the `main` or `article` content when available, includes page title and description, canonical URL, JSON-LD, and up to 30 event-relevant links. It removes scripts and non-content elements from visible text and limits the final prompt input to 40,000 characters. The Foundry client requests JSON output and caps model output at 1,200 tokens. Page content is treated as untrusted data, not as model instructions.
+The cleaner prefers `main`, then `article`, then `body`, removes scripts and other non-content elements, resolves safe relative links and image/source URLs, and limits the resulting Markdown to 40,000 characters. It does not separately extract page metadata or JSON-LD. The Foundry client requests JSON output and caps model output at 1,200 tokens. Page content is treated as untrusted data, not as model instructions.
 
 Expected failure categories are `InvalidSourceUrl`, `UnsafeSourceAddress`, `FetchFailed`, `TooManyRedirects`, `PageTooLarge`, `InvalidModelResponse`, and `NoEventData`. The Functions endpoint translates these into safe HTTP error responses; unexpected failures are logged without returning internal exception details.
 
@@ -77,7 +77,7 @@ The Web visibility switch is separate: `Features:AiExtraction` defaults to `fals
 
 ## Dependencies and tests
 
-The project references `TalksOps.Core` and uses AngleSharp for HTML parsing, Azure Identity for Entra authentication, and the OpenAI .NET client for Foundry chat completions. Its focused unit tests cover prompt substitution, date normalization, and invalid or empty model output:
+The project references `TalksOps.Core` and uses AngleSharp and ReverseMarkdown for HTML cleaning, Azure Identity for Entra authentication, and the OpenAI .NET client for Foundry chat completions. Its focused unit tests cover prompt substitution, date normalization, and invalid or empty model output:
 
 ```powershell
 dotnet test tests/TalksOps.AI.Tests/TalksOps.AI.Tests.csproj

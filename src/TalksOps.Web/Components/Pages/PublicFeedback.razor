@@ -1,0 +1,207 @@
+@page "/feedback/{SessionId:guid}"
+@attribute [AllowAnonymous]
+@layout PublicLayout
+@implements IDisposable
+@using System.Net
+@using System.Text.Json
+@inject ITalksOpsApiClient Api
+@inject ILogger<PublicFeedback> Logger
+
+<PageTitle>Session feedback | TalksOps</PageTitle>
+
+<div class="page-heading">
+    <div><p class="eyebrow">SESSION FEEDBACK</p><h1>@(this.Title ?? "Session feedback")</h1></div>
+</div>
+
+@if (this.IsLoading)
+{
+    <p class="empty-state" role="status">Loading feedback form...</p>
+}
+else if (this.IsUnavailable)
+{
+    <p class="notice notice-error" role="alert">Feedback is not available.</p>
+}
+else if (this.IsSubmitted)
+{
+    <p class="notice notice-success" role="status">Thank you! Your feedback has been sent.</p>
+}
+else
+{
+    @if (this.ErrorMessage is not null)
+    {
+        <p class="notice notice-error" role="alert">@this.ErrorMessage</p>
+    }
+    @if (this.Title is null)
+    {
+        <button class="button button-secondary" type="button" @onclick="LoadAsync">Retry</button>
+    }
+    else
+    {
+        <form class="editor-form" @onsubmit="SubmitAsync" @onsubmit:preventDefault>
+            <p class="muted">No sign-in is required. Please rate the session and speaker from 1 to 10.</p>
+            <fieldset disabled="@this.IsSubmitting">
+                <div class="form-grid">
+                    <label>Session rating (required)
+                        <input id="session-rating" type="number" min="1" max="10" step="1" required @bind="this.SessionRating" />
+                    </label>
+                    <label>Speaker rating (required)
+                        <input id="speaker-rating" type="number" min="1" max="10" step="1" required @bind="this.SpeakerRating" />
+                    </label>
+                    <label>Comment or suggestion (optional)
+                        <textarea id="feedback-comment" maxlength="4000" rows="4" @bind="this.Comment"></textarea>
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button class="button button-primary" type="submit">@(this.IsSubmitting ? "Sending..." : "Send feedback")</button>
+                </div>
+            </fieldset>
+        </form>
+    }
+}
+
+@code {
+    /// <summary>Gets or sets the session identifier from the anonymous route.</summary>
+    [Parameter] public Guid SessionId { get; set; }
+
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+
+    private string? Title;
+    private int? SessionRating;
+    private int? SpeakerRating;
+    private string? Comment;
+    private string? ErrorMessage;
+    private bool IsLoading;
+    private bool IsUnavailable;
+    private bool IsSubmitting;
+    private bool IsSubmitted;
+    private int requestVersion;
+
+    protected override Task OnParametersSetAsync() => this.LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var version = ++this.requestVersion;
+        var sessionId = this.SessionId;
+        this.Title = this.ErrorMessage = this.Comment = null;
+        this.SessionRating = this.SpeakerRating = null;
+        this.IsUnavailable = this.IsSubmitting = this.IsSubmitted = false;
+        this.IsLoading = true;
+        this.SetResponseStatus(StatusCodes.Status200OK);
+        try
+        {
+            var feedback = await this.Api.GetPublicFeedbackAsync(sessionId);
+            if (version != this.requestVersion) return;
+            if (feedback is null || !feedback.Available)
+            {
+                this.SetUnavailable();
+                return;
+            }
+
+            this.Title = feedback.Title;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or JsonException or TaskCanceledException)
+        {
+            if (version != this.requestVersion) return;
+            this.Logger.LogWarning(exception, "Unable to load the public feedback form.");
+            if (exception is HttpRequestException { StatusCode: HttpStatusCode.NotFound })
+            {
+                this.SetUnavailable();
+            }
+            else
+            {
+                this.ErrorMessage = "Unable to load feedback. Please retry.";
+                this.SetResponseStatus(StatusCodes.Status503ServiceUnavailable);
+            }
+        }
+        finally
+        {
+            if (version == this.requestVersion) this.IsLoading = false;
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (this.IsLoading || this.Title is null || this.IsSubmitting || this.IsSubmitted || this.IsUnavailable) return;
+        this.ErrorMessage = null;
+        if (this.SessionRating is not (>= 1 and <= 10) || this.SpeakerRating is not (>= 1 and <= 10))
+        {
+            this.ErrorMessage = "Both ratings are required and must be whole numbers from 1 to 10.";
+            return;
+        }
+        if (this.Comment?.Length > 4000)
+        {
+            this.ErrorMessage = "The comment cannot exceed 4000 characters.";
+            return;
+        }
+
+        var version = this.requestVersion;
+        var sessionId = this.SessionId;
+        this.IsSubmitting = true;
+        try
+        {
+            await this.Api.SubmitFeedbackAsync(sessionId,
+                new SubmitFeedbackRequest(this.SessionRating.Value, this.SpeakerRating.Value, this.Comment));
+            if (version != this.requestVersion) return;
+            this.IsSubmitted = true;
+            this.Comment = null;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or JsonException or TaskCanceledException)
+        {
+            if (version != this.requestVersion) return;
+            this.Logger.LogWarning(exception, "Unable to submit public feedback.");
+            if (exception is HttpRequestException { StatusCode: HttpStatusCode.NotFound })
+            {
+                this.SetUnavailable();
+            }
+            else
+            {
+                this.ErrorMessage = exception is HttpRequestException httpException
+                    ? httpException.StatusCode switch
+                    {
+                        HttpStatusCode.BadRequest => "Feedback was not accepted. Check the ratings and comment, then retry.",
+                        HttpStatusCode.RequestEntityTooLarge => "Feedback is too large. Shorten the comment and retry.",
+                        HttpStatusCode.TooManyRequests => "Too many requests. Please wait before retrying.",
+                        _ => "Unable to send feedback. Please retry."
+                    }
+                    : "Unable to send feedback. Please retry.";
+            }
+        }
+        finally
+        {
+            if (version == this.requestVersion) this.IsSubmitting = false;
+        }
+    }
+
+    private void SetUnavailable()
+    {
+        this.IsUnavailable = true;
+        this.Title = this.Comment = this.ErrorMessage = null;
+        this.SessionRating = this.SpeakerRating = null;
+        this.SetResponseStatus(StatusCodes.Status404NotFound);
+    }
+
+    private void SetResponseStatus(int statusCode)
+    {
+        // SSR must set the status before rendering; interactive circuits have no writable response.
+        if (this.HttpContext is { Response.HasStarted: false } context)
+        {
+            if (statusCode == StatusCodes.Status404NotFound)
+            {
+                // Razor endpoints suppress the SSR body when prerendering sets 404 immediately.
+                context.Response.OnStarting(() =>
+                {
+                    context.Response.StatusCode = statusCode;
+                    return Task.CompletedTask;
+                });
+            }
+            else
+            {
+                context.Response.StatusCode = statusCode;
+            }
+            context.Response.Headers.CacheControl = "no-store";
+        }
+    }
+
+    /// <inheritdoc />
+    public void Dispose() => ++this.requestVersion;
+}

@@ -10,6 +10,9 @@ param eventTableName string
 @description('Table used by TalksOps token-consumption data.')
 param consumptionTableName string
 
+@description('Table used by TalksOps session feedback.')
+param feedbackTableName string
+
 @description('Common resource tags.')
 param tags object
 
@@ -45,7 +48,13 @@ resource consumptionTable 'Microsoft.Storage/storageAccounts/tableServices/table
   name: consumptionTableName
 }
 
+resource feedbackTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-01' = {
+  parent: tableService
+  name: feedbackTableName
+}
+
 output storageAccountName string = storageAccount.name
 output eventTableName string = eventTable.name
 output consumptionTableName string = consumptionTable.name
+output feedbackTableName string = feedbackTable.name
 output tableServiceUri string = 'https://${storageAccount.name}.table.${environment().suffixes.storage}/'
