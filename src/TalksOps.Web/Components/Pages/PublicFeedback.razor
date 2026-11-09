@@ -41,12 +41,34 @@ else
             <p class="muted">No sign-in is required. Please rate the session and speaker from 1 to 10.</p>
             <fieldset disabled="@this.IsSubmitting">
                 <div class="form-grid">
-                    <label>Session rating (required)
-                        <input id="session-rating" type="number" min="1" max="10" step="1" required @bind="this.SessionRating" />
-                    </label>
-                    <label>Speaker rating (required)
-                        <input id="speaker-rating" type="number" min="1" max="10" step="1" required @bind="this.SpeakerRating" />
-                    </label>
+                    <div class="rating-field">
+                        <p id="session-rating-label">Session rating (required)</p>
+                        <div id="session-rating" class="rating-options" role="radiogroup" aria-labelledby="session-rating-label">
+                            @for (var rating = 1; rating <= 10; rating++)
+                            {
+                                var currentRating = rating;
+                                <label class="rating-option @(this.SessionRating is int selected && selected >= currentRating ? "selected" : null)" title="@($"{currentRating} out of 10")">
+                                    <input id="session-rating-@currentRating" type="radio" name="session-rating" value="@currentRating" checked="@(this.SessionRating == currentRating)" required aria-label="@($"{currentRating} out of 10")" @onchange="() => this.SessionRating = currentRating" />
+                                    <span aria-hidden="true">★</span>
+                                </label>
+                            }
+                        </div>
+                        <output class="rating-value" for="session-rating">@(this.SessionRating is int sessionRating ? $"{sessionRating}/10" : "Choose a rating")</output>
+                    </div>
+                    <div class="rating-field">
+                        <p id="speaker-rating-label">Speaker rating (required)</p>
+                        <div id="speaker-rating" class="rating-options" role="radiogroup" aria-labelledby="speaker-rating-label">
+                            @for (var rating = 1; rating <= 10; rating++)
+                            {
+                                var currentRating = rating;
+                                <label class="rating-option @(this.SpeakerRating is int selected && selected >= currentRating ? "selected" : null)" title="@($"{currentRating} out of 10")">
+                                    <input id="speaker-rating-@currentRating" type="radio" name="speaker-rating" value="@currentRating" checked="@(this.SpeakerRating == currentRating)" required aria-label="@($"{currentRating} out of 10")" @onchange="() => this.SpeakerRating = currentRating" />
+                                    <span aria-hidden="true">★</span>
+                                </label>
+                            }
+                        </div>
+                        <output class="rating-value" for="speaker-rating">@(this.SpeakerRating is int speakerRating ? $"{speakerRating}/10" : "Choose a rating")</output>
+                    </div>
                     <label>Comment or suggestion (optional)
                         <textarea id="feedback-comment" maxlength="4000" rows="4" @bind="this.Comment"></textarea>
                     </label>

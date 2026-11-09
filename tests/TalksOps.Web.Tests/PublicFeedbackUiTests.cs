@@ -103,19 +103,25 @@ public sealed class PublicFeedbackUiTests : BunitContext
     }
 
     [Fact]
-    public void Ratings_StartEmptyWithRequiredIntegerRangeAndOptionalComment()
+    public void Ratings_StartEmptyWithTenRequiredStarsAndOptionalComment()
     {
         using var handler = new PublicFeedbackHandler();
         var component = this.RenderPage(handler);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("form")));
-        foreach (var input in component.FindAll("input"))
+        var radios = component.FindAll("input[type=radio]");
+        Assert.Equal(20, radios.Count);
+        foreach (var radioGroup in new[] { "session-rating", "speaker-rating" })
         {
-            Assert.True(input.HasAttribute("required"));
-            Assert.Equal("number", input.GetAttribute("type"));
-            Assert.Equal("1", input.GetAttribute("min"));
-            Assert.Equal("10", input.GetAttribute("max"));
-            Assert.Equal("1", input.GetAttribute("step"));
-            Assert.True(string.IsNullOrEmpty(input.GetAttribute("value")));
+            var group = component.Find($"#{radioGroup}");
+            Assert.Equal("radiogroup", group.GetAttribute("role"));
+            var ratings = group.QuerySelectorAll("input[type=radio]");
+            Assert.Equal(10, ratings.Length);
+            Assert.All(ratings, radio =>
+            {
+                Assert.True(radio.HasAttribute("required"));
+                Assert.False(radio.HasAttribute("checked"));
+            });
+            Assert.Equal(Enumerable.Range(1, 10).Select(rating => rating.ToString()), ratings.Select(radio => radio.GetAttribute("value")));
         }
         Assert.False(component.Find("textarea").HasAttribute("required"));
         Assert.Equal("4000", component.Find("textarea").GetAttribute("maxlength"));
@@ -125,17 +131,13 @@ public sealed class PublicFeedbackUiTests : BunitContext
     [InlineData(null, null)]
     [InlineData(null, 8)]
     [InlineData(8, null)]
-    [InlineData(0, 8)]
-    [InlineData(11, 8)]
-    [InlineData(8, 0)]
-    [InlineData(8, 11)]
     public void InvalidRatings_DoNotPost(int? sessionRating, int? speakerRating)
     {
         using var handler = new PublicFeedbackHandler();
         var component = this.RenderPage(handler);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("form")));
-        if (sessionRating.HasValue) component.Find("#session-rating").Change(sessionRating.Value);
-        if (speakerRating.HasValue) component.Find("#speaker-rating").Change(speakerRating.Value);
+        if (sessionRating.HasValue) component.Find($"#session-rating-{sessionRating.Value}").Change(sessionRating.Value);
+        if (speakerRating.HasValue) component.Find($"#speaker-rating-{speakerRating.Value}").Change(speakerRating.Value);
         component.Find("form").Submit();
 
         Assert.Contains("Both ratings are required", component.Find("[role=alert]").TextContent);
@@ -229,8 +231,8 @@ public sealed class PublicFeedbackUiTests : BunitContext
 
         component.WaitForAssertion(() => Assert.Contains(message, component.Find("[role=alert]").TextContent));
         Assert.DoesNotContain("Private speaker data", component.Markup);
-        Assert.Equal("8", component.Find("#session-rating").GetAttribute("value"));
-        Assert.Equal("9", component.Find("#speaker-rating").GetAttribute("value"));
+        Assert.True(component.Find("#session-rating-8").HasAttribute("checked"));
+        Assert.True(component.Find("#speaker-rating-9").HasAttribute("checked"));
         Assert.Equal("Keep this", component.Find("textarea").GetAttribute("value"));
         Assert.False(component.Find("fieldset").HasAttribute("disabled"));
         handler.PostStatus = HttpStatusCode.Created;
@@ -286,8 +288,8 @@ public sealed class PublicFeedbackUiTests : BunitContext
     private void EnterRatings(IRenderedComponent<PublicFeedback> component, int sessionRating = 8, int speakerRating = 9)
     {
         component.WaitForAssertion(() => Assert.Single(component.FindAll("form")));
-        component.Find("#session-rating").Change(sessionRating);
-        component.Find("#speaker-rating").Change(speakerRating);
+        component.Find($"#session-rating-{sessionRating}").Change(sessionRating);
+        component.Find($"#speaker-rating-{speakerRating}").Change(speakerRating);
     }
 }
 

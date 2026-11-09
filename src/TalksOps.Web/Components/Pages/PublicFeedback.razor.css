@@ -4,3 +4,52 @@ fieldset {
     padding: 0;
     min-width: 0;
 }
+
+.rating-field p {
+    margin: 0 0 0.4rem;
+}
+
+.rating-options {
+    display: flex;
+    gap: 0.15rem;
+}
+
+.rating-option {
+    cursor: pointer;
+    position: relative;
+}
+
+.rating-option input {
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+}
+
+.rating-option span {
+    color: #777;
+    display: inline-block;
+    font-size: 1.8rem;
+    line-height: 1;
+    padding: 0.1rem;
+}
+
+.rating-option.selected span,
+.rating-option:hover span {
+    color: #e6a700;
+}
+
+.rating-option input:focus-visible + span {
+    border-radius: 0.2rem;
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+.rating-value {
+    color: #666;
+    display: block;
+    font-size: 0.9rem;
+    margin-top: 0.35rem;
+}
