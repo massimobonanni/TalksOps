@@ -7,7 +7,7 @@ using TalksOps.Core.Domain;
 namespace TalksOps.Storage;
 
 /// <summary>Persists feedback settings and submissions in Azure Table Storage.</summary>
-public sealed class FeedbackService(
+public sealed class AzureTableStorageFeedbackService(
     TableClient eventTable,
     [FromKeyedServices(AzureTablesStorageExtensions.FeedbackTableClientKey)] TableClient feedbackTable)
     : IFeedbackService

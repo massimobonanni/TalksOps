@@ -37,7 +37,7 @@ classDiagram
     class CalendarStateClassifier
     class FeedbackFunctions
     class IFeedbackService
-    class FeedbackService
+    class AzureTableStorageFeedbackService
     class SessionFeedback
     class FeedbackSettings
 
@@ -60,9 +60,9 @@ classDiagram
     CalendarFunction --> RequestCurrentUserContext : ICurrentUserContext
     CalendarStateClassifier ..> SessionProposal : ProposalStatus
     FeedbackFunctions --> IFeedbackService
-    FeedbackService ..|> IFeedbackService
-    FeedbackService ..> SessionFeedback
-    FeedbackService ..> FeedbackSettings
+    AzureTableStorageFeedbackService ..|> IFeedbackService
+    AzureTableStorageFeedbackService ..> SessionFeedback
+    AzureTableStorageFeedbackService ..> FeedbackSettings
 ```
 
 ## Cross-project contracts

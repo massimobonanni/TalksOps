@@ -48,7 +48,7 @@ classDiagram
     class AzureTableTokensConsumptionRepository {
         +CreateAsync(value, cancellationToken)
     }
-    class FeedbackService {
+    class AzureTableStorageFeedbackService {
         +GetSessionTitleAsync(sessionId, cancellationToken)
         +GetSettingsAsync(sessionId, cancellationToken)
         +SaveSettingsAsync(settings, cancellationToken)
@@ -65,15 +65,15 @@ classDiagram
     AzureTableEventRepository ..|> IEventRepository
     AzureTableSessionProposalRepository ..|> ISessionProposalRepository
     AzureTableTokensConsumptionRepository ..|> ITokensConsumptionRepository
-    FeedbackService ..|> IFeedbackService
+    AzureTableStorageFeedbackService ..|> IFeedbackService
     AzureTableEventRepository --> TableClient
     AzureTableSessionProposalRepository --> TableClient
     AzureTableTokensConsumptionRepository --> TableClient
-    FeedbackService --> TableClient
+    AzureTableStorageFeedbackService --> TableClient
     AzureTablesStorageExtensions ..> AzureTableEventRepository : registers
     AzureTablesStorageExtensions ..> AzureTableSessionProposalRepository : registers
     AzureTablesStorageExtensions ..> AzureTableTokensConsumptionRepository : registers
-    AzureTablesStorageExtensions ..> FeedbackService : registers
+    AzureTablesStorageExtensions ..> AzureTableStorageFeedbackService : registers
     AzureTableEventRepository ..> Event
     AzureTableSessionProposalRepository ..> SessionProposal
     AzureTableTokensConsumptionRepository ..> TokensConsumption
@@ -86,7 +86,7 @@ classDiagram
 | `AzureTableEventRepository` | Constructor takes a `TableClient`. Implements `SearchAsync`, `GetAsync`, `CreateAsync`, `UpdateAsync`, and `DeleteAsync` from `IEventRepository`. Search filters by owner, optional year/name/location, sorts by date/name/ID, and clamps page size to 1–100. Delete removes proposals and then the event. |
 | `AzureTableSessionProposalRepository` | Constructor takes a `TableClient`. Implements `ListByEventAsync`, `GetAsync`, `CreateAsync`, `UpdateAsync`, and `DeleteAsync` from `ISessionProposalRepository`. It verifies that the owner owns the parent event and filters proposals by owner. |
 | `AzureTableTokensConsumptionRepository` | Uses a keyed `TableClient` for the dedicated consumption table. `CreateAsync` stores the UTC timestamp, deployment, optional token counts, and CFP URL. |
-| `FeedbackService` | Stores settings in the shared event table and anonymous feedback in a dedicated keyed table. Resolves public session titles with point reads, reads settings by partition/row key, and returns partition-scoped feedback newest-first. Supports server-created submissions and additive import with preserved timestamps. |
+| `AzureTableStorageFeedbackService` | Stores settings in the shared event table and anonymous feedback in a dedicated keyed table. Resolves public session titles with point reads, reads settings by partition/row key, and returns partition-scoped feedback newest-first. Supports server-created submissions and additive import with preserved timestamps. |
 | `AzureTablesStorageExtensions` | Both `AddTalksOpsAzureTables` overloads accept the event table name and optional token-consumption and feedback table names. The URI overload configures `DefaultAzureCredential`; the connection-string overload supports Azurite. Both register distinct table clients and persistence services; the Functions host replaces the feedback-service registration with a scoped registration. |
 
 `AzureTableEventRepository` also provides internal conversion/key helpers: `Key(Guid)` formats IDs using the GUID `N` format; `EventPartitionKey(ownerId)` returns `events|{escapedOwnerId}`; `ProposalPartitionKey(eventId)` returns `sessions|{eventId:N}`; `FromEntity` and `ToEntity` map event records to/from table entities. Proposal entity mapping and parent ownership checks are private to `AzureTableSessionProposalRepository`.

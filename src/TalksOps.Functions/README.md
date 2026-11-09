@@ -54,7 +54,7 @@ classDiagram
     class AzureTableEventRepository
     class AzureTableSessionProposalRepository
     class AzureTableTokensConsumptionRepository
-    class FeedbackService
+    class AzureTableStorageFeedbackService
     class ApiRequest~T~
     class EventDto
     class SessionProposalDto
@@ -82,7 +82,7 @@ classDiagram
     AzureTableEventRepository ..|> IEventRepository
     AzureTableSessionProposalRepository ..|> ISessionProposalRepository
     AzureTableTokensConsumptionRepository ..|> ITokensConsumptionRepository
-    FeedbackService ..|> IFeedbackService
+    AzureTableStorageFeedbackService ..|> IFeedbackService
     EventsFunctions ..> ApiRequest : request envelope
     EventsFunctions ..> EventDto : response
     EventsFunctions ..> SessionProposalDto : response

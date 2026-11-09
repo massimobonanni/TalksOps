@@ -31,6 +31,18 @@ public sealed class PublicFeedbackSsrTests
         Assert.Equal(1, handler.Gets);
     }
 
+    [Fact]
+    public async Task InteractiveServerInitializer_IsAvailableWithoutSigningIn()
+    {
+        using var handler = new PublicFeedbackHandler();
+        await using var factory = CreateFactory(handler);
+        using var client = CreateClient(factory);
+        using var response = await client.GetAsync("/_blazor/initializers");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Null(response.Headers.Location);
+    }
+
     [Theory]
     [InlineData(HttpStatusCode.NotFound, true)]
     [InlineData(HttpStatusCode.OK, false)]

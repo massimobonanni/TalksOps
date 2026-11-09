@@ -46,7 +46,7 @@ public sealed class AzureTablesStorageExtensionsTests
             Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ISessionProposalRepository)).ImplementationType);
         Assert.Equal(typeof(AzureTableTokensConsumptionRepository),
             Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ITokensConsumptionRepository)).ImplementationType);
-        Assert.Equal(typeof(FeedbackService),
+        Assert.Equal(typeof(AzureTableStorageFeedbackService),
             Assert.Single(services, descriptor => descriptor.ServiceType == typeof(IFeedbackService)).ImplementationType);
         Assert.All(services, descriptor => Assert.Equal(ServiceLifetime.Singleton, descriptor.Lifetime));
     }
@@ -85,7 +85,7 @@ public sealed class AzureTablesStorageExtensionsTests
             Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ISessionProposalRepository)).ImplementationType);
         Assert.Equal(typeof(AzureTableTokensConsumptionRepository),
             Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ITokensConsumptionRepository)).ImplementationType);
-        Assert.Equal(typeof(FeedbackService),
+        Assert.Equal(typeof(AzureTableStorageFeedbackService),
             Assert.Single(services, descriptor => descriptor.ServiceType == typeof(IFeedbackService)).ImplementationType);
     }
 

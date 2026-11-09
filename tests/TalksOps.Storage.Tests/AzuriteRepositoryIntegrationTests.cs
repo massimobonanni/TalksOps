@@ -52,7 +52,7 @@ public sealed class AzuriteRepositoryIntegrationTests
     }
 
     [AzuriteFact]
-    public async Task FeedbackService_ImportsAndReadsFeedbackWithAzurite()
+    public async Task AzureTableStorageFeedbackService_ImportsAndReadsFeedbackWithAzurite()
     {
         var connectionString = Environment.GetEnvironmentVariable("AZURITE_TABLE_CONNECTION_STRING")!;
         var eventTable = new TableClient(connectionString, $"t{Guid.NewGuid():N}");
@@ -62,7 +62,7 @@ public sealed class AzuriteRepositoryIntegrationTests
 
         try
         {
-            var service = new FeedbackService(eventTable, feedbackTable);
+            var service = new AzureTableStorageFeedbackService(eventTable, feedbackTable);
             var sessionId = Guid.NewGuid();
             var eventId = Guid.NewGuid();
             var timestamp = DateTimeOffset.Parse("2026-10-23T09:00:00Z");

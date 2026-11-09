@@ -113,7 +113,7 @@ else
     builder.Services.AddTalksOpsAzureTables(parsedTableServiceUri, eventTableName, tokensConsumptionTableName, feedbackTableName);
 }
 
-builder.Services.Replace(ServiceDescriptor.Scoped<IFeedbackService, FeedbackService>());
+builder.Services.Replace(ServiceDescriptor.Scoped<IFeedbackService, AzureTableStorageFeedbackService>());
 using var host = builder.Build();
 if (!string.IsNullOrWhiteSpace(storageConnectionString))
 {

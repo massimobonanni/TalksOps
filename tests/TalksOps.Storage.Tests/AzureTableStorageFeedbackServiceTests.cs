@@ -7,13 +7,13 @@ using TalksOps.Storage;
 namespace TalksOps.Storage.Tests;
 
 /// <summary>Verifies feedback validation, Azure Table mapping, partition queries, and ordering.</summary>
-public sealed class FeedbackServiceTests
+public sealed class AzureTableStorageFeedbackServiceTests
 {
     [Fact]
     public async Task SaveSettingsAsync_StoresUtcValuesWithRequiredKeys()
     {
         var eventTable = new RecordingTableClient();
-        var service = new FeedbackService(eventTable, new RecordingTableClient());
+        var service = new AzureTableStorageFeedbackService(eventTable, new RecordingTableClient());
         var sessionId = Guid.NewGuid();
         var eventId = Guid.NewGuid();
         var validFrom = new DateTimeOffset(2026, 10, 23, 9, 0, 0, TimeSpan.FromHours(2));
@@ -72,7 +72,7 @@ public sealed class FeedbackServiceTests
         if (hasSession) entities.Add(session);
         if (hasEvent) entities.Add(parent);
         var table = new RecordingTableClient(entities.ToArray());
-        var service = new FeedbackService(table, new RecordingTableClient());
+        var service = new AzureTableStorageFeedbackService(table, new RecordingTableClient());
 
         Assert.Equal(expected, await service.GetSessionTitleAsync(sessionId));
         Assert.Null(table.QueryFilter);
@@ -91,7 +91,7 @@ public sealed class FeedbackServiceTests
     public async Task CreateAsync_StoresFeedbackAndServerGeneratedMetadata()
     {
         var feedbackTable = new RecordingTableClient();
-        var service = new FeedbackService(new RecordingTableClient(), feedbackTable);
+        var service = new AzureTableStorageFeedbackService(new RecordingTableClient(), feedbackTable);
         var sessionId = Guid.NewGuid();
 
         var created = await service.CreateAsync(
@@ -127,7 +127,7 @@ public sealed class FeedbackServiceTests
     public async Task CreateAsync_RejectsInvalidRatingsWithoutWriting()
     {
         var feedbackTable = new RecordingTableClient();
-        var service = new FeedbackService(new RecordingTableClient(), feedbackTable);
+        var service = new AzureTableStorageFeedbackService(new RecordingTableClient(), feedbackTable);
 
         await Assert.ThrowsAsync<ArgumentException>(() => service.CreateAsync(
             Guid.NewGuid(),
@@ -142,7 +142,7 @@ public sealed class FeedbackServiceTests
     {
         var eventTable = new RecordingTableClient();
         var feedbackTable = new RecordingTableClient();
-        var service = new FeedbackService(eventTable, feedbackTable);
+        var service = new AzureTableStorageFeedbackService(eventTable, feedbackTable);
         var sessionId = Guid.NewGuid();
         var eventId = Guid.NewGuid();
         var timestamp = DateTimeOffset.Parse("2026-10-23T09:00:00+02:00");
@@ -183,7 +183,7 @@ public sealed class FeedbackServiceTests
     {
         var eventTable = new RecordingTableClient();
         var feedbackTable = new RecordingTableClient();
-        var service = new FeedbackService(eventTable, feedbackTable);
+        var service = new AzureTableStorageFeedbackService(eventTable, feedbackTable);
         var sessionId = Guid.NewGuid();
 
         await Assert.ThrowsAsync<ArgumentException>(() => service.ImportSessionAsync(
@@ -211,7 +211,7 @@ public sealed class FeedbackServiceTests
     public async Task SaveSettingsAsync_RejectsInvalidIntervalWithoutWriting()
     {
         var eventTable = new RecordingTableClient();
-        var service = new FeedbackService(eventTable, new RecordingTableClient());
+        var service = new AzureTableStorageFeedbackService(eventTable, new RecordingTableClient());
 
         await Assert.ThrowsAsync<ArgumentException>(() => service.SaveSettingsAsync(new FeedbackSettings
         {
@@ -235,7 +235,7 @@ public sealed class FeedbackServiceTests
             Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff"),
             DateTimeOffset.Parse("2026-10-23T10:00:00Z"));
         var feedbackTable = new RecordingTableClient(older, newer, equalTimeLaterId);
-        var service = new FeedbackService(new RecordingTableClient(), feedbackTable);
+        var service = new AzureTableStorageFeedbackService(new RecordingTableClient(), feedbackTable);
 
         var feedback = await service.ListBySessionAsync(sessionId);
 

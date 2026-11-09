@@ -68,7 +68,7 @@ public static class AzureTablesStorageExtensions
         services.AddSingleton<IEventRepository, AzureTableEventRepository>();
         services.AddSingleton<ISessionProposalRepository, AzureTableSessionProposalRepository>();
         services.AddSingleton<ITokensConsumptionRepository, AzureTableTokensConsumptionRepository>();
-        services.AddSingleton<IFeedbackService, FeedbackService>();
+        services.AddSingleton<IFeedbackService, AzureTableStorageFeedbackService>();
 
         return services;
     }

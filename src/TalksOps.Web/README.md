@@ -1,6 +1,6 @@
 # TalksOps.Web
 
-`TalksOps.Web` is the authenticated server-side Blazor application and backend-for-frontend. It presents event/proposal and session-feedback management plus an annual calendar, and provides an anonymous participant feedback page. It calls the Functions API through `ITalksOpsApiClient`, derives speaker caller IDs from the authenticated principal, and keeps the Function key in server-side configuration.
+`TalksOps.Web` is the authenticated server-side Blazor application and backend-for-frontend. It presents event/proposal and session-feedback management plus an annual calendar, and provides an anonymous participant feedback page. The Blazor transport endpoints are anonymous so that page can establish its interactive circuit; `AuthorizeRouteView` continues to protect authenticated routes. It calls the Functions API through `ITalksOpsApiClient`, derives speaker caller IDs from the authenticated principal, and keeps the Function key in server-side configuration.
 
 ## Class diagram
 
