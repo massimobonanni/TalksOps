@@ -106,6 +106,9 @@ public sealed class SessionFeedbackUiTests : BunitContext
         component.WaitForAssertion(() => Assert.Contains("Feedback is not configured", component.Markup));
         Assert.True(string.IsNullOrEmpty(component.Find("#feedback-from").GetAttribute("value")));
         Assert.Contains("No feedback received yet", component.Markup);
+        Assert.Equal("0", component.Find("#feedback-count").TextContent);
+        Assert.Equal("—", component.Find("#session-feedback-average").TextContent);
+        Assert.Equal("—", component.Find("#speaker-feedback-average").TextContent);
         Assert.False(component.Find("#export-feedback").HasAttribute("disabled"));
         Assert.Single(component.FindAll("form"));
     }
@@ -126,6 +129,9 @@ public sealed class SessionFeedbackUiTests : BunitContext
         component.WaitForAssertion(() => Assert.Equal(2, component.FindAll("tbody tr").Count));
         Assert.Equal(handler.Proposal.Title, component.Find("h1").TextContent);
         Assert.Equal($"{year}-01-01T11:00:00", component.Find("#feedback-from").GetAttribute("value"));
+        Assert.Equal("2", component.Find("#feedback-count").TextContent);
+        Assert.Equal("8.0", component.Find("#session-feedback-average").TextContent);
+        Assert.Equal("9.0", component.Find("#speaker-feedback-average").TextContent);
         Assert.Equal("Newest", component.FindAll("tbody tr")[0].Children[3].TextContent);
         Assert.Equal("Oldest", component.FindAll("tbody tr")[1].Children[3].TextContent);
         Assert.DoesNotContain("192.0.2.10", component.Markup);

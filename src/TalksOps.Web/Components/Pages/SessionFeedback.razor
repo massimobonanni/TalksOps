@@ -81,6 +81,14 @@ else
                 <button id="export-feedback" class="button button-secondary" type="button" disabled="@(this.IsBusy || !this.HasFeedback)" @onclick="ExportAsync">Download JSON</button>
             </div>
         </div>
+        @if (this.HasFeedback)
+        {
+            <dl class="feedback-summary" aria-label="Feedback summary">
+                <div><dt>Feedback count</dt><dd id="feedback-count">@this.Feedback.Count</dd></div>
+                <div><dt>Session average (out of 10)</dt><dd id="session-feedback-average">@(this.AverageSessionRating?.ToString("0.0", CultureInfo.InvariantCulture) ?? "—")</dd></div>
+                <div><dt>Speaker average (out of 10)</dt><dd id="speaker-feedback-average">@(this.AverageSpeakerRating?.ToString("0.0", CultureInfo.InvariantCulture) ?? "—")</dd></div>
+            </dl>
+        }
         @if (!this.HasFeedback)
         {
             <p class="empty-state" role="status">@(this.IsBusy ? "Loading feedback..." : "Feedback could not be loaded. Use Refresh to retry.")</p>
@@ -128,6 +136,12 @@ else
     private DateTime? ValidTo;
     private string TimeZoneId = "UTC";
     private IReadOnlyList<SessionFeedbackDto> Feedback = [];
+    private double? AverageSessionRating => this.Feedback.Count == 0
+        ? null
+        : this.Feedback.Average(item => item.SessionRating);
+    private double? AverageSpeakerRating => this.Feedback.Count == 0
+        ? null
+        : this.Feedback.Average(item => item.SpeakerRating);
     private bool IsLoading;
     private bool IsReady;
     private bool IsBusy;
