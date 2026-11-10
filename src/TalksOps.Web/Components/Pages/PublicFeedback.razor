@@ -10,7 +10,7 @@
 <PageTitle>Session feedback | TalksOps</PageTitle>
 
 <div class="page-heading">
-    <div><p class="eyebrow">SESSION FEEDBACK</p><h1>@(this.Title ?? "Session feedback")</h1></div>
+    <div><p class="eyebrow">SESSION FEEDBACK</p><p class="muted">@this.EventTitle</p><h1>@(this.Title ?? "Session feedback")</h1></div>
 </div>
 
 @if (this.IsLoading)
@@ -88,6 +88,7 @@ else
     [CascadingParameter] private HttpContext? HttpContext { get; set; }
 
     private string? Title;
+    private string? EventTitle;
     private int? SessionRating;
     private int? SpeakerRating;
     private string? Comment;
@@ -104,7 +105,7 @@ else
     {
         var version = ++this.requestVersion;
         var sessionId = this.SessionId;
-        this.Title = this.ErrorMessage = this.Comment = null;
+        this.Title = this.EventTitle = this.ErrorMessage = this.Comment = null;
         this.SessionRating = this.SpeakerRating = null;
         this.IsUnavailable = this.IsSubmitting = this.IsSubmitted = false;
         this.IsLoading = true;
@@ -120,6 +121,7 @@ else
             }
 
             this.Title = feedback.Title;
+            this.EventTitle = feedback.EventTitle;
         }
         catch (Exception exception) when (exception is HttpRequestException or JsonException or TaskCanceledException)
         {

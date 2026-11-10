@@ -11,8 +11,8 @@ public sealed record SaveFeedbackSettingsRequest(
 /// <summary>The only participant-supplied feedback fields.</summary>
 public sealed record SubmitFeedbackRequest(int SessionRating, int SpeakerRating, string? Comment = null);
 
-/// <summary>The minimal information exposed while feedback is available.</summary>
-public sealed record PublicFeedbackDto(string Title, bool Available);
+/// <summary>The event and session titles exposed while feedback is available.</summary>
+public sealed record PublicFeedbackDto(string EventTitle, string Title, bool Available);
 
 /// <summary>A feedback entry visible only to the owning speaker.</summary>
 public sealed record SessionFeedbackDto(

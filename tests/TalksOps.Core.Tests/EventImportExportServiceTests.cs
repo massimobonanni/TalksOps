@@ -453,8 +453,12 @@ public sealed class EventImportExportServiceTests
         public Task<bool> DeleteAsync(string ownerId, Guid eventId, Guid proposalId, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<string?> GetSessionTitleAsync(Guid sessionId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(this.Sessions.SingleOrDefault(value => value.Id == sessionId)?.Title);
+        public Task<(string? EventTitle, string? SessionTitle)> GetSessionTitlesAsync(Guid sessionId, CancellationToken cancellationToken = default)
+        {
+            var session = this.Sessions.SingleOrDefault(value => value.Id == sessionId);
+            var eventTitle = session is null ? null : this.Events.SingleOrDefault(value => value.Id == session.EventId)?.Name;
+            return Task.FromResult((eventTitle, session?.Title));
+        }
 
         public Task<FeedbackSettings?> GetSettingsAsync(Guid sessionId, CancellationToken cancellationToken = default) =>
             Task.FromResult(this.Settings.SingleOrDefault(value => value.SessionId == sessionId));

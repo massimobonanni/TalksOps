@@ -140,9 +140,10 @@ public sealed class FeedbackFunctionsTests
         {
             var value = Assert.IsType<PublicFeedbackDto>(Assert.IsType<OkObjectResult>(read).Value);
             Assert.True(value.Available);
+            Assert.Equal("Event title", value.EventTitle);
             Assert.Equal("Session title", value.Title);
             using var json = JsonDocument.Parse(JsonSerializer.Serialize(value, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
-            Assert.Equal(["title", "available"], json.RootElement.EnumerateObject().Select(property => property.Name));
+            Assert.Equal(["eventTitle", "title", "available"], json.RootElement.EnumerateObject().Select(property => property.Name));
             Assert.Equal(StatusCodes.Status201Created, Assert.IsType<StatusCodeResult>(write).StatusCode);
         }
         else
@@ -408,16 +409,17 @@ public sealed class FeedbackFunctionsTests
             SessionId = sessionId, EventId = eventId, ValidFrom = from, ValidTo = from.AddMinutes(1), TimeZoneId = "UTC"
         };
         public string? Title { get; set; } = "Session title";
+        public string? EventTitle { get; set; } = "Event title";
         public FeedbackSettings? Saved { get; private set; }
         public SessionFeedbackSubmission? Submission { get; private set; }
         public SessionFeedbackMetadata? Metadata { get; private set; }
         public int SettingsReads { get; private set; }
         public int ListCalls { get; private set; }
 
-        public Task<string?> GetSessionTitleAsync(Guid id, CancellationToken cancellationToken = default)
+        public Task<(string? EventTitle, string? SessionTitle)> GetSessionTitlesAsync(Guid id, CancellationToken cancellationToken = default)
         {
             Assert.Equal(sessionId, id);
-            return Task.FromResult(this.Title);
+            return Task.FromResult((this.EventTitle, this.Title));
         }
 
         public Task<FeedbackSettings?> GetSettingsAsync(Guid id, CancellationToken cancellationToken = default)

@@ -5,8 +5,8 @@ namespace TalksOps.Core.Contracts;
 /// <summary>Defines persistence operations for feedback settings and session feedback.</summary>
 public interface IFeedbackService
 {
-    /// <summary>Resolves a configured session's title by session ID without a current-user context.</summary>
-    Task<string?> GetSessionTitleAsync(
+    /// <summary>Resolves a session and its event titles without a current-user context.</summary>
+    Task<(string? EventTitle, string? SessionTitle)> GetSessionTitlesAsync(
         Guid sessionId,
         CancellationToken cancellationToken = default);
 

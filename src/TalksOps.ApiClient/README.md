@@ -100,7 +100,7 @@ Records below expose positional properties with the listed names and types; reco
 | `SaveFeedbackSettingsRequest` | `ValidFrom: DateTimeOffset`, `ValidTo: DateTimeOffset`, `TimeZoneId: string`; speaker-supplied feedback period. |
 | `SessionFeedbackDto` | `Id`, `SessionId`, `SessionRating`, `SpeakerRating`, optional `Comment`, `Timestamp`, and `Metadata`; returned only to the owning speaker. |
 | `FeedbackMetadataDto` | Optional `IpAddress` and `UserAgent`, acquired from the server request. |
-| `PublicFeedbackDto` | `Title: string`, `Available: bool`; minimal public response while feedback is open. |
+| `PublicFeedbackDto` | `EventTitle: string`, `Title: string`, `Available: bool`; event and session titles in the minimal public response while feedback is open. |
 | `SubmitFeedbackRequest` | `SessionRating: int`, `SpeakerRating: int`, optional `Comment`; the only participant-supplied fields. |
 | `ExtractEventDataAsync(request, cancellationToken)` | Sends the current user's request to `api/events/extract` and returns nullable extracted fields. Structured failure messages are surfaced through `HttpRequestException`. |
 | `ITalksOpsApiClient` | Typed API contract; all methods accept optional cancellation tokens. |

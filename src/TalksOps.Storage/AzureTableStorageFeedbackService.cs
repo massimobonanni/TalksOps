@@ -16,14 +16,14 @@ public sealed class AzureTableStorageFeedbackService(
     private readonly TableClient feedbackTable = feedbackTable ?? throw new ArgumentNullException(nameof(feedbackTable));
 
     /// <inheritdoc />
-    public async Task<string?> GetSessionTitleAsync(
+    public async Task<(string? EventTitle, string? SessionTitle)> GetSessionTitlesAsync(
         Guid sessionId,
         CancellationToken cancellationToken = default)
     {
         var settings = await this.GetSettingsAsync(sessionId, cancellationToken);
         if (settings is null || settings.EventId == Guid.Empty)
         {
-            return null;
+            return (null, null);
         }
 
         var response = await this.eventTable.GetEntityIfExistsAsync<TableEntity>(
@@ -32,7 +32,7 @@ public sealed class AzureTableStorageFeedbackService(
             cancellationToken: cancellationToken);
         if (!response.HasValue)
         {
-            return null;
+            return (null, null);
         }
 
         var ownerId = response.Value!.GetString(nameof(SessionProposal.OwnerId))
@@ -43,11 +43,14 @@ public sealed class AzureTableStorageFeedbackService(
             cancellationToken: cancellationToken);
         if (!parent.HasValue)
         {
-            return null;
+            return (null, null);
         }
 
-        return response.Value.GetString(nameof(SessionProposal.Title))
+        var eventTitle = parent.Value!.GetString(nameof(Event.Name))
+            ?? throw new InvalidOperationException("The stored event is missing its name.");
+        var sessionTitle = response.Value.GetString(nameof(SessionProposal.Title))
             ?? throw new InvalidOperationException("The stored session is missing its title.");
+        return (eventTitle, sessionTitle);
     }
 
     /// <inheritdoc />

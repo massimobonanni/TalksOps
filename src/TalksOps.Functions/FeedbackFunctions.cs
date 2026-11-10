@@ -155,8 +155,10 @@ public sealed class FeedbackFunctions(
             return new NotFoundResult();
         }
 
-        var title = await this.GetAvailableTitleAsync(id, cancellationToken);
-        return title is null ? new NotFoundResult() : new OkObjectResult(new PublicFeedbackDto(title, true));
+        var titles = await this.GetAvailableTitlesAsync(id, cancellationToken);
+        return titles is null
+            ? new NotFoundResult()
+            : new OkObjectResult(new PublicFeedbackDto(titles.Value.EventTitle, titles.Value.SessionTitle, true));
     }
 
     /// <summary>Accepts ratings and comment only; derives metadata from the server request.</summary>
@@ -173,7 +175,7 @@ public sealed class FeedbackFunctions(
         }
 
         if (!Guid.TryParse(sessionId, out var id) || id == Guid.Empty
-            || await this.GetAvailableTitleAsync(id, cancellationToken) is null)
+            || await this.GetAvailableTitlesAsync(id, cancellationToken) is null)
         {
             return new NotFoundResult();
         }
@@ -204,7 +206,7 @@ public sealed class FeedbackFunctions(
         }
 
         // Recheck after reading the body: an already-open form cannot submit after closing.
-        if (await this.GetAvailableTitleAsync(id, cancellationToken) is null)
+        if (await this.GetAvailableTitlesAsync(id, cancellationToken) is null)
         {
             return new NotFoundResult();
         }
@@ -236,7 +238,8 @@ public sealed class FeedbackFunctions(
             && string.Equals(session.OwnerId, currentUser.UserId, StringComparison.Ordinal);
     }
 
-    private async Task<string?> GetAvailableTitleAsync(Guid sessionId, CancellationToken cancellationToken)
+    private async Task<(string EventTitle, string SessionTitle)?> GetAvailableTitlesAsync(
+        Guid sessionId, CancellationToken cancellationToken)
     {
         var settings = await feedback.GetSettingsAsync(sessionId, cancellationToken);
         if (!this.IsAvailable(settings))
@@ -244,9 +247,11 @@ public sealed class FeedbackFunctions(
             return null;
         }
 
-        var title = await feedback.GetSessionTitleAsync(sessionId, cancellationToken);
+        var titles = await feedback.GetSessionTitlesAsync(sessionId, cancellationToken);
         settings = await feedback.GetSettingsAsync(sessionId, cancellationToken);
-        return this.IsAvailable(settings) ? title : null;
+        return this.IsAvailable(settings) && titles.EventTitle is not null && titles.SessionTitle is not null
+            ? (titles.EventTitle, titles.SessionTitle)
+            : null;
     }
 
     private bool IsAvailable(FeedbackSettings? settings)

@@ -41,13 +41,13 @@ public sealed class AzureTableStorageFeedbackServiceTests
     }
 
     [Theory]
-    [InlineData(true, true, true, true, "Session title")]
-    [InlineData(false, true, true, true, null)]
-    [InlineData(true, false, true, true, null)]
-    [InlineData(true, true, false, true, null)]
-    [InlineData(true, true, true, false, null)]
-    public async Task GetSessionTitleAsync_UsesPointReadsWithoutUserContext(
-        bool hasSettings, bool hasReference, bool hasSession, bool hasEvent, string? expected)
+    [InlineData(true, true, true, true, "Event title", "Session title")]
+    [InlineData(false, true, true, true, null, null)]
+    [InlineData(true, false, true, true, null, null)]
+    [InlineData(true, true, false, true, null, null)]
+    [InlineData(true, true, true, false, null, null)]
+    public async Task GetSessionTitlesAsync_UsesPointReadsWithoutUserContext(
+        bool hasSettings, bool hasReference, bool hasSession, bool hasEvent, string? expectedEvent, string? expectedSession)
     {
         var sessionId = Guid.NewGuid();
         var eventId = Guid.NewGuid();
@@ -66,7 +66,7 @@ public sealed class AzureTableStorageFeedbackServiceTests
         {
             ["OwnerId"] = "owner", ["Title"] = "Session title"
         };
-        var parent = new TableEntity("events|owner", $"{eventId:N}");
+        var parent = new TableEntity("events|owner", $"{eventId:N}") { ["Name"] = "Event title" };
         var entities = new List<TableEntity>();
         if (hasSettings) entities.Add(settings);
         if (hasSession) entities.Add(session);
@@ -74,7 +74,9 @@ public sealed class AzureTableStorageFeedbackServiceTests
         var table = new RecordingTableClient(entities.ToArray());
         var service = new AzureTableStorageFeedbackService(table, new RecordingTableClient());
 
-        Assert.Equal(expected, await service.GetSessionTitleAsync(sessionId));
+        var titles = await service.GetSessionTitlesAsync(sessionId);
+        Assert.Equal(expectedEvent, titles.EventTitle);
+        Assert.Equal(expectedSession, titles.SessionTitle);
         Assert.Null(table.QueryFilter);
         Assert.Equal(($"feedbacksettings|{sessionId:N}", $"{sessionId:N}"), table.PointReads[0]);
         if (hasSettings && hasReference)

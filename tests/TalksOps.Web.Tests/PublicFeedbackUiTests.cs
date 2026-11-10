@@ -35,6 +35,9 @@ public sealed class PublicFeedbackUiTests : BunitContext
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll("form")));
         Assert.Equal(handler.Title, component.Find("h1").TextContent);
+        Assert.Equal(handler.EventTitle, component.Find(".page-heading .muted").TextContent);
+        Assert.True(component.Markup.IndexOf(handler.EventTitle, StringComparison.Ordinal)
+            < component.Markup.IndexOf(handler.Title, StringComparison.Ordinal));
         Assert.Empty(component.FindAll(".account-menu, nav"));
         Assert.DoesNotContain("Sign in required", component.Markup);
         Assert.All(handler.Requests, request => Assert.Equal($"/api/feedback/{handler.SessionId}", request));
@@ -301,6 +304,7 @@ internal sealed class UnusedFeedbackUserContext : ICurrentUserContext
 internal sealed class PublicFeedbackHandler : HttpMessageHandler
 {
     public Guid SessionId { get; } = Guid.NewGuid();
+    public string EventTitle { get; } = "Public event title";
     public string Title { get; } = "Public session title";
     public bool Available { get; set; } = true;
     public HttpStatusCode GetStatus { get; set; } = HttpStatusCode.OK;
@@ -337,7 +341,7 @@ internal sealed class PublicFeedbackHandler : HttpMessageHandler
     }
 
     public HttpResponseMessage PublicResponse() => this.GetStatus == HttpStatusCode.OK
-        ? new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new PublicFeedbackDto(this.Title, this.Available)) }
+        ? new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new PublicFeedbackDto(this.EventTitle, this.Title, this.Available)) }
         : Response(this.GetStatus);
 
     private static HttpResponseMessage Response(HttpStatusCode status) => new(status)
