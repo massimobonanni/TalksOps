@@ -140,7 +140,7 @@ input:focus, textarea:focus, select:focus { outline: 2px solid #6ba88c; outline-
 .deadline-count.deadline-upcoming { background: #dcfce7; }
 .deadline-count.deadline-expired { background: #f3f4f6; }
 .row-actions { display: flex; align-items: center; justify-content: end; gap: .75rem; white-space: nowrap; }
-.icon-button, .text-button { padding: .25rem; border: 0; background: transparent; color: var(--green); font-weight: 650; }
+.icon-button, .text-button { padding: .25rem; border: 0; background: transparent; color: var(--green); font-weight: 650; text-decoration: none; }
 .icon-button:hover, .text-button:hover { text-decoration: underline; }
 .danger { color: var(--coral) !important; }
 .detail-row > td { padding: 1.25rem 1.5rem; background: #f7f9f6; }
