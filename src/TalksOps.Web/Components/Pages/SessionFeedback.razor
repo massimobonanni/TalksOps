@@ -184,7 +184,17 @@ else
             var feedbackTask = this.Api.ListFeedbackAsync(eventId, proposalId);
             await Task.WhenAll(settingsTask, feedbackTask);
             if (version != this.requestVersion) return;
-            this.ApplySettings(await settingsTask);
+            var settings = await settingsTask;
+            if (settings is null)
+            {
+                var eventDetails = await this.Api.GetEventAsync(eventId)
+                    ?? throw new InvalidOperationException("The owning event could not be loaded.");
+                this.SetDefaultSettings(eventDetails);
+            }
+            else
+            {
+                this.ApplySettings(settings);
+            }
             this.SetFeedback(await feedbackTask);
             this.Proposal = proposal;
             this.ConfigureQr(proposalId);
@@ -208,6 +218,12 @@ else
         this.TimeZoneId = TimeZoneInfo.TryConvertWindowsIdToIanaId(zone.Id, out var ianaId) ? ianaId : zone.Id;
         this.ValidFrom = TimeZoneInfo.ConvertTime(settings.ValidFrom, zone).DateTime;
         this.ValidTo = TimeZoneInfo.ConvertTime(settings.ValidTo, zone).DateTime;
+    }
+
+    private void SetDefaultSettings(EventDto eventDetails)
+    {
+        this.ValidFrom = eventDetails.StartDate.ToDateTime(TimeOnly.MinValue);
+        this.ValidTo = eventDetails.EndDate.ToDateTime(new TimeOnly(23, 59, 59));
     }
 
     private void SetFeedback(IReadOnlyList<SessionFeedbackDto> feedback)

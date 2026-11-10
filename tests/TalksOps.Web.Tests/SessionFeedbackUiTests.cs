@@ -104,7 +104,8 @@ public sealed class SessionFeedbackUiTests : BunitContext
         var component = this.RenderPage(handler);
 
         component.WaitForAssertion(() => Assert.Contains("Feedback is not configured", component.Markup));
-        Assert.True(string.IsNullOrEmpty(component.Find("#feedback-from").GetAttribute("value")));
+        Assert.Equal("2027-05-10T00:00:00", component.Find("#feedback-from").GetAttribute("value"));
+        Assert.Equal("2027-05-12T23:59:59", component.Find("#feedback-to").GetAttribute("value"));
         Assert.Contains("No feedback received yet", component.Markup);
         Assert.Equal("0", component.Find("#feedback-count").TextContent);
         Assert.Equal("—", component.Find("#session-feedback-average").TextContent);
@@ -437,8 +438,12 @@ public sealed class SessionFeedbackUiTests : BunitContext
 
     private sealed class FeedbackHandler : HttpMessageHandler
     {
-        public SessionProposalDto Proposal { get; } = new(Guid.NewGuid(), Guid.NewGuid(), "test-user",
+        private static readonly Guid EventId = Guid.NewGuid();
+
+        public SessionProposalDto Proposal { get; } = new(Guid.NewGuid(), EventId, "test-user",
             "Feedback session", "Abstract", "Notes", ProposalStatus.Submitted, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null);
+        public EventDto Event { get; } = new(EventId, "test-user", "Feedback event", "Rome",
+            new DateOnly(2027, 5, 10), new DateOnly(2027, 5, 12), new Dictionary<string, decimal>());
         public FeedbackSettingsDto? Settings { get; set; }
         public IReadOnlyList<SessionFeedbackDto> Feedback { get; set; }
         public List<Uri> GetRequests { get; } = [];
@@ -492,6 +497,10 @@ public sealed class SessionFeedbackUiTests : BunitContext
             {
                 this.FeedbackRequests++;
                 return this.FailingEndpoint == "feedback" ? new(HttpStatusCode.ServiceUnavailable) : Json(this.Feedback);
+            }
+            if (path == $"/api/events/{this.Proposal.EventId}")
+            {
+                return Json(this.Event);
             }
             if (this.DelayedProposal is not null) return await this.DelayedProposal.Task;
             return this.ProposalResponseStatus == HttpStatusCode.OK ? Json(this.Proposal) : new(this.ProposalResponseStatus);
