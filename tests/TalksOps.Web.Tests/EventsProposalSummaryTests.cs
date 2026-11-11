@@ -27,6 +27,12 @@ public sealed class EventsProposalSummaryTests : BunitContext
             Assert.Contains(component.FindAll(".feedback-management-link"), link =>
                 link.GetAttribute("href") == $"/events/{proposal.EventId:D}/proposals/{proposal.Id:D}/feedback");
         }
+        Assert.All(component.FindAll(".feedback-management-link"), link =>
+        {
+            Assert.Equal("Feedback", link.GetAttribute("aria-label"));
+            Assert.Equal("Feedback", link.GetAttribute("title"));
+            Assert.Single(link.QuerySelectorAll("svg"));
+        });
     }
 
     [Fact]

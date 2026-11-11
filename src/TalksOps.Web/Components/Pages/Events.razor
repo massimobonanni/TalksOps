@@ -157,7 +157,7 @@ else
                                                         <option value="@((int)ProposalStatus.Cancelled)">Cancelled</option>
                                                     </select>
                                                 </label>
-                                                <div class="row-actions"><a class="text-button feedback-management-link" href="@($"/events/{eventItem.Id:D}/proposals/{proposal.Id:D}/feedback")">Feedback</a><button class="text-button" @onclick="() => BeginEditProposal(eventItem.Id, proposal)">Edit</button><button class="text-button danger" @onclick="() => DeleteProposalAsync(eventItem.Id, proposal)">Delete</button></div>
+                                                <div class="row-actions"><a class="icon-button feedback-management-link" href="@($"/events/{eventItem.Id:D}/proposals/{proposal.Id:D}/feedback")" aria-label="Feedback" title="Feedback"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 11.5a8.5 8.5 0 0 1-12.8 7.3L3 20l1.2-4.8A8.5 8.5 0 1 1 21 11.5Z" /><path d="m12 6.4.85 1.72 1.9.28-1.38 1.35.33 1.9-1.7-.89-1.7.89.33-1.9-1.38-1.35 1.9-.28z" /></svg></a><button class="text-button" @onclick="() => BeginEditProposal(eventItem.Id, proposal)">Edit</button><button class="text-button danger" @onclick="() => DeleteProposalAsync(eventItem.Id, proposal)">Delete</button></div>
                                             </article>
                                         }
                                     </div>

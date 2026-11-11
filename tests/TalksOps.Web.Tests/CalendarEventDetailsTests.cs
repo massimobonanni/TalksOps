@@ -76,6 +76,12 @@ public sealed class CalendarEventDetailsTests : BunitContext
             Assert.Contains(component.FindAll(".feedback-management-link"), link =>
                 link.GetAttribute("href") == $"/events/{handler.Event.Id:D}/proposals/{proposal.Id:D}/feedback");
         }
+        Assert.All(component.FindAll(".feedback-management-link"), link =>
+        {
+            Assert.Equal("Feedback", link.GetAttribute("aria-label"));
+            Assert.Equal("Feedback", link.GetAttribute("title"));
+            Assert.Single(link.QuerySelectorAll("svg"));
+        });
         foreach (var status in Enum.GetValues<ProposalStatus>())
         {
             Assert.Contains(status.ToString(), component.Find("dialog").TextContent);
