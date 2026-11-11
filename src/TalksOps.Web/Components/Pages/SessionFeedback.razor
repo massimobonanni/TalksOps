@@ -83,16 +83,8 @@ else
             <h2 id="feedback-list-title">Received feedback</h2>
             <div class="form-actions">
                 <button id="refresh-feedback" class="button" type="button" disabled="@this.IsBusy" @onclick="RefreshAsync">Refresh</button>
-                <button id="export-feedback" class="button button-secondary" type="button" disabled="@(this.IsBusy || !this.HasFeedback)" @onclick="ExportFeedbackAsync">Export Feedback</button>
             </div>
         </div>
-        <div class="form-actions">
-            <label>Feedback JSON file (max 10 MB)
-                <InputFile @key="this.importFileVersion" id="import-feedback-file" accept=".json,application/json" OnChange="SelectImportFile" disabled="@this.IsBusy" />
-            </label>
-            <button id="import-feedback" class="button button-secondary" type="button" disabled="@(this.IsBusy || this.ImportFile is null)" @onclick="ImportFeedbackAsync">Import Feedback</button>
-        </div>
-        <p class="muted">Import a file created by Export Feedback. Entries are added without replacing existing feedback or changing settings. Missing or null timestamps use the import time (UTC). Importing the same file again adds duplicates.</p>
         @if (this.HasFeedback)
         {
             <dl class="feedback-summary" aria-label="Feedback summary">
@@ -128,6 +120,21 @@ else
             </div>
         }
     </section>
+
+    <div class="feedback-transfer">
+        <section class="feedback-transfer-panel" aria-label="Import feedback">
+            <div class="feedback-import-actions">
+                <label>Feedback JSON file (max 10 MB)
+                    <InputFile @key="this.importFileVersion" id="import-feedback-file" accept=".json,application/json" OnChange="SelectImportFile" disabled="@this.IsBusy" />
+                </label>
+                <button id="import-feedback" class="button button-secondary feedback-transfer-button" type="button" disabled="@(this.IsBusy || this.ImportFile is null)" @onclick="ImportFeedbackAsync">Import Feedback</button>
+            </div>
+            <p class="muted">Import a file created by Export Feedback. Entries are added without replacing existing feedback or changing settings. Missing or null timestamps use the import time (UTC). Importing the same file again adds duplicates.</p>
+        </section>
+        <section class="feedback-transfer-panel feedback-export-panel" aria-label="Export feedback">
+            <button id="export-feedback" class="button button-secondary feedback-transfer-button" type="button" disabled="@(this.IsBusy || !this.HasFeedback)" @onclick="ExportFeedbackAsync">Export Feedback</button>
+        </section>
+    </div>
 }
 
 @code {

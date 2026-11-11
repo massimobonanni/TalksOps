@@ -360,6 +360,18 @@ public sealed class SessionFeedbackUiTests : BunitContext
     }
 
     [Fact]
+    public void FeedbackTransferActions_AppearBelowFeedbackTableWithMatchingButtonStyles()
+    {
+        using var handler = new FeedbackHandler();
+        var component = this.RenderPage(handler);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(".feedback-transfer")));
+
+        var orderedElements = component.FindAll(".table-wrap, .feedback-transfer");
+        Assert.Equal(["table-wrap", "feedback-transfer"], orderedElements.Select(element => element.ClassName));
+        Assert.Equal(component.Find("#import-feedback").ClassName, component.Find("#export-feedback").ClassName);
+    }
+
+    [Fact]
     public void ImportFeedback_AppendsAndRefreshesCountAndAverages()
     {
         using var handler = new FeedbackHandler { Settings = null };
