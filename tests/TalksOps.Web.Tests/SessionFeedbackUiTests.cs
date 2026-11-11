@@ -119,6 +119,31 @@ public sealed class SessionFeedbackUiTests : BunitContext
         Assert.Single(component.FindAll("form"));
     }
 
+    [Fact]
+    public void UnavailableSavedTimeZone_FallsBackToUtcAndKeepsSettingsEditable()
+    {
+        using var handler = new FeedbackHandler();
+        handler.Settings = handler.Settings! with { TimeZoneId = "Unknown/Zone" };
+        var component = this.RenderPage(handler);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Contains("shown in UTC", component.Find(".notice-warning").TextContent);
+            Assert.Single(component.FindAll("form"));
+        });
+        Assert.Equal("UTC", component.Find("#feedback-timezone").GetAttribute("value"));
+        Assert.Equal("2027-01-01T10:00:00", component.Find("#feedback-from").GetAttribute("value"));
+        Assert.Equal("2027-01-01T11:00:00", component.Find("#feedback-to").GetAttribute("value"));
+        Assert.Empty(component.FindAll("[role=alert]"));
+
+        component.Find("form").Submit();
+
+        component.WaitForAssertion(() => Assert.Contains("Feedback settings saved", component.Markup));
+        Assert.Equal("UTC", handler.SavedRequest!.TimeZoneId);
+        Assert.Equal(handler.Settings.ValidFrom, handler.SavedRequest.ValidFrom);
+        Assert.Equal(handler.Settings.ValidTo, handler.SavedRequest.ValidTo);
+    }
+
     [Theory]
     [InlineData(2001)]
     [InlineData(2099)]
