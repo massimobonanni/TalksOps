@@ -52,6 +52,55 @@ public sealed class AzuriteRepositoryIntegrationTests
     }
 
     [AzuriteFact]
+    public async Task AzureTableStorageFeedbackService_ImportsAndReadsFeedbackWithAzurite()
+    {
+        var connectionString = Environment.GetEnvironmentVariable("AZURITE_TABLE_CONNECTION_STRING")!;
+        var eventTable = new TableClient(connectionString, $"t{Guid.NewGuid():N}");
+        var feedbackTable = new TableClient(connectionString, $"t{Guid.NewGuid():N}");
+        await eventTable.CreateIfNotExistsAsync();
+        await feedbackTable.CreateIfNotExistsAsync();
+
+        try
+        {
+            var service = new AzureTableStorageFeedbackService(eventTable, feedbackTable);
+            var sessionId = Guid.NewGuid();
+            var eventId = Guid.NewGuid();
+            var timestamp = DateTimeOffset.Parse("2026-10-23T09:00:00Z");
+            await service.ImportSessionAsync(
+                sessionId,
+                new FeedbackSettings
+                {
+                    SessionId = sessionId,
+                    EventId = eventId,
+                    ValidFrom = timestamp,
+                    ValidTo = timestamp.AddHours(1),
+                    TimeZoneId = "Europe/Rome"
+                },
+                [new SessionFeedbackImport
+                {
+                    SessionRating = 8,
+                    SpeakerRating = 9,
+                    Comment = "Imported",
+                    Timestamp = timestamp
+                }]);
+
+            var settings = await service.GetSettingsAsync(sessionId);
+            var feedback = Assert.Single(await service.ListBySessionAsync(sessionId));
+            Assert.NotNull(settings);
+            Assert.Equal(eventId, settings.EventId);
+            Assert.Equal("Europe/Rome", settings.TimeZoneId);
+            Assert.Equal(timestamp, feedback.Timestamp);
+            Assert.Null(feedback.Metadata.IpAddress);
+            Assert.Null(feedback.Metadata.UserAgent);
+        }
+        finally
+        {
+            await eventTable.DeleteAsync();
+            await feedbackTable.DeleteAsync();
+        }
+    }
+
+    [AzuriteFact]
     public async Task Repositories_PersistOwnershipAndCascadeWithAzurite()
     {
         var connectionString = Environment.GetEnvironmentVariable("AZURITE_TABLE_CONNECTION_STRING")!;

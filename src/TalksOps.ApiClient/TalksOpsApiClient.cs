@@ -14,6 +14,92 @@ public sealed class TalksOpsApiClient(HttpClient httpClient, ICurrentUserContext
     private readonly ICurrentUserContext currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
 
     /// <inheritdoc />
+    public Task<FeedbackSettingsDto?> GetFeedbackSettingsAsync(
+        Guid eventId, Guid proposalId, CancellationToken cancellationToken = default) =>
+        this.GetOptionalAsync<FeedbackSettingsDto>(
+            $"api/events/{eventId}/proposals/{proposalId}/feedback/settings".WithUserId(this.currentUser.UserId),
+            cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<FeedbackSettingsDto> SaveFeedbackSettingsAsync(
+        Guid eventId, Guid proposalId, SaveFeedbackSettingsRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        using var response = await this.httpClient.PutAsJsonAsync(
+            $"api/events/{eventId}/proposals/{proposalId}/feedback/settings",
+            new ApiRequest<SaveFeedbackSettingsRequest>(this.currentUser.UserId, request), cancellationToken);
+        await EnsureFeedbackSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<FeedbackSettingsDto>(cancellationToken)
+            ?? throw new HttpRequestException("The TalksOps API returned an empty response body.");
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<SessionFeedbackDto>> ListFeedbackAsync(
+        Guid eventId, Guid proposalId, CancellationToken cancellationToken = default) =>
+        this.GetRequiredAsync<IReadOnlyList<SessionFeedbackDto>>(
+            $"api/events/{eventId}/proposals/{proposalId}/feedback".WithUserId(this.currentUser.UserId),
+            cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<ImportFeedbackResultDto> ImportFeedbackAsync(
+        Guid eventId, Guid proposalId, IReadOnlyList<ImportFeedbackEntryDto> feedback,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(feedback);
+        using var response = await this.httpClient.PostAsJsonAsync(
+            $"api/events/{eventId}/proposals/{proposalId}/feedback/import",
+            new ApiRequest<IReadOnlyList<ImportFeedbackEntryDto>>(this.currentUser.UserId, feedback), cancellationToken);
+        await EnsureFeedbackSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ImportFeedbackResultDto>(cancellationToken)
+            ?? throw new HttpRequestException("The TalksOps API returned an empty response body.");
+    }
+
+    /// <inheritdoc />
+    public Task<PublicFeedbackDto?> GetPublicFeedbackAsync(
+        Guid sessionId, CancellationToken cancellationToken = default) =>
+        this.GetOptionalAsync<PublicFeedbackDto>($"api/feedback/{sessionId}", cancellationToken);
+
+    /// <inheritdoc />
+    public async Task SubmitFeedbackAsync(
+        Guid sessionId, SubmitFeedbackRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        using var response = await this.httpClient.PostAsJsonAsync(
+            $"api/feedback/{sessionId}", request, cancellationToken);
+        await EnsureFeedbackSuccessAsync(response, cancellationToken);
+    }
+
+    private static async Task EnsureFeedbackSuccessAsync(
+        HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        if (!response.IsSuccessStatusCode)
+        {
+            var message = await response.Content.ReadAsStringAsync(cancellationToken);
+            ApiErrorDto? error = null;
+            if (!string.IsNullOrWhiteSpace(message)
+                && response.Content.Headers.ContentType?.MediaType == "application/json")
+            {
+                try
+                {
+                    error = System.Text.Json.JsonSerializer.Deserialize<ApiErrorDto>(
+                        message, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+                }
+                catch (System.Text.Json.JsonException exception)
+                {
+                    throw new HttpRequestException(
+                        $"Feedback request failed with status {(int)response.StatusCode} and an invalid error body.",
+                        exception, response.StatusCode);
+                }
+            }
+
+            throw new HttpRequestException(
+                error?.Message ?? $"Feedback request failed with status {(int)response.StatusCode}.",
+                null, response.StatusCode);
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<PagedResponse<EventDto>> SearchEventsAsync(
         EventSearchRequest request,
         CancellationToken cancellationToken = default)

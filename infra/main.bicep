@@ -11,6 +11,12 @@ param resourceTags object = {}
 @description('Azure region selected for this AZD environment.')
 param location string
 
+@description('Azure Table name used by TalksOps session-feedback data.')
+param feedbackTableName string = 'SessionsFeedback'
+
+@description('Optional public HTTPS base URL for participant feedback links; defaults to the App Service host.')
+param feedbackPublicBaseUrl string = ''
+
 @description('Linux App Service plan SKU for the web application.')
 param webPlanSku string = 'B1'
 
@@ -43,6 +49,9 @@ var dataStorageAccountName = take('${abbreviations.st}${suffix}${compactProject}
 var functionStorageAccountName = take('${abbreviations.st}func${suffix}${compactProject}', 24)
 var keyVaultName = take('${abbreviations.kv}-${compactProject}-${suffix}', 24)
 var webAppName = take('${abbreviations.app}-${environmentName}-web-${suffix}', 60)
+var publicFeedbackBaseUrl = empty(feedbackPublicBaseUrl)
+  ? 'https://${webAppName}.azurewebsites.net'
+  : feedbackPublicBaseUrl
 var functionAppName = take('${abbreviations.app}-${environmentName}-api-${suffix}', 60)
 var appInsightsName = take('${abbreviations.appi}-${environmentName}-${suffix}', 60)
 var foundryAccountName = take('${abbreviations.app}-${environmentName}-ai-${suffix}', 64)
@@ -82,6 +91,7 @@ module storage 'modules/storage.bicep' = {
     storageAccountName: dataStorageAccountName
     eventTableName: 'TalksOps'
     consumptionTableName: 'TokensConsumption'
+    feedbackTableName: feedbackTableName
     tags: tags
   }
 }
@@ -107,6 +117,7 @@ module backend 'modules/backend.bicep' = {
     dataTableServiceUri: storage.outputs.tableServiceUri
     eventTableName: storage.outputs.eventTableName
     consumptionTableName: storage.outputs.consumptionTableName
+    feedbackTableName: storage.outputs.feedbackTableName
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
     foundryEndpoint: foundry.outputs.endpoint
     foundryProjectName: foundry.outputs.projectName
@@ -143,6 +154,7 @@ module frontend 'modules/frontend.bicep' = {
     loginEndpoint: environment().authentication.loginEndpoint
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
     aiExtractionEnabled: aiExtractionEnabled
+    feedbackPublicBaseUrl: publicFeedbackBaseUrl
     tags: tags
   }
 }
@@ -154,6 +166,7 @@ module identity 'modules/identity.bicep' = {
     dataStorageAccountName: storage.outputs.storageAccountName
     eventTableName: storage.outputs.eventTableName
     consumptionTableName: storage.outputs.consumptionTableName
+    feedbackTableName: storage.outputs.feedbackTableName
     keyVaultName: keyVault.outputs.keyVaultName
     functionPrincipalId: backend.outputs.functionPrincipalId
     webPrincipalId: frontend.outputs.webPrincipalId
@@ -165,6 +178,8 @@ module identity 'modules/identity.bicep' = {
 output AZURE_RESOURCE_GROUP string = resourceGroup.name
 output API_ENDPOINT_URL string = backend.outputs.functionEndpoint
 output WEB_ENDPOINT_URL string = frontend.outputs.webEndpoint
+output FEEDBACK_PUBLIC_BASE_URL string = frontend.outputs.feedbackPublicBaseUrl
+output STORAGE_FEEDBACK_TABLE_NAME string = storage.outputs.feedbackTableName
 output AZURE_FUNCTION_APP_NAME string = backend.outputs.functionAppName
 output AZURE_WEB_APP_NAME string = frontend.outputs.webAppName
 output AZURE_KEY_VAULT_NAME string = keyVault.outputs.keyVaultName

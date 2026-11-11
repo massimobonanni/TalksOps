@@ -19,6 +19,9 @@ param eventTableName string
 @description('Azure Table name used by TalksOps token-consumption data.')
 param consumptionTableName string
 
+@description('Azure Table name used by TalksOps session-feedback data.')
+param feedbackTableName string
+
 @description('Application Insights connection string.')
 param appInsightsConnectionString string
 
@@ -143,6 +146,10 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         {
           name: 'StorageTokensConsumptionTableName'
           value: consumptionTableName
+        }
+        {
+          name: 'StorageFeedbackTableName'
+          value: feedbackTableName
         }
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'

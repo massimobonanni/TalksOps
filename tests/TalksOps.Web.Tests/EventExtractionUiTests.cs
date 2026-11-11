@@ -13,6 +13,13 @@ public class EventExtractionUiTests
 {
     private sealed class StubApiClient : ITalksOpsApiClient
     {
+        public Task<FeedbackSettingsDto?> GetFeedbackSettingsAsync(Guid eventId, Guid proposalId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<FeedbackSettingsDto> SaveFeedbackSettingsAsync(Guid eventId, Guid proposalId, SaveFeedbackSettingsRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IReadOnlyList<SessionFeedbackDto>> ListFeedbackAsync(Guid eventId, Guid proposalId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<ImportFeedbackResultDto> ImportFeedbackAsync(Guid eventId, Guid proposalId, IReadOnlyList<ImportFeedbackEntryDto> feedback, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PublicFeedbackDto?> GetPublicFeedbackAsync(Guid sessionId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task SubmitFeedbackAsync(Guid sessionId, SubmitFeedbackRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
         private readonly ExtractEventDataResultDto _extractResult;
 
         public int CreateEventCallCount { get; private set; }

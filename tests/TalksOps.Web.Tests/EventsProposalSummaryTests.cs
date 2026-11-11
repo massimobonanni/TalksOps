@@ -14,6 +14,30 @@ namespace TalksOps.Web.Tests;
 public sealed class EventsProposalSummaryTests : BunitContext
 {
     [Fact]
+    public void ExpandedProposals_LinkToFeedbackForEachEventAndSession()
+    {
+        using var handler = new ProposalHandler(ProposalStatus.Submitted, ProposalStatus.Accepted);
+        var component = this.RenderEvents(handler);
+        component.WaitForAssertion(() => Assert.Contains("(2)", SummaryText(component)));
+        component.Find(".proposal-summary button").Click();
+
+        component.WaitForAssertion(() => Assert.Equal(2, component.FindAll(".feedback-management-link").Count));
+        foreach (var proposal in handler.Proposals)
+        {
+            Assert.Contains(component.FindAll(".feedback-management-link"), link =>
+                link.GetAttribute("href") == $"/events/{proposal.EventId:D}/proposals/{proposal.Id:D}/feedback");
+        }
+        Assert.All(component.FindAll(".feedback-management-link"), link =>
+        {
+            Assert.Equal("Feedback", link.GetAttribute("aria-label"));
+            Assert.Equal("Feedback", link.GetAttribute("title"));
+            var icon = Assert.Single(link.QuerySelectorAll("svg"));
+            Assert.Equal("0 0 64 64", icon.GetAttribute("viewBox"));
+            Assert.Equal("#000000", Assert.Single(icon.QuerySelectorAll("path")).GetAttribute("fill"));
+        });
+    }
+
+    [Fact]
     public void InitialLoad_ShowsEveryStatusBeforeExpandingIncludingDuplicates()
     {
         using var handler = new ProposalHandler(ProposalStatus.Submitted, ProposalStatus.Accepted,

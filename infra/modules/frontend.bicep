@@ -25,6 +25,9 @@ param appInsightsConnectionString string
 @description('Whether the AI event extraction feature is available in the web UI.')
 param aiExtractionEnabled bool = true
 
+@description('Public HTTPS base URL for participant feedback links.')
+param feedbackPublicBaseUrl string
+
 @description('Common resource tags.')
 param tags object
 
@@ -99,6 +102,10 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
           value: functionEndpoint
         }
         {
+          name: 'Feedback__PublicBaseUrl'
+          value: feedbackPublicBaseUrl
+        }
+        {
           name: 'TalksOpsApi__FunctionKey'
           value: functionKeyReference
         }
@@ -118,3 +125,4 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
 output webAppName string = webApp.name
 output webEndpoint string = 'https://${webApp.properties.defaultHostName}'
 output webPrincipalId string = webApp.identity.principalId
+output feedbackPublicBaseUrl string = feedbackPublicBaseUrl

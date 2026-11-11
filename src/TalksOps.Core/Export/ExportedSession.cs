@@ -27,4 +27,10 @@ public sealed record ExportedSession
 
     /// <summary>Gets the last update timestamp in UTC.</summary>
     public DateTimeOffset UpdatedAt { get; init; }
+
+    /// <summary>Gets the optional public feedback validity settings.</summary>
+    public ExportedFeedbackSettings? FeedbackSettings { get; init; }
+
+    /// <summary>Gets feedback values without identifiers or request metadata.</summary>
+    public IReadOnlyList<ExportedFeedback>? Feedback { get; init; }
 }

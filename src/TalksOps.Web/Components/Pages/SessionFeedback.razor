@@ -1,0 +1,482 @@
+@page "/events/{EventId:guid}/proposals/{ProposalId:guid}/feedback"
+@attribute [Authorize]
+@implements IAsyncDisposable
+@using System.Text.Json
+@using TalksOps.Core.Export
+@using Microsoft.Extensions.Configuration
+@using QRCoder
+@inject ITalksOpsApiClient Api
+@inject IConfiguration Configuration
+@inject IJSRuntime JavaScript
+
+<PageTitle>Session feedback | TalksOps</PageTitle>
+
+<div class="page-heading">
+    <div>
+        <p class="eyebrow">SESSION FEEDBACK</p>
+        <p class="feedback-event-title">@this.EventTitle</p>
+        <h1>@(this.Proposal?.Title ?? "Session feedback")</h1>
+    </div>
+    <a class="button" href="/events">Back to events</a>
+</div>
+
+@if (this.ErrorMessage is not null)
+{
+    <div class="notice notice-error" role="alert">@this.ErrorMessage</div>
+}
+@if (this.SuccessMessage is not null)
+{
+    <div class="notice notice-success" role="status">@this.SuccessMessage</div>
+}
+@if (this.TimeZoneWarning is not null)
+{
+    <div class="notice notice-warning" role="status">@this.TimeZoneWarning</div>
+}
+
+@if (this.IsLoading)
+{
+    <p class="empty-state" role="status">Loading session feedback...</p>
+}
+else if (!this.IsReady)
+{
+    <button class="button button-secondary" type="button" @onclick="LoadAsync">Retry</button>
+}
+else
+{
+    <form class="editor-form" @onsubmit="SaveAsync" @onsubmit:preventDefault>
+        <h2>Feedback settings</h2>
+        @if (this.Settings is null)
+        {
+            <p class="muted">Feedback is not configured. Set a validity period to enable collection.</p>
+        }
+        <p class="muted">The start is inclusive and the end is exclusive. Management remains available outside this period.</p>
+        <fieldset disabled="@this.IsBusy">
+            <div class="form-grid">
+                <label>Start (local time)<input id="feedback-from" type="datetime-local" step="1" required @bind="this.ValidFrom" @bind:format="yyyy-MM-ddTHH:mm:ss" /></label>
+                <label>End (local time)<input id="feedback-to" type="datetime-local" step="1" required @bind="this.ValidTo" @bind:format="yyyy-MM-ddTHH:mm:ss" /></label>
+                <label>Time zone
+                    <select id="feedback-timezone" @bind="this.TimeZoneId">
+                        @foreach (var zoneId in TimeZoneIds)
+                        {
+                            <option value="@zoneId">@zoneId</option>
+                        }
+                    </select>
+                </label>
+            </div>
+            <p class="muted">Changing the time zone keeps the entered local times and changes their UTC instants. Times skipped or repeated by daylight saving require correction.</p>
+            <div class="form-actions"><button class="button button-primary" type="submit">Save settings</button></div>
+        </fieldset>
+    </form>
+
+    <section class="editor-form" aria-labelledby="feedback-share-title">
+        <h2 id="feedback-share-title">Share feedback</h2>
+        @if (this.QrError is not null)
+        {
+            <p class="notice notice-error" role="alert">@this.QrError</p>
+        }
+        else
+        {
+            <p><a id="feedback-public-link" href="@this.PublicUrl" target="_blank" rel="noopener noreferrer">@this.PublicUrl</a></p>
+            <img src="@this.QrImage" width="256" height="256" alt="QR code for this session's public feedback URL" />
+        }
+        <div class="form-actions"><button id="download-feedback-qr" class="button button-secondary" type="button" disabled="@(this.IsBusy || this.QrBytes is null)" @onclick="DownloadQrAsync">Download QR (PNG)</button></div>
+    </section>
+
+    <section class="editor-form" aria-labelledby="feedback-list-title">
+        <div class="detail-heading">
+            <h2 id="feedback-list-title">Received feedback</h2>
+            <div class="form-actions">
+                <button id="refresh-feedback" class="button" type="button" disabled="@this.IsBusy" @onclick="RefreshAsync">Refresh</button>
+            </div>
+        </div>
+        @if (this.HasFeedback)
+        {
+            <dl class="feedback-summary" aria-label="Feedback summary">
+                <div><dt>Feedback count</dt><dd id="feedback-count">@this.Feedback.Count</dd></div>
+                <div><dt>Session average (out of 10)</dt><dd id="session-feedback-average">@(this.AverageSessionRating?.ToString("0.0", CultureInfo.InvariantCulture) ?? "—")</dd></div>
+                <div><dt>Speaker average (out of 10)</dt><dd id="speaker-feedback-average">@(this.AverageSpeakerRating?.ToString("0.0", CultureInfo.InvariantCulture) ?? "—")</dd></div>
+            </dl>
+        }
+        @if (!this.HasFeedback)
+        {
+            <p class="empty-state" role="status">@(this.IsBusy ? "Loading feedback..." : "Feedback could not be loaded. Use Refresh to retry.")</p>
+        }
+        else if (this.Feedback.Count == 0)
+        {
+            <p class="empty-state" role="status">No feedback received yet.</p>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead><tr><th>Received (UTC)</th><th>Session rating</th><th>Speaker rating</th><th>Comment</th></tr></thead>
+                    <tbody>
+                        @foreach (var item in this.Feedback)
+                        {
+                            <tr @key="item.Id">
+                                <td><time datetime="@item.Timestamp.ToUniversalTime().ToString("O")">@item.Timestamp.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)</time></td>
+                                <td>@item.SessionRating / 10</td><td>@item.SpeakerRating / 10</td>
+                                <td>@(string.IsNullOrWhiteSpace(item.Comment) ? "No comment" : item.Comment)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <div class="feedback-transfer">
+        <section class="feedback-transfer-panel" aria-label="Import feedback">
+            <div class="feedback-import-actions">
+                <label>Feedback JSON file (max 10 MB)
+                    <InputFile @key="this.importFileVersion" id="import-feedback-file" accept=".json,application/json" OnChange="SelectImportFile" disabled="@this.IsBusy" />
+                </label>
+                <button id="import-feedback" class="button button-secondary feedback-transfer-button" type="button" disabled="@(this.IsBusy || this.ImportFile is null)" @onclick="ImportFeedbackAsync">Import Feedback</button>
+            </div>
+            <p class="muted">Import a file created by Export Feedback. Entries are added without replacing existing feedback or changing settings. Missing or null timestamps use the import time (UTC). Importing the same file again adds duplicates.</p>
+        </section>
+        <section class="feedback-transfer-panel feedback-export-panel" aria-label="Export feedback">
+            <button id="export-feedback" class="button button-secondary feedback-transfer-button" type="button" disabled="@(this.IsBusy || !this.HasFeedback)" @onclick="ExportFeedbackAsync">Export Feedback</button>
+        </section>
+    </div>
+}
+
+@code {
+    private const long MaxImportFileSize = 10 * 1024 * 1024;
+    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
+    private static readonly string[] TimeZoneIds = TimeZoneInfo.GetSystemTimeZones()
+        .Select(zone => TimeZoneInfo.TryConvertWindowsIdToIanaId(zone.Id, out var ianaId) ? ianaId : zone.Id)
+        .Append("UTC").Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+
+    /// <summary>Gets or sets the owning event identifier from the authenticated route.</summary>
+    [Parameter] public Guid EventId { get; set; }
+
+    /// <summary>Gets or sets the session proposal identifier from the authenticated route.</summary>
+    [Parameter] public Guid ProposalId { get; set; }
+
+    private SessionProposalDto? Proposal;
+    private string? EventTitle;
+    private FeedbackSettingsDto? Settings;
+    private DateTime? ValidFrom;
+    private DateTime? ValidTo;
+    private string TimeZoneId = "UTC";
+    private IReadOnlyList<SessionFeedbackDto> Feedback = [];
+    private IBrowserFile? ImportFile;
+    private int importFileVersion;
+    private double? AverageSessionRating => this.Feedback.Count == 0
+        ? null
+        : this.Feedback.Average(item => item.SessionRating);
+    private double? AverageSpeakerRating => this.Feedback.Count == 0
+        ? null
+        : this.Feedback.Average(item => item.SpeakerRating);
+    private bool IsLoading;
+    private bool IsReady;
+    private bool IsBusy;
+    private bool HasFeedback;
+    private string? ErrorMessage;
+    private string? SuccessMessage;
+    private string? TimeZoneWarning;
+    private string? QrError;
+    private string? PublicUrl;
+    private byte[]? QrBytes;
+    private string? QrImage;
+    private IJSObjectReference? module;
+    private int requestVersion;
+
+    protected override Task OnParametersSetAsync() => this.LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var version = ++this.requestVersion;
+        var eventId = this.EventId;
+        var proposalId = this.ProposalId;
+        this.IsLoading = true;
+        this.IsReady = this.IsBusy = this.HasFeedback = false;
+        this.Proposal = null;
+        this.EventTitle = null;
+        this.Settings = null;
+        this.ErrorMessage = this.SuccessMessage = null;
+        this.TimeZoneWarning = null;
+        this.ValidFrom = this.ValidTo = null;
+        this.TimeZoneId = "UTC";
+        this.Feedback = [];
+        this.ImportFile = null;
+        ++this.importFileVersion;
+        try
+        {
+            var proposal = await this.Api.GetProposalAsync(eventId, proposalId);
+            if (version != this.requestVersion) return;
+            if (proposal is null)
+            {
+                this.ErrorMessage = "This session is unavailable or you do not have access to it.";
+                return;
+            }
+
+            var eventTask = this.Api.GetEventAsync(eventId);
+            var settingsTask = this.Api.GetFeedbackSettingsAsync(eventId, proposalId);
+            var feedbackTask = this.Api.ListFeedbackAsync(eventId, proposalId);
+            await Task.WhenAll(eventTask, settingsTask, feedbackTask);
+            if (version != this.requestVersion) return;
+            var eventDetails = await eventTask
+                ?? throw new InvalidOperationException("The owning event could not be loaded.");
+            var settings = await settingsTask;
+            if (settings is null)
+            {
+                this.SetDefaultSettings(eventDetails);
+            }
+            else
+            {
+                this.ApplySettings(settings);
+            }
+            this.SetFeedback(await feedbackTask);
+            this.Proposal = proposal;
+            this.EventTitle = eventDetails.Name;
+            this.ConfigureQr(proposalId);
+            this.IsReady = true;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException or TimeZoneNotFoundException or InvalidTimeZoneException)
+        {
+            if (version == this.requestVersion) this.ErrorMessage = $"Unable to load session feedback. {exception.Message}";
+        }
+        finally
+        {
+            if (version == this.requestVersion) this.IsLoading = false;
+        }
+    }
+
+    private void ApplySettings(FeedbackSettingsDto? settings)
+    {
+        this.Settings = settings;
+        if (settings is null) return;
+        this.TimeZoneWarning = null;
+        TimeZoneInfo zone;
+        try
+        {
+            zone = TimeZoneInfo.FindSystemTimeZoneById(settings.TimeZoneId);
+        }
+        catch (Exception exception) when (exception is TimeZoneNotFoundException or InvalidTimeZoneException or ArgumentException)
+        {
+            zone = TimeZoneInfo.Utc;
+            this.TimeZoneWarning = "The saved time zone is unavailable. Times are shown in UTC; choose a valid time zone and save to replace it.";
+        }
+
+        this.TimeZoneId = this.TimeZoneWarning is not null
+            ? "UTC"
+            : TimeZoneInfo.TryConvertWindowsIdToIanaId(zone.Id, out var ianaId) ? ianaId : zone.Id;
+        this.ValidFrom = TimeZoneInfo.ConvertTime(settings.ValidFrom, zone).DateTime;
+        this.ValidTo = TimeZoneInfo.ConvertTime(settings.ValidTo, zone).DateTime;
+    }
+
+    private void SetDefaultSettings(EventDto eventDetails)
+    {
+        this.ValidFrom = eventDetails.StartDate.ToDateTime(TimeOnly.MinValue);
+        this.ValidTo = eventDetails.EndDate.ToDateTime(new TimeOnly(23, 59, 59));
+    }
+
+    private void SetFeedback(IReadOnlyList<SessionFeedbackDto> feedback)
+    {
+        this.Feedback = feedback.OrderByDescending(item => item.Timestamp).ToArray();
+        this.HasFeedback = true;
+    }
+
+    private void ConfigureQr(Guid proposalId)
+    {
+        this.QrError = null;
+        this.QrBytes = null;
+        this.QrImage = this.PublicUrl = null;
+        var baseUrl = this.Configuration["Feedback:PublicBaseUrl"];
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri)
+            || uri.Scheme is not ("https" or "http") || string.IsNullOrEmpty(uri.Host)
+            || uri.UserInfo.Length > 0 || uri.Query.Length > 0 || uri.Fragment.Length > 0
+            || uri.AbsoluteUri.Length > 2048)
+        {
+            this.QrError = "Configure Feedback:PublicBaseUrl with an absolute HTTP(S) URL without credentials, query or fragment to enable the QR download.";
+            return;
+        }
+
+        this.PublicUrl = $"{uri.AbsoluteUri.TrimEnd('/')}/feedback/{proposalId:D}";
+        // QRCoder generates PNG without platform-specific System.Drawing or an external QR service.
+        using var data = QRCodeGenerator.GenerateQrCode(this.PublicUrl, QRCodeGenerator.ECCLevel.M);
+        using var png = new PngByteQRCode(data);
+        this.QrBytes = png.GetGraphic(8);
+        this.QrImage = $"data:image/png;base64,{Convert.ToBase64String(this.QrBytes)}";
+    }
+
+    private static DateTimeOffset ToUtc(DateTime value, TimeZoneInfo zone)
+    {
+        var local = DateTime.SpecifyKind(value, DateTimeKind.Unspecified);
+        if (zone.IsInvalidTime(local) || zone.IsAmbiguousTime(local))
+        {
+            throw new InvalidOperationException("A local time is skipped or repeated by daylight saving. Choose an unambiguous time.");
+        }
+
+        return new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(local, zone));
+    }
+
+    private async Task SaveAsync()
+    {
+        if (this.IsBusy || !this.IsReady) return;
+        var version = this.requestVersion;
+        var eventId = this.EventId;
+        var proposalId = this.ProposalId;
+        this.ErrorMessage = this.SuccessMessage = null;
+        this.IsBusy = true;
+        try
+        {
+            if (this.ValidFrom is not DateTime from || this.ValidTo is not DateTime to)
+                throw new InvalidOperationException("Both start and end are required.");
+            var zone = TimeZoneInfo.FindSystemTimeZoneById(this.TimeZoneId);
+            var request = new SaveFeedbackSettingsRequest(ToUtc(from, zone), ToUtc(to, zone), this.TimeZoneId);
+            var errors = FeedbackRules.Validate(new FeedbackSettings
+            {
+                SessionId = proposalId, ValidFrom = request.ValidFrom, ValidTo = request.ValidTo, TimeZoneId = request.TimeZoneId
+            });
+            if (errors.Count > 0) throw new InvalidOperationException(string.Join(" ", errors));
+            var saved = await this.Api.SaveFeedbackSettingsAsync(eventId, proposalId, request);
+            if (version != this.requestVersion) return;
+            this.ApplySettings(saved);
+            this.SuccessMessage = "Feedback settings saved.";
+            this.HasFeedback = false;
+            this.Feedback = [];
+            var feedback = await this.Api.ListFeedbackAsync(eventId, proposalId);
+            if (version == this.requestVersion) this.SetFeedback(feedback);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException or TimeZoneNotFoundException or InvalidTimeZoneException or ArgumentException)
+        {
+            if (version == this.requestVersion) this.ErrorMessage = $"Unable to save settings or refresh feedback. {exception.Message}";
+        }
+        finally
+        {
+            if (version == this.requestVersion) this.IsBusy = false;
+        }
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (this.IsBusy || !this.IsReady) return;
+        var version = this.requestVersion;
+        this.IsBusy = true;
+        this.HasFeedback = false;
+        this.ErrorMessage = this.SuccessMessage = null;
+        try
+        {
+            var feedback = await this.Api.ListFeedbackAsync(this.EventId, this.ProposalId);
+            if (version == this.requestVersion) this.SetFeedback(feedback);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or TaskCanceledException)
+        {
+            if (version == this.requestVersion) this.ErrorMessage = $"Unable to refresh feedback. {exception.Message}";
+        }
+        finally
+        {
+            if (version == this.requestVersion) this.IsBusy = false;
+        }
+    }
+
+    private void SelectImportFile(InputFileChangeEventArgs args)
+    {
+        this.ErrorMessage = this.SuccessMessage = null;
+        this.ImportFile = args.File;
+    }
+
+    private async Task ImportFeedbackAsync()
+    {
+        if (this.IsBusy || !this.IsReady || this.ImportFile is not { } file) return;
+        this.ErrorMessage = this.SuccessMessage = null;
+        if (file.Size > MaxImportFileSize)
+        {
+            this.ErrorMessage = "The selected file exceeds the 10 MB limit.";
+            return;
+        }
+
+        var version = this.requestVersion;
+        var eventId = this.EventId;
+        var proposalId = this.ProposalId;
+        var importRequested = false;
+        this.IsBusy = true;
+        try
+        {
+            await using var stream = file.OpenReadStream(MaxImportFileSize);
+            var entries = await JsonSerializer.DeserializeAsync<ImportFeedbackEntryDto[]>(stream, SerializerOptions)
+                ?? throw new JsonException("A feedback array is required.");
+            if (version != this.requestVersion) return;
+            importRequested = true;
+            var result = await this.Api.ImportFeedbackAsync(eventId, proposalId, entries);
+            if (version != this.requestVersion) return;
+            this.SuccessMessage = $"Imported {result.FeedbackImported} feedback entries.";
+            this.ImportFile = null;
+            ++this.importFileVersion;
+            this.HasFeedback = false;
+            this.Feedback = [];
+            var feedback = await this.Api.ListFeedbackAsync(eventId, proposalId);
+            if (version == this.requestVersion) this.SetFeedback(feedback);
+        }
+        catch (JsonException) when (!importRequested)
+        {
+            if (version == this.requestVersion) this.ErrorMessage = "The selected file is not a valid feedback export. Expected a JSON array with sessionRating, speakerRating, an optional comment and an optional timestamp.";
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or IOException or TaskCanceledException or JsonException)
+        {
+            if (version == this.requestVersion)
+                this.ErrorMessage = $"Unable to import feedback or refresh the list. {exception.Message} Refresh before retrying an import to avoid duplicates.";
+        }
+        finally
+        {
+            if (version == this.requestVersion) this.IsBusy = false;
+        }
+    }
+
+    private Task DownloadQrAsync() => this.DownloadAsync(this.QrBytes, $"talksops-feedback-{this.ProposalId:D}.png", "image/png");
+
+    private Task ExportFeedbackAsync()
+    {
+        if (!this.HasFeedback) return Task.CompletedTask;
+        var entries = this.Feedback.Select(item => new ExportedFeedback
+        {
+            SessionRating = item.SessionRating,
+            SpeakerRating = item.SpeakerRating,
+            Comment = item.Comment,
+            Timestamp = item.Timestamp
+        });
+        return this.DownloadAsync(JsonSerializer.SerializeToUtf8Bytes(entries, SerializerOptions),
+            $"talksops-feedback-{this.ProposalId:D}.json", "application/json");
+    }
+
+    private async Task DownloadAsync(byte[]? bytes, string fileName, string contentType)
+    {
+        if (this.IsBusy || bytes is null || !this.IsReady) return;
+        var version = this.requestVersion;
+        this.IsBusy = true;
+        this.ErrorMessage = this.SuccessMessage = null;
+        try
+        {
+            using var content = new MemoryStream(bytes);
+            using var streamReference = new DotNetStreamReference(content);
+            this.module ??= await this.JavaScript.InvokeAsync<IJSObjectReference>(
+                "import", $"./{Assets["Components/Pages/ImportExport.razor.js"]}");
+            await this.module.InvokeVoidAsync("downloadFile", fileName, streamReference, contentType);
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or JSException or TaskCanceledException)
+        {
+            if (version == this.requestVersion) this.ErrorMessage = $"Unable to download feedback file. {exception.Message}";
+        }
+        finally
+        {
+            if (version == this.requestVersion) this.IsBusy = false;
+        }
+    }
+
+    /// <summary>Releases the download module when the page leaves the circuit.</summary>
+    public async ValueTask DisposeAsync()
+    {
+        ++this.requestVersion;
+        if (this.module is not null)
+        {
+            try { await this.module.DisposeAsync(); }
+            catch (JSDisconnectedException)
+            {
+                // No browser resource can be released after the circuit disconnects.
+            }
+        }
+    }
+}

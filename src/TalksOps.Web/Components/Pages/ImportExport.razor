@@ -23,7 +23,7 @@
 
 <form class="editor-form" @onsubmit="ExportAsync" @onsubmit:preventDefault>
     <h3>Export events</h3>
-    <p class="muted">Downloads your events and their sessions as a JSON file. Leave a date empty to remove that bound.</p>
+    <p class="muted">Downloads your events, sessions, feedback settings and received feedback as JSON. Leave a date empty to remove that bound.</p>
     <div class="form-grid">
         <label>From<input type="date" @bind="this.ExportFrom" /></label>
         <label>To<input type="date" @bind="this.ExportTo" /></label>
@@ -33,7 +33,7 @@
 
 <form class="editor-form" @onsubmit="ImportAsync" @onsubmit:preventDefault>
     <h3>Import events</h3>
-    <p class="muted">Adds the events and sessions of a TalksOps export to your data. Existing events are never changed or removed.</p>
+    <p class="muted">Adds the events, sessions, feedback settings and feedback of a TalksOps export to your data. Existing data is never changed or removed.</p>
     <div class="form-grid">
         <label class="span-all">JSON file<InputFile accept=".json,application/json" OnChange="SelectImportFile" /></label>
     </div>
@@ -69,7 +69,9 @@
         {
             var document = await this.Api.ExportEventsAsync(this.ExportFrom, this.ExportTo);
             await this.DownloadDocumentAsync(document, $"talksops-events-{DateTime.Now:yyyyMMdd-HHmmss}.json");
-            this.SuccessMessage = $"Exported {document.Events.Count} events with {document.Events.Sum(value => value.Sessions.Count)} sessions.";
+            var sessions = document.Events.Sum(value => value.Sessions.Count);
+            var feedback = document.Events.SelectMany(value => value.Sessions).Sum(value => value.Feedback?.Count ?? 0);
+            this.SuccessMessage = $"Exported {document.Events.Count} events, {sessions} sessions and {feedback} feedback entries.";
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or JSException or TaskCanceledException)
         {
@@ -111,7 +113,23 @@
                                 Notes = "Replace with your notes.",
                                 SubmissionDate = new DateOnly(2027, 2, 15),
                                 CreatedAt = now,
-                                UpdatedAt = now
+                                UpdatedAt = now,
+                                FeedbackSettings = new ExportedFeedbackSettings
+                                {
+                                    ValidFrom = now,
+                                    ValidTo = now.AddDays(1),
+                                    TimeZoneId = "UTC"
+                                },
+                                Feedback =
+                                [
+                                    new ExportedFeedback
+                                    {
+                                        SessionRating = 8,
+                                        SpeakerRating = 9,
+                                        Comment = "Replace with a comment or leave null.",
+                                        Timestamp = now
+                                    }
+                                ]
                             }
                         ]
                     }
@@ -165,7 +183,7 @@
             var document = await JsonSerializer.DeserializeAsync<EventsExportDocument>(stream, SerializerOptions)
                 ?? throw new JsonException("The file is empty.");
             var result = await this.Api.ImportEventsAsync(document);
-            this.SuccessMessage = $"Imported {result.EventsImported} events with {result.SessionsImported} sessions.";
+            this.SuccessMessage = $"Imported {result.EventsImported} events, {result.SessionsImported} sessions and {result.FeedbackImported} feedback entries.";
         }
         catch (JsonException)
         {

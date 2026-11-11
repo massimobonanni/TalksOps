@@ -96,6 +96,7 @@ button { cursor: pointer; }
 .app-footer a:hover { text-decoration: underline; }
 .page-heading { display: flex; justify-content: space-between; align-items: end; gap: 1rem; margin-bottom: 2rem; }
 .page-heading h1, .login-page h1 { margin: .25rem 0 0; font-family: Georgia, "Times New Roman", serif; font-size: 2.5rem; font-weight: 500; letter-spacing: 0; }
+.feedback-event-title { margin: .35rem 0 0; font-family: Georgia, "Times New Roman", serif; font-size: 1.5rem; font-weight: 500; line-height: 1.2; }
 .eyebrow { margin: 0; color: var(--green); font-size: .72rem; font-weight: 750; letter-spacing: .12em; }
 .button { display: inline-flex; align-items: center; justify-content: center; gap: .6rem; min-height: 42px; padding: .65rem 1rem; border: 1px solid transparent; border-radius: 4px; text-decoration: none; font-weight: 650; }
 .button-primary { background: var(--green); color: white; }
@@ -140,8 +141,12 @@ input:focus, textarea:focus, select:focus { outline: 2px solid #6ba88c; outline-
 .deadline-count.deadline-upcoming { background: #dcfce7; }
 .deadline-count.deadline-expired { background: #f3f4f6; }
 .row-actions { display: flex; align-items: center; justify-content: end; gap: .75rem; white-space: nowrap; }
-.icon-button, .text-button { padding: .25rem; border: 0; background: transparent; color: var(--green); font-weight: 650; }
+.icon-button, .text-button { padding: .25rem; border: 0; background: transparent; color: var(--green); font-weight: 650; text-decoration: none; }
 .icon-button:hover, .text-button:hover { text-decoration: underline; }
+.feedback-management-link { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; }
+.feedback-management-link svg { width: 20px; height: 20px; }
+.feedback-management-link:hover { color: var(--green-deep); text-decoration: none; }
+.feedback-management-link:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 .danger { color: var(--coral) !important; }
 .detail-row > td { padding: 1.25rem 1.5rem; background: #f7f9f6; }
 .detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
@@ -160,6 +165,10 @@ input:focus, textarea:focus, select:focus { outline: 2px solid #6ba88c; outline-
 .editor-form { margin-top: 1rem; padding: 1rem; border: 1px solid var(--line); background: white; }
 .editor-form h3 { margin: 0 0 1rem; font-size: 1rem; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
+.feedback-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1rem 0; }
+.feedback-summary > div { padding: .8rem; border: 1px solid var(--line); }
+.feedback-summary dt { color: var(--muted); font-size: .88rem; }
+.feedback-summary dd { margin: .25rem 0 0; font-size: 1.35rem; font-weight: 600; }
 .website-field { display: grid; gap: .35rem; min-width: 0; }
 .website-input { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: center; gap: .35rem; }
 .website-link-slot { display: flex; align-items: center; justify-content: center; width: 32px; height: 40px; }
@@ -262,6 +271,7 @@ input:focus, textarea:focus, select:focus { outline: 2px solid #6ba88c; outline-
     .calendar-event-actions { grid-column: 2; justify-content: space-between; }
     .filter-bar { align-items: stretch; }
     .filter-bar label { min-width: min(100%, 180px); }
+    .feedback-summary { grid-template-columns: 1fr; gap: .5rem; }
 }
 
 @media (max-width: 480px) {

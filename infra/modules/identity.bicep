@@ -7,6 +7,9 @@ param eventTableName string
 @description('Name of the TalksOps token-consumption table.')
 param consumptionTableName string
 
+@description('Name of the TalksOps session-feedback table.')
+param feedbackTableName string
+
 @description('Key Vault name containing server-side application credentials.')
 param keyVaultName string
 
@@ -45,6 +48,11 @@ resource consumptionTable 'Microsoft.Storage/storageAccounts/tableServices/table
   name: consumptionTableName
 }
 
+resource feedbackTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-01' existing = {
+  parent: dataTableService
+  name: feedbackTableName
+}
+
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
   name: keyVaultName
 }
@@ -71,6 +79,16 @@ resource functionAppEventTableAccess 'Microsoft.Authorization/roleAssignments@20
 resource functionAppConsumptionTableAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(consumptionTable.id, functionPrincipalId, tableDataContributorRoleId)
   scope: consumptionTable
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', tableDataContributorRoleId)
+    principalId: functionPrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource functionAppFeedbackTableAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(feedbackTable.id, functionPrincipalId, tableDataContributorRoleId)
+  scope: feedbackTable
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', tableDataContributorRoleId)
     principalId: functionPrincipalId

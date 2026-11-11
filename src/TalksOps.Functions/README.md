@@ -1,6 +1,6 @@
 # TalksOps.Functions
 
-`TalksOps.Functions` is the .NET 10 isolated-worker HTTP API. It validates incoming request shapes, initializes a per-invocation user context, delegates business rules to `TalksOps.Core`, and maps domain records to `TalksOps.ApiClient` contracts. HTTP triggers use Function-level authorization.
+`TalksOps.Functions` is the .NET 10 isolated-worker HTTP API. It validates incoming request shapes, initializes a per-invocation user context for speaker operations, delegates business rules to `TalksOps.Core`, and maps domain records to `TalksOps.ApiClient` contracts. HTTP triggers use Function-level authorization except the anonymous participant feedback endpoints.
 
 ## Class diagram
 
@@ -22,6 +22,14 @@ classDiagram
     class CalendarFunction {
         +GetCalendar(request, cancellationToken)
     }
+    class FeedbackFunctions {
+        +GetFeedbackSettings(request, eventId, proposalId, cancellationToken)
+        +SaveFeedbackSettings(request, eventId, proposalId, cancellationToken)
+        +ListFeedback(request, eventId, proposalId, cancellationToken)
+        +ImportFeedback(request, eventId, proposalId, cancellationToken)
+        +GetPublicFeedback(request, sessionId, cancellationToken)
+        +SubmitFeedback(request, sessionId, cancellationToken)
+    }
     class RequestCurrentUserContext {
         +string UserId
         +TryInitialize(value) bool
@@ -36,6 +44,9 @@ classDiagram
     class ISessionProposalService {
         <<interface>>
     }
+    class IFeedbackService {
+        <<interface>>
+    }
     class EventService
     class SessionProposalService
     class IEventRepository
@@ -44,18 +55,29 @@ classDiagram
     class AzureTableEventRepository
     class AzureTableSessionProposalRepository
     class AzureTableTokensConsumptionRepository
+    class AzureTableStorageFeedbackService
     class ApiRequest~T~
     class EventDto
     class SessionProposalDto
     class CalendarEventDto
+    class FeedbackSettingsDto
+    class SessionFeedbackDto
+    class ImportFeedbackEntryDto
+    class ImportFeedbackResultDto
+    class PublicFeedbackDto
+    class SubmitFeedbackRequest
 
     RequestCurrentUserContext ..|> ICurrentUserContext
     EventsFunctions --> RequestCurrentUserContext
     CalendarFunction --> RequestCurrentUserContext
+    FeedbackFunctions --> RequestCurrentUserContext
     EventsFunctions --> IEventService
     EventsFunctions --> ISessionProposalService
     CalendarFunction --> IEventService
     CalendarFunction --> ISessionProposalService
+    FeedbackFunctions --> IFeedbackService
+    FeedbackFunctions --> IEventService : ownership check
+    FeedbackFunctions --> ISessionProposalService : ownership check
     EventService ..|> IEventService
     SessionProposalService ..|> ISessionProposalService
     EventService --> IEventRepository
@@ -63,10 +85,17 @@ classDiagram
     AzureTableEventRepository ..|> IEventRepository
     AzureTableSessionProposalRepository ..|> ISessionProposalRepository
     AzureTableTokensConsumptionRepository ..|> ITokensConsumptionRepository
+    AzureTableStorageFeedbackService ..|> IFeedbackService
     EventsFunctions ..> ApiRequest : request envelope
     EventsFunctions ..> EventDto : response
     EventsFunctions ..> SessionProposalDto : response
     CalendarFunction ..> CalendarEventDto : response
+    FeedbackFunctions ..> FeedbackSettingsDto : speaker response
+    FeedbackFunctions ..> SessionFeedbackDto : speaker response
+    FeedbackFunctions ..> ImportFeedbackEntryDto : speaker import request
+    FeedbackFunctions ..> ImportFeedbackResultDto : speaker import response
+    FeedbackFunctions ..> PublicFeedbackDto : anonymous response
+    FeedbackFunctions ..> SubmitFeedbackRequest : anonymous request
 ```
 
 ## Classes and members
@@ -75,14 +104,15 @@ classDiagram
 | --- | --- |
 | `EventsFunctions` | Constructor injects `IEventService`, `ISessionProposalService`, and `RequestCurrentUserContext`. Public trigger methods: `SearchEvents`, `GetEvent`, `CreateEvent`, `UpdateEvent`, `DeleteEvent`, `ListProposals`, `GetProposal`, `CreateProposal`, `UpdateProposal`, `ChangeProposalStatus`, and `DeleteProposal`. They implement event/proposal search and CRUD plus status changes. Event request/response mapping includes the optional `CallForPapersDeadline`. Private helpers parse request envelopes and query integers, initialize query/body user IDs, convert request DTOs to domain records and domain records to DTOs, and create 400/409 results. |
 | `CalendarFunction` | Injects the event/proposal services and request context. `GetCalendar` validates `userId` and year, pages through all matching events, and returns each event with its proposal status list. |
+| `FeedbackFunctions` | Implements speaker-owned settings read/save, feedback listing, and additive feedback import, verifying event/proposal ownership through Core services. Import preserves supplied timestamps and assigns the server's UTC import time when timestamps are omitted/null. Its anonymous participant endpoints expose only the title while available and accept ratings/comment; they derive metadata from the request and apply a separate in-memory IP limiter. |
 | `RequestCurrentUserContext` | Scoped implementation of `ICurrentUserContext`. `TryInitialize(string? value)` trims and stores a non-empty value; `UserId` throws `InvalidOperationException` until initialized. It has no public setter property. |
-| `Program` (top-level statements) | Configures the isolated Functions worker, Application Insights, scoped Core services and user context, plus Storage registrations. It requires `StorageTableName`; `StorageTokensConsumptionTableName` defaults to `TokensConsumption`. A configured `StorageConnectionString` takes precedence over `StorageUri`. With a connection string, it creates both tables if absent. |
+| `Program` (top-level statements) | Configures the isolated Functions worker, Application Insights, scoped Core services, feedback service and user context, plus Storage registrations and a separate anonymous feedback limiter. It requires `StorageTableName`; `StorageTokensConsumptionTableName` defaults to `TokensConsumption` and `StorageFeedbackTableName` to `SessionsFeedback`. A configured `StorageConnectionString` takes precedence over `StorageUri`. With a connection string, it creates all three tables if absent. |
 
 There are no additional public data properties on the endpoint classes. Request/response records, including `ApiRequest<T>`, `EventDto`, `SessionProposalDto`, and `CalendarEventDto`, are documented in [TalksOps.ApiClient](../TalksOps.ApiClient/README.md).
 
 ## HTTP endpoints
 
-The default Functions route prefix is `/api`. Every trigger below requires Function-level authorization and therefore a Function key when the host enforces keys.
+The default Functions route prefix is `/api`. Every trigger in the following table requires Function-level authorization and therefore a Function key when the host enforces keys.
 
 | Method and route | Purpose |
 | --- | --- |
@@ -98,12 +128,58 @@ The default Functions route prefix is `/api`. Every trigger below requires Funct
 | `PATCH /api/events/{eventId}/proposals/{proposalId}/status` | Change lifecycle status from an `ApiRequest<ChangeProposalStatusRequest>` envelope. |
 | `DELETE /api/events/{eventId}/proposals/{proposalId}` | Delete a proposal. |
 | `GET /api/calendar?year={year}` | Return calendar events and their proposal statuses for the year. |
-| `GET /api/export` | Export events and sessions as version 1 JSON without event/session IDs; accepts optional `from` and `to` dates (`yyyy-MM-dd`). |
-| `POST /api/import` | Add events and sessions from an `ApiRequest<EventsExportDocument>` envelope, generating new IDs. Older documents containing IDs remain accepted; those IDs are ignored. |
+| `GET /api/export` | Export events, sessions, feedback settings and feedback as version 1 JSON without internal IDs or request metadata; accepts optional `from` and `to` dates (`yyyy-MM-dd`). |
+| `POST /api/import` | Add events, sessions, feedback settings and feedback from an `ApiRequest<EventsExportDocument>` envelope, generating new IDs. Older documents without feedback/settings or containing IDs remain accepted; supplied IDs are ignored. |
 
 GET/DELETE operations take `userId` in the query string; write operations take it in the `ApiRequest<T>` body. The Web application derives this value from the authenticated principal. A Function key is a shared application credential, not user authentication: do not expose it or allow untrusted clients to choose another user's ID.
 
 The import/export JSON format and example are documented in [TalksOps.Core](../TalksOps.Core/README.md#import-and-export).
+
+## Session feedback API
+
+| Method and route | Authorization and response |
+| --- | --- |
+| `GET /api/events/{eventId}/proposals/{proposalId}/feedback/settings` | Function key and query `userId`; verifies event and proposal ownership, then returns `FeedbackSettingsDto` (200), or 404 when absent/not owned. |
+| `PUT /api/events/{eventId}/proposals/{proposalId}/feedback/settings` | Function key and `ApiRequest<SaveFeedbackSettingsRequest>`; verifies ownership before saving, then returns settings (200). Invalid IDs, envelopes or periods return 400; not-owned/missing sessions return 404. |
+| `GET /api/events/{eventId}/proposals/{proposalId}/feedback` | Function key and query `userId`; returns owning speaker's newest-first `SessionFeedbackDto[]` (200), including request metadata, or 404. Not restricted by the public validity window. |
+| `POST /api/events/{eventId}/proposals/{proposalId}/feedback/import` | Function key and `ApiRequest<IReadOnlyList<ImportFeedbackEntryDto>>`; verifies ownership and appends feedback, returning `ImportFeedbackResultDto` (200). Invalid IDs, envelopes, or entries return 400; missing/not-owned sessions return 404; oversized requests return 413. |
+| `GET /api/feedback/{sessionId}` | Anonymous, no user context; returns only `{"title":"...","available":true}` (200) during the configured window. |
+| `POST /api/feedback/{sessionId}` | Anonymous, flat `SubmitFeedbackRequest` JSON containing only `sessionRating`, `speakerRating`, and optional `comment`; returns 201 with no body. |
+
+Public GET and POST require no Function key, use the UTC server clock with inclusive start and exclusive end, and set `Cache-Control: no-store`. Missing settings, missing sessions/events, invalid session IDs, and closed windows all return an empty 404 without revealing session data. POST rechecks availability after reading and validating the body. Both required ratings must be integers from 1 to 10; missing/out-of-range ratings, malformed JSON, and comments longer than 4000 characters return 400. Bodies larger than 16384 bytes return 413, including requests without a declared content length.
+
+A separate in-memory limiter is shared by public GET and POST: 60 requests per minute per connection IP, per Function App instance; exhaustion returns 429 with `Retry-After`. Scale-out increases the aggregate allowance. Errors with bodies use `ApiErrorDto`; unavailable responses intentionally contain no details.
+
+The public title lookup uses only `sessionId` at its boundary. Settings contain an internal `EventId` reference obtained during the authorized speaker save. Storage uses point reads to verify the session and parent event, without scanning partitions or reading `ICurrentUserContext`. This reference is never exposed in feedback DTOs. Legacy settings without it require an authorized re-save before public use.
+
+IP and user-agent come from `HttpContext.Connection.RemoteIpAddress` and the HTTP `User-Agent` header. Client body fields for identity, IP, user-agent, GUID, timestamp or metadata are ignored. Forwarded headers are not trusted or processed by this feature; behind an unconfigured proxy, the recorded/rate-limited IP is the proxy's. A future trusted-proxy configuration must constrain known proxies before replacing the connection address.
+
+Metadata is collected for feedback abuse diagnostics, stored with the feedback, and accessible only through the owner-checked speaker API. It is potentially personal data, not a participant identity. Retention duration and the participant privacy notice remain release prerequisites to be agreed; this step does not implement automatic retention. Do not expose Function keys in a browser. Speaker requests must originate from the trusted authenticated Web server, as for existing endpoints.
+
+### Import feedback
+
+The speaker import endpoint accepts the same entry fields as **Export Feedback**, wrapped in the normal authenticated request envelope:
+
+```json
+{
+  "userId": "speaker@example.com",
+  "payload": [
+    {
+      "sessionRating": 8,
+      "speakerRating": 9,
+      "comment": "Added manually."
+    }
+  ]
+}
+```
+
+Success returns `200` with `{"feedbackImported":1}`. An empty `payload` array is valid and returns zero. Each entry requires integer ratings from 1 to 10, an optional comment of at most 4000 characters, and an optional `timestamp`. Supplied timestamps must be valid, non-default `DateTimeOffset` values and are preserved; missing or null timestamps use one UTC instant captured from the server clock for the whole import. Malformed timestamps and null entries return 400, and every entry is validated before any write.
+
+Import requires ownership of the event and proposal but neither a configured feedback period nor an open collection window. The route determines the destination session; body IDs, routing references, and request metadata are not imported. `IFeedbackService.ImportSessionAsync` is called with null settings, so existing settings and feedback are not replaced. Every imported entry receives a new ID and empty request metadata; reimporting a file adds duplicates.
+
+The Web file limit is 10 MB. The endpoint's body limit is `10 * 1024 * 1024 + 16384` bytes, including the envelope, checked even without `Content-Length`. The anonymous participant endpoints retain their separate 16384-byte limit and rate limiter. Writes are not transactional, so an interrupted import can leave some entries persisted; refresh and inspect feedback before retrying.
+
+For runnable success and validation-error requests, see [Feedback.http](Feedback.http), which uses the launch profile's local port 7147. Set its base URL and owner/event/proposal variables to match your local host and data.
 
 ## Local configuration and run
 
@@ -117,6 +193,7 @@ Prerequisites: .NET 10 SDK, Azure Functions Core Tools v4, and Azurite with Blob
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
     "StorageTableName": "TalksOps",
     "StorageTokensConsumptionTableName": "TokensConsumption",
+    "StorageFeedbackTableName": "SessionsFeedback",
     "StorageConnectionString": "UseDevelopmentStorage=true",
     "EventDataExtraction__RateLimit__PermitLimit": "1",
     "EventDataExtraction__RateLimit__WindowSeconds": "60"
@@ -135,7 +212,7 @@ azurite
 func start --port 7071
 ```
 
-Azurite's standard Table endpoint is `http://127.0.0.1:10002/devstoreaccount1`. With a local connection string, the application creates both `TalksOps` and `TokensConsumption` on startup. `StorageTokensConsumptionTableName` can override the latter; it must be different from `StorageTableName`. The Web project's development API base address defaults to `http://localhost:7071/`; use the same port or update `TalksOpsApi:BaseAddress`. If your local host uses Function keys, configure the matching key in Web user secrets as `TalksOpsApi:FunctionKey`; leave it empty if the local host accepts requests without a key.
+Azurite's standard Table endpoint is `http://127.0.0.1:10002/devstoreaccount1`. With a local connection string, the application creates `TalksOps`, `TokensConsumption`, and `SessionsFeedback` on startup. `StorageTokensConsumptionTableName` and `StorageFeedbackTableName` can override the dedicated table names; all three names must be distinct. `StorageFeedbackTableName` defaults to `SessionsFeedback` when omitted. Set the Web server's `Feedback:PublicBaseUrl` to the public Web origin locally when testing QR links; it is not needed by Functions. The Web project's development API base address defaults to `http://localhost:7071/`; use the same port or update `TalksOpsApi:BaseAddress`. If your local host uses Function keys, configure the matching key in Web user secrets as `TalksOpsApi:FunctionKey`; leave it empty if the local host accepts requests without a key.
 
 Every successful Foundry call records the user ID, UTC completion timestamp, deployment, available input/output token counts, and source CFP URL in the separate table. The record is written before parsing the model response. Storage failures are logged but do not block the extraction response; failed Foundry calls are not recorded.
 

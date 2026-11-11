@@ -6,6 +6,32 @@ namespace TalksOps.ApiClient;
 /// <summary>Provides typed access to the TalksOps Functions REST API.</summary>
 public interface ITalksOpsApiClient
 {
+    /// <summary>Gets settings for a proposal owned by the current speaker; returns null on 404.</summary>
+    Task<FeedbackSettingsDto?> GetFeedbackSettingsAsync(
+        Guid eventId, Guid proposalId, CancellationToken cancellationToken = default);
+
+    /// <summary>Saves settings for a proposal owned by the current speaker.</summary>
+    Task<FeedbackSettingsDto> SaveFeedbackSettingsAsync(
+        Guid eventId, Guid proposalId, SaveFeedbackSettingsRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Lists the owning speaker's feedback, newest first.</summary>
+    Task<IReadOnlyList<SessionFeedbackDto>> ListFeedbackAsync(
+        Guid eventId, Guid proposalId, CancellationToken cancellationToken = default);
+
+    /// <summary>Adds feedback to an owned session, preserving supplied timestamps or using the server's import time.</summary>
+    Task<ImportFeedbackResultDto> ImportFeedbackAsync(
+        Guid eventId, Guid proposalId, IReadOnlyList<ImportFeedbackEntryDto> feedback,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Gets public availability without accessing the user context; returns null on 404.</summary>
+    Task<PublicFeedbackDto?> GetPublicFeedbackAsync(
+        Guid sessionId, CancellationToken cancellationToken = default);
+
+    /// <summary>Submits anonymous feedback. HTTP errors preserve their status and server message.</summary>
+    Task SubmitFeedbackAsync(
+        Guid sessionId, SubmitFeedbackRequest request, CancellationToken cancellationToken = default);
+
     /// <summary>Searches events for the current user.</summary>
     Task<PagedResponse<EventDto>> SearchEventsAsync(
         EventSearchRequest request,

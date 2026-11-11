@@ -110,7 +110,18 @@ if (useFakeAccount)
 
 app.MapStaticAssets().AllowAnonymous();
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode()
+    .Add(endpointBuilder =>
+    {
+        // The public feedback page needs the interactive transport, while route authorization stays in AuthorizeRouteView.
+        if (endpointBuilder is Microsoft.AspNetCore.Routing.RouteEndpointBuilder routeEndpoint
+            && routeEndpoint.RoutePattern.RawText is { } route
+            && (route.Equals("/_blazor", StringComparison.Ordinal)
+                || route.StartsWith("/_blazor/", StringComparison.Ordinal)))
+        {
+            endpointBuilder.Metadata.Add(new AllowAnonymousAttribute());
+        }
+    });
 
 app.Run();
 
