@@ -31,7 +31,9 @@ public sealed class EventsProposalSummaryTests : BunitContext
         {
             Assert.Equal("Feedback", link.GetAttribute("aria-label"));
             Assert.Equal("Feedback", link.GetAttribute("title"));
-            Assert.Single(link.QuerySelectorAll("svg"));
+            var icon = Assert.Single(link.QuerySelectorAll("svg"));
+            Assert.Equal("0 0 64 64", icon.GetAttribute("viewBox"));
+            Assert.Equal("#000000", Assert.Single(icon.QuerySelectorAll("path")).GetAttribute("fill"));
         });
     }
 

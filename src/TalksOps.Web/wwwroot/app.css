@@ -144,7 +144,7 @@ input:focus, textarea:focus, select:focus { outline: 2px solid #6ba88c; outline-
 .icon-button, .text-button { padding: .25rem; border: 0; background: transparent; color: var(--green); font-weight: 650; text-decoration: none; }
 .icon-button:hover, .text-button:hover { text-decoration: underline; }
 .feedback-management-link { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; }
-.feedback-management-link svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.feedback-management-link svg { width: 20px; height: 20px; }
 .feedback-management-link:hover { color: var(--green-deep); text-decoration: none; }
 .feedback-management-link:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 .danger { color: var(--coral) !important; }
