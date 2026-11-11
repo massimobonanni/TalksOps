@@ -26,7 +26,7 @@ public sealed class FeedbackFunctions(
     public const int MaxCommentLength = 4000;
 
     /// <summary>The maximum JSON request size in bytes.</summary>
-    public const int MaxRequestBytes = 16384;
+    public const int MaxRequestBytes = 32 * 1024;
 
     /// <summary>The maximum import request size, allowing a 10 MB file plus its request envelope.</summary>
     public const int MaxImportRequestBytes = 10 * 1024 * 1024 + MaxRequestBytes;
