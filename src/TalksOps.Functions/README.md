@@ -26,6 +26,7 @@ classDiagram
         +GetFeedbackSettings(request, eventId, proposalId, cancellationToken)
         +SaveFeedbackSettings(request, eventId, proposalId, cancellationToken)
         +ListFeedback(request, eventId, proposalId, cancellationToken)
+        +ImportFeedback(request, eventId, proposalId, cancellationToken)
         +GetPublicFeedback(request, sessionId, cancellationToken)
         +SubmitFeedback(request, sessionId, cancellationToken)
     }
@@ -61,6 +62,8 @@ classDiagram
     class CalendarEventDto
     class FeedbackSettingsDto
     class SessionFeedbackDto
+    class ImportFeedbackEntryDto
+    class ImportFeedbackResultDto
     class PublicFeedbackDto
     class SubmitFeedbackRequest
 
@@ -89,6 +92,8 @@ classDiagram
     CalendarFunction ..> CalendarEventDto : response
     FeedbackFunctions ..> FeedbackSettingsDto : speaker response
     FeedbackFunctions ..> SessionFeedbackDto : speaker response
+    FeedbackFunctions ..> ImportFeedbackEntryDto : speaker import request
+    FeedbackFunctions ..> ImportFeedbackResultDto : speaker import response
     FeedbackFunctions ..> PublicFeedbackDto : anonymous response
     FeedbackFunctions ..> SubmitFeedbackRequest : anonymous request
 ```
@@ -99,7 +104,7 @@ classDiagram
 | --- | --- |
 | `EventsFunctions` | Constructor injects `IEventService`, `ISessionProposalService`, and `RequestCurrentUserContext`. Public trigger methods: `SearchEvents`, `GetEvent`, `CreateEvent`, `UpdateEvent`, `DeleteEvent`, `ListProposals`, `GetProposal`, `CreateProposal`, `UpdateProposal`, `ChangeProposalStatus`, and `DeleteProposal`. They implement event/proposal search and CRUD plus status changes. Event request/response mapping includes the optional `CallForPapersDeadline`. Private helpers parse request envelopes and query integers, initialize query/body user IDs, convert request DTOs to domain records and domain records to DTOs, and create 400/409 results. |
 | `CalendarFunction` | Injects the event/proposal services and request context. `GetCalendar` validates `userId` and year, pages through all matching events, and returns each event with its proposal status list. |
-| `FeedbackFunctions` | Implements speaker-owned settings read/save and feedback listing, verifying event/proposal ownership through Core services. Its anonymous participant endpoints expose only the title while available and accept ratings/comment; they derive metadata from the request and apply a separate in-memory IP limiter. |
+| `FeedbackFunctions` | Implements speaker-owned settings read/save, feedback listing, and additive feedback import, verifying event/proposal ownership through Core services. Import preserves supplied timestamps and assigns the server's UTC import time when timestamps are omitted/null. Its anonymous participant endpoints expose only the title while available and accept ratings/comment; they derive metadata from the request and apply a separate in-memory IP limiter. |
 | `RequestCurrentUserContext` | Scoped implementation of `ICurrentUserContext`. `TryInitialize(string? value)` trims and stores a non-empty value; `UserId` throws `InvalidOperationException` until initialized. It has no public setter property. |
 | `Program` (top-level statements) | Configures the isolated Functions worker, Application Insights, scoped Core services, feedback service and user context, plus Storage registrations and a separate anonymous feedback limiter. It requires `StorageTableName`; `StorageTokensConsumptionTableName` defaults to `TokensConsumption` and `StorageFeedbackTableName` to `SessionsFeedback`. A configured `StorageConnectionString` takes precedence over `StorageUri`. With a connection string, it creates all three tables if absent. |
 
@@ -137,6 +142,7 @@ The import/export JSON format and example are documented in [TalksOps.Core](../T
 | `GET /api/events/{eventId}/proposals/{proposalId}/feedback/settings` | Function key and query `userId`; verifies event and proposal ownership, then returns `FeedbackSettingsDto` (200), or 404 when absent/not owned. |
 | `PUT /api/events/{eventId}/proposals/{proposalId}/feedback/settings` | Function key and `ApiRequest<SaveFeedbackSettingsRequest>`; verifies ownership before saving, then returns settings (200). Invalid IDs, envelopes or periods return 400; not-owned/missing sessions return 404. |
 | `GET /api/events/{eventId}/proposals/{proposalId}/feedback` | Function key and query `userId`; returns owning speaker's newest-first `SessionFeedbackDto[]` (200), including request metadata, or 404. Not restricted by the public validity window. |
+| `POST /api/events/{eventId}/proposals/{proposalId}/feedback/import` | Function key and `ApiRequest<IReadOnlyList<ImportFeedbackEntryDto>>`; verifies ownership and appends feedback, returning `ImportFeedbackResultDto` (200). Invalid IDs, envelopes, or entries return 400; missing/not-owned sessions return 404; oversized requests return 413. |
 | `GET /api/feedback/{sessionId}` | Anonymous, no user context; returns only `{"title":"...","available":true}` (200) during the configured window. |
 | `POST /api/feedback/{sessionId}` | Anonymous, flat `SubmitFeedbackRequest` JSON containing only `sessionRating`, `speakerRating`, and optional `comment`; returns 201 with no body. |
 
@@ -149,6 +155,31 @@ The public title lookup uses only `sessionId` at its boundary. Settings contain 
 IP and user-agent come from `HttpContext.Connection.RemoteIpAddress` and the HTTP `User-Agent` header. Client body fields for identity, IP, user-agent, GUID, timestamp or metadata are ignored. Forwarded headers are not trusted or processed by this feature; behind an unconfigured proxy, the recorded/rate-limited IP is the proxy's. A future trusted-proxy configuration must constrain known proxies before replacing the connection address.
 
 Metadata is collected for feedback abuse diagnostics, stored with the feedback, and accessible only through the owner-checked speaker API. It is potentially personal data, not a participant identity. Retention duration and the participant privacy notice remain release prerequisites to be agreed; this step does not implement automatic retention. Do not expose Function keys in a browser. Speaker requests must originate from the trusted authenticated Web server, as for existing endpoints.
+
+### Import feedback
+
+The speaker import endpoint accepts the same entry fields as **Export Feedback**, wrapped in the normal authenticated request envelope:
+
+```json
+{
+  "userId": "speaker@example.com",
+  "payload": [
+    {
+      "sessionRating": 8,
+      "speakerRating": 9,
+      "comment": "Added manually."
+    }
+  ]
+}
+```
+
+Success returns `200` with `{"feedbackImported":1}`. An empty `payload` array is valid and returns zero. Each entry requires integer ratings from 1 to 10, an optional comment of at most 4000 characters, and an optional `timestamp`. Supplied timestamps must be valid, non-default `DateTimeOffset` values and are preserved; missing or null timestamps use one UTC instant captured from the server clock for the whole import. Malformed timestamps and null entries return 400, and every entry is validated before any write.
+
+Import requires ownership of the event and proposal but neither a configured feedback period nor an open collection window. The route determines the destination session; body IDs, routing references, and request metadata are not imported. `IFeedbackService.ImportSessionAsync` is called with null settings, so existing settings and feedback are not replaced. Every imported entry receives a new ID and empty request metadata; reimporting a file adds duplicates.
+
+The Web file limit is 10 MB. The endpoint's body limit is `10 * 1024 * 1024 + 16384` bytes, including the envelope, checked even without `Content-Length`. The anonymous participant endpoints retain their separate 16384-byte limit and rate limiter. Writes are not transactional, so an interrupted import can leave some entries persisted; refresh and inspect feedback before retrying.
+
+For runnable success and validation-error requests, see [Feedback.http](Feedback.http), which uses the launch profile's local port 7147. Set its base URL and owner/event/proposal variables to match your local host and data.
 
 ## Local configuration and run
 

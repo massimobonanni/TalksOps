@@ -22,6 +22,8 @@ public sealed class FeedbackFunctionsTests
         "events/{eventId}/proposals/{proposalId}/feedback/settings")]
     [InlineData(nameof(FeedbackFunctions.ListFeedback), AuthorizationLevel.Function, "get",
         "events/{eventId}/proposals/{proposalId}/feedback")]
+    [InlineData(nameof(FeedbackFunctions.ImportFeedback), AuthorizationLevel.Function, "post",
+        "events/{eventId}/proposals/{proposalId}/feedback/import")]
     [InlineData(nameof(FeedbackFunctions.GetPublicFeedback), AuthorizationLevel.Anonymous, "get", "feedback/{sessionId}")]
     [InlineData(nameof(FeedbackFunctions.SubmitFeedback), AuthorizationLevel.Anonymous, "post", "feedback/{sessionId}")]
     public void Triggers_DeclareExactRoutesAndAuthorization(
@@ -53,9 +55,12 @@ public sealed class FeedbackFunctionsTests
             Request(user: user), fixture.EventId, fixture.SessionId, default));
         Assert.IsType<NotFoundResult>(await function.SaveFeedbackSettings(
             Request(SettingsBody(user)), fixture.EventId, fixture.SessionId, default));
+        Assert.IsType<NotFoundResult>(await function.ImportFeedback(
+            Request(ImportBody("[]", user)), fixture.EventId, fixture.SessionId, default));
         Assert.Equal(0, fixture.Feedback.SettingsReads);
         Assert.Equal(0, fixture.Feedback.ListCalls);
         Assert.Null(fixture.Feedback.Saved);
+        Assert.Null(fixture.Feedback.Imported);
     }
 
     [Fact]
@@ -120,6 +125,134 @@ public sealed class FeedbackFunctionsTests
             Request(user: "owner"), fixture.EventId, Guid.NewGuid().ToString(), default));
         Assert.Equal(0, fixture.Feedback.SettingsReads);
         Assert.Null(fixture.Feedback.Saved);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ImportFeedback_AppendsWithOriginalTimestampsEvenWithoutSettingsOrOutsideWindow(bool noSettings)
+    {
+        using var fixture = new Fixture();
+        fixture.Clock.Now = fixture.Feedback.Settings!.ValidTo.AddDays(1);
+        if (noSettings) fixture.Feedback.Settings = null;
+        using var cancellation = new CancellationTokenSource();
+        var result = await fixture.Function.ImportFeedback(Request(ImportBody("""
+            [{"sessionRating":8,"speakerRating":9,"comment":"Imported","timestamp":"2026-01-01T10:00:00+02:00",
+              "id":"spoofed","sessionId":"spoofed","metadata":{"ipAddress":"spoofed","userAgent":"spoofed"}}]
+            """)), fixture.EventId, fixture.SessionId, cancellation.Token);
+
+        Assert.Equal(1, Assert.IsType<ImportFeedbackResultDto>(Assert.IsType<OkObjectResult>(result).Value).FeedbackImported);
+        var entry = Assert.Single(fixture.Feedback.Imported!);
+        Assert.Equal(8, entry.SessionRating);
+        Assert.Equal(9, entry.SpeakerRating);
+        Assert.Equal("Imported", entry.Comment);
+        Assert.Equal(DateTimeOffset.Parse("2026-01-01T08:00:00Z"), entry.Timestamp);
+        Assert.Equal(Guid.Parse(fixture.SessionId), fixture.Feedback.ImportSessionId);
+        Assert.Equal(cancellation.Token, fixture.Feedback.ImportCancellationToken);
+        Assert.Null(fixture.Feedback.Saved);
+        Assert.Equal(0, fixture.Feedback.SettingsReads);
+    }
+
+    [Theory]
+    [InlineData("""{"sessionRating":8,"speakerRating":9}""")]
+    [InlineData("""{"sessionRating":8,"speakerRating":9,"timestamp":null}""")]
+    public async Task ImportFeedback_MissingOrNullTimestampUsesServerImportTimeAndPreservesSuppliedTimestamp(string entry)
+    {
+        using var fixture = new Fixture();
+        fixture.Clock.Now = DateTimeOffset.Parse("2026-11-11T11:00:00Z");
+        var result = await fixture.Function.ImportFeedback(Request(ImportBody(
+            $$"""[{{entry}},{{entry}},{"sessionRating":7,"speakerRating":10,"timestamp":"2025-01-01T10:00:00+02:00"}]""")),
+            fixture.EventId, fixture.SessionId, default);
+
+        Assert.Equal(3, Assert.IsType<ImportFeedbackResultDto>(Assert.IsType<OkObjectResult>(result).Value).FeedbackImported);
+        Assert.Equal(fixture.Clock.Now, fixture.Feedback.Imported![0].Timestamp);
+        Assert.Equal(fixture.Clock.Now, fixture.Feedback.Imported[1].Timestamp);
+        Assert.Equal(DateTimeOffset.Parse("2025-01-01T08:00:00Z"), fixture.Feedback.Imported[2].Timestamp);
+    }
+
+    [Theory]
+    [InlineData("{")]
+    [InlineData("null")]
+    [InlineData("""{"userId":"owner","payload":null}""")]
+    [InlineData("""{"userId":"","payload":[]}""")]
+    [InlineData("""{"userId":"owner","payload":{}}""")]
+    [InlineData("""{"userId":"owner","payload":[null]}""")]
+    [InlineData("""{"userId":"owner","payload":[{}]}""")]
+    [InlineData("""{"userId":"owner","payload":[{"sessionRating":0,"speakerRating":11,"timestamp":"2026-01-01T00:00:00Z"}]}""")]
+    [InlineData("""{"userId":"owner","payload":[{"sessionRating":8,"speakerRating":9,"timestamp":"invalid"}]}""")]
+    [InlineData("""{"userId":"owner","payload":[{"sessionRating":8,"speakerRating":9,"timestamp":"0001-01-01T00:00:00Z"}]}""")]
+    public async Task ImportFeedback_RejectsMalformedEnvelopeOrInvalidEntriesWithoutWriting(string body)
+    {
+        using var fixture = new Fixture();
+        Assert.IsType<BadRequestObjectResult>(await fixture.Function.ImportFeedback(
+            Request(body), fixture.EventId, fixture.SessionId, default));
+        Assert.Null(fixture.Feedback.Imported);
+    }
+
+    [Fact]
+    public async Task ImportFeedback_ValidatesEntireArrayBeforeWriting()
+    {
+        using var fixture = new Fixture();
+        var result = await fixture.Function.ImportFeedback(Request(ImportBody("""
+            [{"sessionRating":8,"speakerRating":9,"timestamp":"2026-01-01T00:00:00Z"},
+             {"sessionRating":0,"speakerRating":9,"timestamp":"2026-01-01T00:00:00Z"}]
+            """)), fixture.EventId, fixture.SessionId, default);
+
+        var error = Assert.IsType<ApiErrorDto>(Assert.IsType<BadRequestObjectResult>(result).Value);
+        Assert.Contains("Feedback entry 2", error.Message);
+        Assert.Null(fixture.Feedback.Imported);
+    }
+
+    [Fact]
+    public async Task ImportFeedback_RejectsOverlongCommentAndInvalidRoutes()
+    {
+        using var fixture = new Fixture();
+        var entries = JsonSerializer.Serialize(new[]
+        {
+            new { sessionRating = 8, speakerRating = 9, comment = new string('x', 4001), timestamp = DateTimeOffset.UtcNow }
+        });
+        Assert.IsType<BadRequestObjectResult>(await fixture.Function.ImportFeedback(
+            Request(ImportBody(entries)), fixture.EventId, fixture.SessionId, default));
+        Assert.IsType<BadRequestObjectResult>(await fixture.Function.ImportFeedback(
+            Request(ImportBody("[]")), "invalid", fixture.SessionId, default));
+        Assert.IsType<NotFoundResult>(await fixture.Function.ImportFeedback(
+            Request(ImportBody("[]")), Guid.NewGuid().ToString(), fixture.SessionId, default));
+        Assert.IsType<NotFoundResult>(await fixture.Function.ImportFeedback(
+            Request(ImportBody("[]")), fixture.EventId, Guid.NewGuid().ToString(), default));
+        Assert.Null(fixture.Feedback.Imported);
+    }
+
+    [Fact]
+    public async Task ImportFeedback_AcceptsEmptyArrayAndExportsLargerThanParticipantRequestLimit()
+    {
+        using var fixture = new Fixture();
+        var empty = await fixture.Function.ImportFeedback(
+            Request(ImportBody("[]")), fixture.EventId, fixture.SessionId, default);
+        Assert.Equal(0, Assert.IsType<ImportFeedbackResultDto>(Assert.IsType<OkObjectResult>(empty).Value).FeedbackImported);
+        Assert.Empty(fixture.Feedback.Imported!);
+
+        var entries = JsonSerializer.Serialize(Enumerable.Repeat(
+            new { sessionRating = 8, speakerRating = 9, comment = new string('x', 4000), timestamp = DateTimeOffset.UtcNow }, 5));
+        Assert.True(Encoding.UTF8.GetByteCount(entries) > FeedbackFunctions.MaxRequestBytes);
+        var result = await fixture.Function.ImportFeedback(
+            Request(ImportBody(entries)), fixture.EventId, fixture.SessionId, default);
+        Assert.Equal(5, Assert.IsType<ImportFeedbackResultDto>(Assert.IsType<OkObjectResult>(result).Value).FeedbackImported);
+        Assert.Equal(5, fixture.Feedback.Imported!.Count);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ImportFeedback_RejectsOversizedRequestsWithOrWithoutContentLength(bool hasContentLength)
+    {
+        using var fixture = new Fixture();
+        var request = Request(new string(' ', FeedbackFunctions.MaxImportRequestBytes + 1));
+        if (hasContentLength) request.ContentLength = request.Body.Length;
+
+        var result = await fixture.Function.ImportFeedback(request, fixture.EventId, fixture.SessionId, default);
+
+        Assert.Equal(StatusCodes.Status413PayloadTooLarge, Assert.IsType<ObjectResult>(result).StatusCode);
+        Assert.Null(fixture.Feedback.Imported);
     }
 
     [Theory]
@@ -346,6 +479,9 @@ public sealed class FeedbackFunctionsTests
             new SaveFeedbackSettingsRequest(DateTimeOffset.Parse("2026-01-01T00:00:00Z"),
                 DateTimeOffset.Parse("2026-01-01T00:01:00Z"), "UTC")));
 
+    private static string ImportBody(string entries, string user = "owner") =>
+        $$"""{"userId":"{{user}}","payload":{{entries}}}""";
+
     private static HttpRequest Request(string? body = null, string? user = null)
     {
         var request = new DefaultHttpContext().Request;
@@ -415,6 +551,9 @@ public sealed class FeedbackFunctionsTests
         public SessionFeedbackMetadata? Metadata { get; private set; }
         public int SettingsReads { get; private set; }
         public int ListCalls { get; private set; }
+        public IReadOnlyList<SessionFeedbackImport>? Imported { get; private set; }
+        public Guid ImportSessionId { get; private set; }
+        public CancellationToken ImportCancellationToken { get; private set; }
 
         public Task<(string? EventTitle, string? SessionTitle)> GetSessionTitlesAsync(Guid id, CancellationToken cancellationToken = default)
         {
@@ -462,8 +601,14 @@ public sealed class FeedbackFunctionsTests
             Guid id,
             FeedbackSettings? settings,
             IReadOnlyList<SessionFeedbackImport> feedback,
-            CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
+            CancellationToken cancellationToken = default)
+        {
+            Assert.Null(settings);
+            this.ImportSessionId = id;
+            this.Imported = feedback;
+            this.ImportCancellationToken = cancellationToken;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class OwnedServices(RequestCurrentUserContext user, Guid eventId, Guid sessionId)

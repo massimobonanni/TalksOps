@@ -32,7 +32,7 @@ public interface IFeedbackService
         SessionFeedbackMetadata metadata,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Imports feedback and optional settings for a newly created session.</summary>
+    /// <summary>Adds feedback with new identifiers and original timestamps; null settings leave existing settings unchanged.</summary>
     Task ImportSessionAsync(
         Guid sessionId,
         FeedbackSettings? settings,

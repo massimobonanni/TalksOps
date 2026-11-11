@@ -77,7 +77,7 @@ Razor component code-behind members are private unless explicitly identified as 
 | `WebCurrentUserContext` | Scoped implementation of `ICurrentUserContext`. `SetPrincipal(ClaimsPrincipal)` assigns the current Blazor circuit principal. Read-only `UserId` requires an authenticated identity and resolves the first non-blank `preferred_username`, `upn`, or mapped `ClaimTypes.Upn` claim, then trims it and converts it to lowercase invariantly. It throws if no login username is available; subject IDs, display names, and email claims are not fallbacks. |
 | `Login.razor` (`/login`) | Public nullable `ReturnUrl` property is bound from the query. Private `ReturnUrlValue` defaults an empty return URL to `/events`; the page is anonymous and starts `/auth/login`. |
 | `Home.razor` (`/`) | Authenticated route; `OnInitialized` redirects to `/events`. |
-| `SessionFeedback.razor` (`/events/{eventId}/proposals/{proposalId}/feedback`) | Authenticated feedback settings, sharing, and results page; calls the API only for the owning speaker. |
+| `SessionFeedback.razor` (`/events/{eventId}/proposals/{proposalId}/feedback`) | Authenticated feedback settings, sharing, results, and JSON transfer page; calls the API only for the owning speaker. `ExportFeedbackAsync` exports transferable feedback; `SelectImportFile` selects a file; `ImportFeedbackAsync` imports it and refreshes the list and summary. |
 | `PublicFeedback.razor` (`/feedback/{sessionId}`) | Anonymous participant page using `PublicLayout`; loads availability/title, submits only ratings and comment, and sets SSR status/cache headers for public responses. |
 
 The owner key sent to the API is the login username, not the app-specific `sub`. For example, `Speaker@Example.com` is stored under `events|speaker@example.com`. The `UserId` and `OwnerId` member names remain unchanged for API compatibility. Existing data must be migrated before it is accessible with the new key; see [username ownership migration](../TalksOps.Storage/README.md#username-ownership-migration).
@@ -98,7 +98,30 @@ Set start/end local date-times and a named time zone (IANA IDs where supported).
 
 Configure `Feedback:PublicBaseUrl` (or `Feedback__PublicBaseUrl`) on the Web server, for example `https://talksops.example.com` or `https://talksops.example.com/app`. The QR encodes this base plus `/feedback/{proposalId}`; it never uses request headers or the browser host. Only absolute HTTP(S) URLs without credentials, query or fragment are accepted. Missing/invalid configuration disables QR download with a visible error but does not block settings or feedback management. QRCoder generates PNG server-side without an external QR service or platform-specific drawing dependency. The participant Web page is implemented separately.
 
-**Download JSON** exports an array containing only `sessionRating`, `speakerRating`, `comment` and the original `timestamp`, newest first. Empty feedback exports as `[]`. IDs, IP, user-agent and other request metadata are excluded. QR and JSON downloads reuse the existing stream download module, with explicit PNG/JSON MIME types.
+**Export Feedback** exports an array containing only `sessionRating`, `speakerRating`, `comment` and the original `timestamp`, newest first. Empty feedback exports as `[]`. IDs, IP, user-agent and other request metadata are excluded. QR and JSON downloads reuse the existing stream download module, with explicit PNG/JSON MIME types.
+
+To add feedback to this session, select a JSON file (maximum 10 MB) and choose **Import Feedback**. It accepts the same plain array as the export, rather than the versioned event document used on **Import / Export**. Both ratings must be integers from 1 to 10; comments are optional and limited to 4000 characters. For example:
+
+```json
+[
+  {
+    "sessionRating": 8,
+    "speakerRating": 9,
+    "comment": "Clear and useful.",
+    "timestamp": "2026-11-11T09:30:00Z"
+  },
+  {
+    "sessionRating": 7,
+    "speakerRating": 8,
+    "comment": "Added manually.",
+    "timestamp": null
+  }
+]
+```
+
+Supplied timestamps are preserved; an omitted or null `timestamp` uses the server's UTC time at import. All entries needing a timestamp in the same import receive the same instant. Invalid timestamp values are rejected. Imported entries receive new IDs and no participant request metadata. Import appends without replacing existing feedback or changing settings, and remains available outside the collection period or without configured settings. Importing the same file again adds duplicates; an empty array adds no entries.
+
+The page shows the imported count and refreshes the newest-first list, feedback count, and session/speaker rating averages. Controls are disabled while importing, and the file selection is cleared after success. JSON, validation, size, API, and refresh failures are visible. If import succeeds but refresh fails, the success message remains visible and export is disabled until **Refresh** succeeds. Storage writes are not transactional: after an interrupted import, refresh and check existing entries before retrying to avoid duplicates. See the [feedback import API](../TalksOps.Functions/README.md#import-feedback).
 
 ## Public participant feedback
 

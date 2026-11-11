@@ -54,6 +54,42 @@ public sealed class TalksOpsApiClientTests
     }
 
     [Fact]
+    public async Task ImportFeedbackAsync_UsesOwnedSessionEnvelopeAndPreservesExportedFields()
+    {
+        var eventId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        var timestamp = DateTimeOffset.Parse("2026-01-01T10:00:00+01:00");
+        var handler = new RecordingHandler(_ => JsonResponse("""{"feedbackImported":1}"""));
+        var result = await CreateClient(handler, "speaker").ImportFeedbackAsync(eventId, sessionId,
+            [new ImportFeedbackEntryDto(8, 9, "Useful", timestamp)]);
+
+        Assert.Equal(1, result.FeedbackImported);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.EndsWith($"/api/events/{eventId}/proposals/{sessionId}/feedback/import", handler.RequestUri);
+        using var json = JsonDocument.Parse(handler.RequestBody!);
+        Assert.Equal("speaker", json.RootElement.GetProperty("userId").GetString());
+        var entry = Assert.Single(json.RootElement.GetProperty("payload").EnumerateArray());
+        Assert.Equal(["sessionRating", "speakerRating", "comment", "timestamp"], entry.EnumerateObject().Select(property => property.Name));
+        Assert.Equal(8, entry.GetProperty("sessionRating").GetInt32());
+        Assert.Equal(9, entry.GetProperty("speakerRating").GetInt32());
+        Assert.Equal("Useful", entry.GetProperty("comment").GetString());
+        Assert.Equal(timestamp, entry.GetProperty("timestamp").GetDateTimeOffset());
+    }
+
+    [Fact]
+    public async Task ImportFeedbackAsync_LeavesMissingTimestampForServerToAssign()
+    {
+        var handler = new RecordingHandler(_ => JsonResponse("""{"feedbackImported":1}"""));
+
+        await CreateClient(handler, "speaker").ImportFeedbackAsync(
+            Guid.NewGuid(), Guid.NewGuid(), [new ImportFeedbackEntryDto(8, 9)]);
+
+        using var json = JsonDocument.Parse(handler.RequestBody!);
+        var entry = Assert.Single(json.RootElement.GetProperty("payload").EnumerateArray());
+        Assert.Equal(JsonValueKind.Null, entry.GetProperty("timestamp").ValueKind);
+    }
+
+    [Fact]
     public async Task PublicFeedbackAsync_NeverReadsUserAndSendsOnlyParticipantFields()
     {
         var sessionId = Guid.NewGuid();
@@ -100,8 +136,11 @@ public sealed class TalksOpsApiClientTests
         var saveError = await Assert.ThrowsAsync<HttpRequestException>(() =>
             client.SaveFeedbackSettingsAsync(Guid.NewGuid(), Guid.NewGuid(),
                 new SaveFeedbackSettingsRequest(DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, "UTC")));
+        var importError = await Assert.ThrowsAsync<HttpRequestException>(() =>
+            client.ImportFeedbackAsync(Guid.NewGuid(), Guid.NewGuid(), []));
         Assert.Equal(status, listError.StatusCode);
         Assert.Equal(status, saveError.StatusCode);
+        Assert.Equal(status, importError.StatusCode);
     }
 
     [Theory]

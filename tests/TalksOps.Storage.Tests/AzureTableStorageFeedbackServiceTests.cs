@@ -181,6 +181,38 @@ public sealed class AzureTableStorageFeedbackServiceTests
     }
 
     [Fact]
+    public async Task ImportSessionAsync_WithNoSettingsAppendsWithoutReplacingExistingData()
+    {
+        var eventTable = new RecordingTableClient();
+        var feedbackTable = new RecordingTableClient();
+        var service = new AzureTableStorageFeedbackService(eventTable, feedbackTable);
+        var sessionId = Guid.NewGuid();
+        var original = await service.CreateAsync(sessionId,
+            new SessionFeedbackSubmission { SessionRating = 7, SpeakerRating = 8, Comment = "Existing" },
+            new SessionFeedbackMetadata { IpAddress = "192.0.2.1" });
+        var originalEntity = Assert.Single(feedbackTable.AddedEntities);
+        var timestamp = DateTimeOffset.Parse("2026-01-01T10:00:00+02:00");
+        var imported = new SessionFeedbackImport { SessionRating = 9, SpeakerRating = 10, Timestamp = timestamp };
+
+        await service.ImportSessionAsync(sessionId, null, [imported]);
+        await service.ImportSessionAsync(sessionId, null, [imported]);
+
+        Assert.Empty(eventTable.UpsertedEntities);
+        Assert.Equal(3, feedbackTable.AddedEntities.Count);
+        Assert.Same(originalEntity, feedbackTable.AddedEntities[0]);
+        Assert.Equal(original.Id.ToString("N"), originalEntity.RowKey);
+        Assert.Equal(3, feedbackTable.AddedEntities.Select(entity => entity.RowKey).Distinct().Count());
+        Assert.All(feedbackTable.AddedEntities.Skip(1), entity =>
+        {
+            Assert.Equal(sessionId.ToString("N"), entity.GetString(nameof(SessionFeedback.SessionId)));
+            Assert.Equal(timestamp.ToUniversalTime(), entity.GetDateTimeOffset("FeedbackTimestamp"));
+            using var metadata = JsonDocument.Parse(entity.GetString("MetadataJson")!);
+            Assert.Null(metadata.RootElement.GetProperty("IpAddress").GetString());
+            Assert.Null(metadata.RootElement.GetProperty("UserAgent").GetString());
+        });
+    }
+
+    [Fact]
     public async Task ImportSessionAsync_ValidatesAllEntriesBeforeWriting()
     {
         var eventTable = new RecordingTableClient();

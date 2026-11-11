@@ -42,6 +42,20 @@ public sealed class TalksOpsApiClient(HttpClient httpClient, ICurrentUserContext
             cancellationToken);
 
     /// <inheritdoc />
+    public async Task<ImportFeedbackResultDto> ImportFeedbackAsync(
+        Guid eventId, Guid proposalId, IReadOnlyList<ImportFeedbackEntryDto> feedback,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(feedback);
+        using var response = await this.httpClient.PostAsJsonAsync(
+            $"api/events/{eventId}/proposals/{proposalId}/feedback/import",
+            new ApiRequest<IReadOnlyList<ImportFeedbackEntryDto>>(this.currentUser.UserId, feedback), cancellationToken);
+        await EnsureFeedbackSuccessAsync(response, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<ImportFeedbackResultDto>(cancellationToken)
+            ?? throw new HttpRequestException("The TalksOps API returned an empty response body.");
+    }
+
+    /// <inheritdoc />
     public Task<PublicFeedbackDto?> GetPublicFeedbackAsync(
         Guid sessionId, CancellationToken cancellationToken = default) =>
         this.GetOptionalAsync<PublicFeedbackDto>($"api/feedback/{sessionId}", cancellationToken);

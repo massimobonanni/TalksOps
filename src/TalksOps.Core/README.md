@@ -198,9 +198,11 @@ All asynchronous service and repository methods accept an optional `Cancellation
 | `SessionFeedback` | Server-created feedback record with `Id`, `SessionId`, integer session/speaker ratings, optional `Comment`, UTC `Timestamp`, and required `Metadata`. |
 | `SessionFeedbackSubmission` | Participant-supplied ratings and optional comment only; IDs, timestamp, and metadata are server-owned. |
 | `SessionFeedbackMetadata` | Optional request `IpAddress` and `UserAgent` captured by the Functions layer. |
-| `SessionFeedbackImport` | Transferable ratings, optional comment, and original timestamp; excludes IDs and request metadata. |
-| `IFeedbackService` | Provides title lookup, settings read/save, newest-first feedback listing, server-timestamped submission creation, and import of settings/feedback for a new session. |
+| `SessionFeedbackImport` | Transferable ratings, optional comment, and resolved timestamp; excludes IDs and request metadata. For session-level imports, the API preserves supplied timestamps or fills missing/null values before calling persistence. |
+| `IFeedbackService` | Provides title lookup, settings read/save, newest-first feedback listing, server-timestamped submission creation, and additive `ImportSessionAsync(sessionId, settings, feedback)`. Import generates new feedback IDs and preserves resolved timestamps; null settings leave existing settings unchanged, allowing import into an existing session. |
 | `FeedbackRules` | Validates non-empty session IDs, ordered settings periods and a non-empty time-zone ID; both ratings must be 1–10, comments at most 4000 characters, and imported timestamps non-default. |
+
+The session management page's **Export Feedback** and **Import Feedback** transfer a plain array of ratings, comment, and timestamp for one existing session, independently of event-level import/export. The ownership-checked Functions endpoint assigns its current UTC time to missing/null timestamps before constructing `SessionFeedbackImport`; Core validation still requires a resolved, non-default timestamp. Existing feedback and collection settings remain unchanged, and importing the same file again adds entries with new IDs. See the [feedback import API](../TalksOps.Functions/README.md#import-feedback) for the request format and the [Web workflow](../TalksOps.Web/README.md#session-feedback-management).
 
 ## AI event extraction
 

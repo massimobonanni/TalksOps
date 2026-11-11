@@ -30,6 +30,8 @@ Token-consumption rows store the user ID, UTC timestamp, Foundry deployment, opt
 
 The `feedbackTableName` parameter defaults to `SessionsFeedback`; it is passed from the top-level Bicep module to storage provisioning, Function configuration, and the Function-only role assignment. `STORAGE_FEEDBACK_TABLE_NAME` and `FEEDBACK_PUBLIC_BASE_URL` are nonsecret deployment outputs. The latter is also injected into the Web App as `Feedback:PublicBaseUrl` and is the public base URL used by the session QR code; it defaults to the App Service HTTPS host. Set the optional `FEEDBACK_PUBLIC_BASE_URL` AZD environment value to use a custom public domain. No Function key or storage secret is exposed by these outputs.
 
+Session-level **Export Feedback** and **Import Feedback** reuse the existing Web/Functions services and `SessionsFeedback` table; no additional infrastructure, deployment settings, or role assignments are required. Imports append rows with new IDs and empty request metadata, preserving supplied timestamps or using the server's UTC import time for omitted/null values, without modifying collection settings. The import endpoint uses the same Function-key and speaker-ownership checks as other management operations. See the [Web workflow](../src/TalksOps.Web/README.md#session-feedback-management) and [feedback import API](../src/TalksOps.Functions/README.md#import-feedback).
+
 
 ## Prerequisites
 

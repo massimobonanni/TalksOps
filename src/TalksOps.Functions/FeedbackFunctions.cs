@@ -28,6 +28,9 @@ public sealed class FeedbackFunctions(
     /// <summary>The maximum JSON request size in bytes.</summary>
     public const int MaxRequestBytes = 16384;
 
+    /// <summary>The maximum import request size, allowing a 10 MB file plus its request envelope.</summary>
+    public const int MaxImportRequestBytes = 10 * 1024 * 1024 + MaxRequestBytes;
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     /// <summary>Gets settings after verifying the authenticated speaker owns the session.</summary>
@@ -135,6 +138,71 @@ public sealed class FeedbackFunctions(
         return new OkObjectResult(values.Select(value => new SessionFeedbackDto(
             value.Id, value.SessionId, value.SessionRating, value.SpeakerRating, value.Comment,
             value.Timestamp, new FeedbackMetadataDto(value.Metadata.IpAddress, value.Metadata.UserAgent))).ToArray());
+    }
+
+    /// <summary>Adds exported feedback to an owned session without changing its collection settings.</summary>
+    [Function(nameof(ImportFeedback))]
+    public async Task<IActionResult> ImportFeedback(
+        [HttpTrigger(AuthorizationLevel.Function, "post",
+            Route = "events/{eventId}/proposals/{proposalId}/feedback/import")] HttpRequest request,
+        string eventId, string proposalId, CancellationToken cancellationToken)
+    {
+        if (!TryReadIds(eventId, proposalId, out var parentId, out var id))
+        {
+            return InvalidRequest("The event or proposal identifier is invalid.");
+        }
+
+        var body = await ReadBodyAsync<ApiRequest<IReadOnlyList<ImportFeedbackEntryDto>>>(
+            request, cancellationToken, MaxImportRequestBytes);
+        if (body.Error is not null)
+        {
+            return body.Error;
+        }
+
+        if (body.Value?.Payload is null || !currentUser.TryInitialize(body.Value.UserId))
+        {
+            return InvalidRequest("A user identifier and feedback array are required.");
+        }
+
+        if (!await this.OwnsSessionAsync(parentId, id, cancellationToken))
+        {
+            return new NotFoundResult();
+        }
+
+        var importedAt = clock.GetUtcNow();
+        var entries = new List<SessionFeedbackImport>();
+        foreach (var item in body.Value.Payload)
+        {
+            if (item is null)
+            {
+                return InvalidRequest("Imported feedback cannot contain empty entries.");
+            }
+
+            var entry = new SessionFeedbackImport
+            {
+                SessionRating = item.SessionRating,
+                SpeakerRating = item.SpeakerRating,
+                Comment = item.Comment,
+                Timestamp = item.Timestamp ?? importedAt
+            };
+            var errors = FeedbackRules.ValidateImportedFeedback(entry);
+            if (errors.Count > 0)
+            {
+                return InvalidRequest($"Feedback entry {entries.Count + 1}: {string.Join(" ", errors)}");
+            }
+
+            entries.Add(entry);
+        }
+
+        try
+        {
+            await feedback.ImportSessionAsync(id, null, entries, cancellationToken);
+            return new OkObjectResult(new ImportFeedbackResultDto(entries.Count));
+        }
+        catch (ArgumentException exception)
+        {
+            return InvalidRequest(exception.Message);
+        }
     }
 
     /// <summary>Exposes only a title and availability during the server-authoritative window.</summary>
@@ -268,11 +336,11 @@ public sealed class FeedbackFunctions(
     }
 
     private static async Task<(T? Value, IActionResult? Error)> ReadBodyAsync<T>(
-        HttpRequest request, CancellationToken cancellationToken) where T : class
+        HttpRequest request, CancellationToken cancellationToken, int maxBytes = MaxRequestBytes) where T : class
     {
-        if (request.ContentLength > MaxRequestBytes)
+        if (request.ContentLength > maxBytes)
         {
-            return (null, TooLarge());
+            return (null, TooLarge(maxBytes));
         }
 
         using var buffer = new MemoryStream();
@@ -280,9 +348,9 @@ public sealed class FeedbackFunctions(
         int count;
         while ((count = await request.Body.ReadAsync(bytes, cancellationToken)) > 0)
         {
-            if (buffer.Length + count > MaxRequestBytes)
+            if (buffer.Length + count > maxBytes)
             {
-                return (null, TooLarge());
+                return (null, TooLarge(maxBytes));
             }
 
             buffer.Write(bytes, 0, count);
@@ -316,8 +384,8 @@ public sealed class FeedbackFunctions(
         };
     }
 
-    private static ObjectResult TooLarge() =>
-        new(new ApiErrorDto("request_too_large", $"The request cannot exceed {MaxRequestBytes} bytes."))
+    private static ObjectResult TooLarge(int maxBytes) =>
+        new(new ApiErrorDto("request_too_large", $"The request cannot exceed {maxBytes} bytes."))
         {
             StatusCode = StatusCodes.Status413PayloadTooLarge
         };

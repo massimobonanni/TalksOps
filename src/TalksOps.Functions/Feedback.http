@@ -1,0 +1,43 @@
+@baseUrl = http://localhost:7147
+@functionKey = replace-with-local-function-key-if-required
+@userId = replace-with-owning-user-id
+@eventId = 00000000-0000-0000-0000-000000000001
+@proposalId = 00000000-0000-0000-0000-000000000002
+
+### Add exported feedback to an owned session (200 with feedbackImported; 404 if not owned)
+POST {{baseUrl}}/api/events/{{eventId}}/proposals/{{proposalId}}/feedback/import
+x-functions-key: {{functionKey}}
+Content-Type: application/json
+
+{
+  "userId": "{{userId}}",
+  "payload": [
+    {
+      "sessionRating": 8,
+      "speakerRating": 9,
+      "comment": "Clear and useful.",
+      "timestamp": "2026-11-11T09:30:00Z"
+    },
+    {
+      "sessionRating": 7,
+      "speakerRating": 8,
+      "comment": "Missing or null timestamps use the server's import time."
+    }
+  ]
+}
+
+### Invalid rating (400; no entries added)
+POST {{baseUrl}}/api/events/{{eventId}}/proposals/{{proposalId}}/feedback/import
+x-functions-key: {{functionKey}}
+Content-Type: application/json
+
+{
+  "userId": "{{userId}}",
+  "payload": [
+    {
+      "sessionRating": 0,
+      "speakerRating": 9,
+      "timestamp": "2026-11-11T09:30:00Z"
+    }
+  ]
+}

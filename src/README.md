@@ -80,6 +80,12 @@ The authenticated Web app provides an **Import / Export** page for moving events
 
 The Functions API exposes the corresponding export and import operations. For the JSON schema, status values, and a complete sample document, see [Import and export in TalksOps.Core](TalksOps.Core/README.md#import-and-export) and [`example-export.json`](TalksOps.Core/Export/example-export.json).
 
+### Feedback for an existing session
+
+The session feedback management page also provides **Export Feedback** and **Import Feedback**, independently of the event-level transfer page. Export produces a plain JSON array of `sessionRating`, `speakerRating`, `comment`, and `timestamp`, without IDs or request metadata. Import accepts the same array from a file up to 10 MB and appends entries to the selected, ownership-checked session. Supplied timestamps are preserved; missing or null timestamps use the server's UTC import time. Existing feedback and collection settings remain unchanged, and import works outside the collection period or without configured settings. Reimporting a file adds duplicates.
+
+The Web page refreshes the feedback list, count, and rating averages after import. The client uses `ImportFeedbackEntryDto` and `ImportFeedbackResultDto` with `POST /api/events/{eventId}/proposals/{proposalId}/feedback/import`; persistence reuses `IFeedbackService.ImportSessionAsync` with null settings. See the [Web workflow](TalksOps.Web/README.md#session-feedback-management) and [feedback import API](TalksOps.Functions/README.md#import-feedback).
+
 ## Local development
 
 See [TalksOps.Functions](TalksOps.Functions/README.md) for the local API and Azurite setup, and [TalksOps.Web](TalksOps.Web/README.md) for Web authentication and startup. The Web API base address must match the Functions host URL. Infrastructure provisioning and Azure deployment are documented in [infra/README.md](../infra/README.md).

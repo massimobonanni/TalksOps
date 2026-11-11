@@ -4,6 +4,7 @@ using System.Text.Json;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -313,7 +314,7 @@ public sealed class SessionFeedbackUiTests : BunitContext
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void JsonExport_ContainsOnlyTransferableFieldsWithOriginalTimestampsAndNewestFirst(bool empty)
+    public void JsonExport_RoundTripsTransferableFieldsWithOriginalTimestampsAndNewestFirst(bool empty)
     {
         using var handler = new FeedbackHandler();
         if (empty) handler.Feedback = [];
@@ -346,6 +347,148 @@ public sealed class SessionFeedbackUiTests : BunitContext
             Assert.Equal(expected[index].SpeakerRating, item.GetProperty("speakerRating").GetInt32());
             Assert.Equal(expected[index].Comment, item.GetProperty("comment").GetString());
         }
+
+        var settings = handler.Settings;
+        component.FindComponent<InputFile>().UploadFiles(InputFileContent.CreateFromText(
+            JsonSerializer.Serialize(downloaded), "feedback.json"));
+        component.Find("#import-feedback").Click();
+
+        component.WaitForAssertion(() => Assert.Contains($"Imported {expected.Length} feedback entries", component.Markup));
+        Assert.Equal(expected.Length * 2, handler.Feedback.Count);
+        Assert.Equal(expected.Select(item => (DateTimeOffset?)item.Timestamp), handler.ImportedEntries!.Select(item => item.Timestamp));
+        Assert.Equal(settings, handler.Settings);
+    }
+
+    [Fact]
+    public void ImportFeedback_AppendsAndRefreshesCountAndAverages()
+    {
+        using var handler = new FeedbackHandler { Settings = null };
+        var component = this.RenderPage(handler);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("#import-feedback")));
+        Assert.True(component.Find("#import-feedback").HasAttribute("disabled"));
+        var existing = handler.Feedback.ToArray();
+        component.FindComponent<InputFile>().UploadFiles(InputFileContent.CreateFromText("""
+            [{"sessionRating":1,"speakerRating":2,"comment":"Imported","timestamp":"2026-01-01T10:00:00+02:00"}]
+            """, "feedback.json"));
+
+        component.Find("#import-feedback").Click();
+
+        component.WaitForAssertion(() => Assert.Equal("3", component.Find("#feedback-count").TextContent));
+        Assert.Equal("5.7", component.Find("#session-feedback-average").TextContent);
+        Assert.Equal("6.7", component.Find("#speaker-feedback-average").TextContent);
+        Assert.Contains("Imported 1 feedback entries", component.Find(".notice-success").TextContent);
+        Assert.All(existing, item => Assert.Contains(item, handler.Feedback));
+        Assert.Equal("test-user", handler.ImportedUserId);
+        Assert.EndsWith($"/api/events/{handler.Proposal.EventId}/proposals/{handler.Proposal.Id}/feedback/import", handler.ImportUri!.AbsolutePath);
+        Assert.Equal(DateTimeOffset.Parse("2026-01-01T08:00:00Z"), Assert.Single(handler.ImportedEntries!).Timestamp);
+        Assert.Null(handler.Settings);
+        Assert.Equal(0, handler.SaveRequests);
+        Assert.Equal(2, handler.FeedbackRequests);
+        Assert.True(component.Find("#import-feedback").HasAttribute("disabled"));
+        Assert.Empty(component.FindAll("[role=alert]"));
+    }
+
+    [Theory]
+    [InlineData("""[{"sessionRating":8,"speakerRating":9}]""")]
+    [InlineData("""[{"sessionRating":8,"speakerRating":9,"timestamp":null}]""")]
+    public void ImportFeedback_MissingOrNullTimestampReachesServerAndDisplaysAssignedTimestamp(string json)
+    {
+        using var handler = new FeedbackHandler();
+        var component = this.RenderPage(handler);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("#import-feedback")));
+        component.FindComponent<InputFile>().UploadFiles(InputFileContent.CreateFromText(json, "feedback.json"));
+
+        component.Find("#import-feedback").Click();
+
+        component.WaitForAssertion(() => Assert.Equal("3", component.Find("#feedback-count").TextContent));
+        Assert.Null(Assert.Single(handler.ImportedEntries!).Timestamp);
+        Assert.Equal(handler.ImportTimestamp, handler.Feedback.Last().Timestamp);
+        Assert.Equal(handler.ImportTimestamp.ToString("O"), component.Find("tbody tr time").GetAttribute("datetime"));
+        Assert.Empty(component.FindAll("[role=alert]"));
+    }
+
+    [Theory]
+    [InlineData("{")]
+    [InlineData("null")]
+    [InlineData("{}")]
+    [InlineData("""[{"sessionRating":8,"speakerRating":9,"timestamp":"invalid"}]""")]
+    public void ImportFeedback_InvalidJsonShowsErrorWithoutSendingRequest(string json)
+    {
+        using var handler = new FeedbackHandler();
+        var component = this.RenderPage(handler);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("#import-feedback")));
+        component.FindComponent<InputFile>().UploadFiles(InputFileContent.CreateFromText(json, "feedback.json"));
+
+        component.Find("#import-feedback").Click();
+
+        component.WaitForAssertion(() => Assert.Contains("not a valid feedback export", component.Find("[role=alert]").TextContent));
+        Assert.Equal(0, handler.ImportRequests);
+        Assert.Equal("2", component.Find("#feedback-count").TextContent);
+        Assert.False(component.Find("#import-feedback").HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void ImportFeedback_RejectsFilesOverTenMegabytesWithoutSendingRequest()
+    {
+        using var handler = new FeedbackHandler();
+        var component = this.RenderPage(handler);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("#import-feedback")));
+        component.FindComponent<InputFile>().UploadFiles(InputFileContent.CreateFromBinary(
+            new byte[10 * 1024 * 1024 + 1], "feedback.json"));
+
+        component.Find("#import-feedback").Click();
+
+        component.WaitForAssertion(() => Assert.Contains("10 MB limit", component.Find("[role=alert]").TextContent));
+        Assert.Equal(0, handler.ImportRequests);
+        Assert.False(component.Find("#import-feedback").HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void ImportFeedback_ServerFailureShowsMessageAndAllowsRetry()
+    {
+        using var handler = new FeedbackHandler { FailImport = true };
+        var component = this.RenderPage(handler);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("#import-feedback")));
+        component.FindComponent<InputFile>().UploadFiles(InputFileContent.CreateFromText("""
+            [{"sessionRating":8,"speakerRating":9,"timestamp":"2026-01-01T00:00:00Z"}]
+            """, "feedback.json"));
+        component.Find("#import-feedback").Click();
+
+        component.WaitForAssertion(() => Assert.Contains("Server rejected feedback", component.Find("[role=alert]").TextContent));
+        Assert.Equal("2", component.Find("#feedback-count").TextContent);
+        Assert.False(component.Find("#import-feedback").HasAttribute("disabled"));
+        handler.FailImport = false;
+
+        component.Find("#import-feedback").Click();
+
+        component.WaitForAssertion(() => Assert.Equal("3", component.Find("#feedback-count").TextContent));
+        Assert.Empty(component.FindAll("[role=alert]"));
+        Assert.Equal(2, handler.ImportRequests);
+    }
+
+    [Fact]
+    public void ImportFeedback_RefreshFailurePreservesSuccessAndCanRefreshWithoutReimporting()
+    {
+        using var handler = new FeedbackHandler();
+        var component = this.RenderPage(handler);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("#import-feedback")));
+        handler.FailingEndpoint = "feedback";
+        component.FindComponent<InputFile>().UploadFiles(InputFileContent.CreateFromText("""
+            [{"sessionRating":8,"speakerRating":9,"timestamp":"2026-01-01T00:00:00Z"}]
+            """, "feedback.json"));
+
+        component.Find("#import-feedback").Click();
+
+        component.WaitForAssertion(() => Assert.Contains("Unable to import feedback or refresh", component.Find("[role=alert]").TextContent));
+        Assert.Contains("Imported 1 feedback entries", component.Find(".notice-success").TextContent);
+        Assert.True(component.Find("#export-feedback").HasAttribute("disabled"));
+        Assert.True(component.Find("#import-feedback").HasAttribute("disabled"));
+        handler.FailingEndpoint = null;
+        component.Find("#refresh-feedback").Click();
+
+        component.WaitForAssertion(() => Assert.Equal("3", component.Find("#feedback-count").TextContent));
+        Assert.Equal(1, handler.ImportRequests);
+        Assert.Empty(component.FindAll("[role=alert]"));
     }
 
     [Theory]
@@ -388,6 +531,33 @@ public sealed class SessionFeedbackUiTests : BunitContext
         Assert.Equal("Session feedback", component.Find("h1").TextContent);
         Assert.Empty(component.FindAll("form"));
         Assert.Equal(0, handler.SettingsRequests);
+    }
+
+    [Fact]
+    public async Task RouteChangeDuringImport_DoesNotRefreshOrRestorePreviousSession()
+    {
+        using var handler = new FeedbackHandler { DelayedImport = new() };
+        var component = this.RenderPage(handler);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("#import-feedback")));
+        component.FindComponent<InputFile>().UploadFiles(InputFileContent.CreateFromText("[]", "feedback.json"));
+        var import = component.Find("#import-feedback").ClickAsync(new MouseEventArgs());
+        component.WaitForAssertion(() => Assert.Equal(1, handler.ImportRequests));
+        Assert.True(component.Find("#import-feedback").HasAttribute("disabled"));
+        Assert.True(component.Find("#import-feedback-file").HasAttribute("disabled"));
+        Assert.True(component.Find("#export-feedback").HasAttribute("disabled"));
+        Assert.True(component.Find("#refresh-feedback").HasAttribute("disabled"));
+        handler.ProposalResponseStatus = HttpStatusCode.NotFound;
+
+        await component.InvokeAsync(() => component.Instance.SetParametersAsync(ParameterView.FromDictionary(
+            new Dictionary<string, object?> { [nameof(SessionFeedback.ProposalId)] = Guid.NewGuid() })));
+        component.WaitForAssertion(() => Assert.Contains("unavailable", component.Find("[role=alert]").TextContent));
+        handler.DelayedImport.SetResult(FeedbackHandler.Json(new ImportFeedbackResultDto(0)));
+        await import;
+
+        Assert.Equal("Session feedback", component.Find("h1").TextContent);
+        Assert.Empty(component.FindAll("form"));
+        Assert.Equal(1, handler.FeedbackRequests);
+        Assert.Empty(component.FindAll(".notice-success"));
     }
 
     [Fact]
@@ -455,13 +625,20 @@ public sealed class SessionFeedbackUiTests : BunitContext
         public HttpStatusCode ProposalResponseStatus { get; set; } = HttpStatusCode.OK;
         public string? FailingEndpoint { get; set; }
         public bool FailSave { get; set; }
+        public bool FailImport { get; set; }
         public int SettingsRequests { get; private set; }
         public int FeedbackRequests { get; private set; }
         public int SaveRequests { get; private set; }
+        public int ImportRequests { get; private set; }
+        public string? ImportedUserId { get; private set; }
+        public IReadOnlyList<ImportFeedbackEntryDto>? ImportedEntries { get; private set; }
+        public DateTimeOffset ImportTimestamp { get; } = DateTimeOffset.Parse("2027-01-02T10:00:00Z");
+        public Uri? ImportUri { get; private set; }
         public string? SavedUserId { get; private set; }
         public SaveFeedbackSettingsRequest? SavedRequest { get; private set; }
         public TaskCompletionSource<HttpResponseMessage>? DelayedProposal { get; set; }
         public TaskCompletionSource<HttpResponseMessage>? DelayedSave { get; set; }
+        public TaskCompletionSource<HttpResponseMessage>? DelayedImport { get; set; }
 
         public FeedbackHandler()
         {
@@ -479,6 +656,20 @@ public sealed class SessionFeedbackUiTests : BunitContext
         {
             var uri = request.RequestUri!;
             var path = uri.AbsolutePath;
+            if (request.Method == HttpMethod.Post && path.EndsWith("/feedback/import", StringComparison.Ordinal))
+            {
+                this.ImportRequests++;
+                this.ImportUri = uri;
+                var envelope = await request.Content!.ReadFromJsonAsync<ApiRequest<IReadOnlyList<ImportFeedbackEntryDto>>>(cancellationToken);
+                this.ImportedEntries = envelope!.Payload;
+                this.ImportedUserId = envelope.UserId;
+                if (this.DelayedImport is not null) return await this.DelayedImport.Task;
+                if (this.FailImport) return new(HttpStatusCode.BadRequest) { Content = JsonContent.Create(new ApiErrorDto("invalid_request", "Server rejected feedback")) };
+                this.Feedback = this.Feedback.Concat(this.ImportedEntries.Select(item =>
+                    new SessionFeedbackDto(Guid.NewGuid(), this.Proposal.Id, item.SessionRating, item.SpeakerRating,
+                        item.Comment, item.Timestamp ?? this.ImportTimestamp, new FeedbackMetadataDto(null, null)))).ToArray();
+                return Json(new ImportFeedbackResultDto(this.ImportedEntries.Count));
+            }
             if (request.Method == HttpMethod.Put)
             {
                 this.SaveRequests++;

@@ -23,6 +23,7 @@ classDiagram
         +GetFeedbackSettingsAsync(eventId, proposalId, cancellationToken)
         +SaveFeedbackSettingsAsync(eventId, proposalId, request, cancellationToken)
         +ListFeedbackAsync(eventId, proposalId, cancellationToken)
+        +ImportFeedbackAsync(eventId, proposalId, feedback, cancellationToken)
         +GetPublicFeedbackAsync(sessionId, cancellationToken)
         +SubmitFeedbackAsync(sessionId, request, cancellationToken)
     }
@@ -46,6 +47,8 @@ classDiagram
     class SaveFeedbackSettingsRequest
     class SessionFeedbackDto
     class FeedbackMetadataDto
+    class ImportFeedbackEntryDto
+    class ImportFeedbackResultDto
     class PublicFeedbackDto
     class SubmitFeedbackRequest
     class ExtractEventDataRequest
@@ -69,6 +72,8 @@ classDiagram
     TalksOpsApiClient ..> FeedbackSettingsDto
     TalksOpsApiClient ..> SaveFeedbackSettingsRequest
     TalksOpsApiClient ..> SessionFeedbackDto
+    TalksOpsApiClient ..> ImportFeedbackEntryDto
+    TalksOpsApiClient ..> ImportFeedbackResultDto
     TalksOpsApiClient ..> PublicFeedbackDto
     TalksOpsApiClient ..> SubmitFeedbackRequest
     SessionFeedbackDto ..> FeedbackMetadataDto
@@ -94,17 +99,19 @@ Records below expose positional properties with the listed names and types; reco
 | `ChangeProposalStatusRequest` | `Status: ProposalStatus`; desired proposal lifecycle state. |
 | `ExtractEventDataRequest` | `SourcePageUrl: string?`; URL of the call-for-papers page to analyze. |
 | `ExtractEventDataResultDto` | Nullable event fields returned by extraction; date values remain strings in `DD/MM/YYYY` format. |
-| `ApiErrorDto` | `Code: string?`, `Message: string?`; structured error returned when extraction fails. |
+| `ApiErrorDto` | `Code: string?`, `Message: string?`; structured error returned by feedback and extraction endpoints. |
 | `PagedResponse<T>` | `Items: IReadOnlyList<T>`, `Page: int`, `PageSize: int`, `TotalCount: int`. |
 | `FeedbackSettingsDto` | `SessionId: Guid`, `ValidFrom: DateTimeOffset`, `ValidTo: DateTimeOffset`, `TimeZoneId: string`; does not expose the internal event reference. |
 | `SaveFeedbackSettingsRequest` | `ValidFrom: DateTimeOffset`, `ValidTo: DateTimeOffset`, `TimeZoneId: string`; speaker-supplied feedback period. |
 | `SessionFeedbackDto` | `Id`, `SessionId`, `SessionRating`, `SpeakerRating`, optional `Comment`, `Timestamp`, and `Metadata`; returned only to the owning speaker. |
 | `FeedbackMetadataDto` | Optional `IpAddress` and `UserAgent`, acquired from the server request. |
+| `ImportFeedbackEntryDto` | `SessionRating: int`, `SpeakerRating: int`, optional `Comment: string?`, optional `Timestamp: DateTimeOffset?`; the feedback export shape with a nullable timestamp. Missing/null timestamps are assigned the server's UTC import time; supplied timestamps are preserved. |
+| `ImportFeedbackResultDto` | `FeedbackImported: int`; number of entries appended to the selected session. |
 | `PublicFeedbackDto` | `EventTitle: string`, `Title: string`, `Available: bool`; event and session titles in the minimal public response while feedback is open. |
 | `SubmitFeedbackRequest` | `SessionRating: int`, `SpeakerRating: int`, optional `Comment`; the only participant-supplied fields. |
 | `ExtractEventDataAsync(request, cancellationToken)` | Sends the current user's request to `api/events/extract` and returns nullable extracted fields. Structured failure messages are surfaced through `HttpRequestException`. |
 | `ITalksOpsApiClient` | Typed API contract; all methods accept optional cancellation tokens. |
-| `TalksOpsApiClient` | HTTP implementation; requires `HttpClient` and `ICurrentUserContext`. Optional GET methods return `null` on HTTP 404. Other non-success responses throw through `EnsureSuccessStatusCode`; required response bodies must not be empty. |
+| `TalksOpsApiClient` | HTTP implementation; requires `HttpClient` and `ICurrentUserContext`. Optional GET methods return `null` on HTTP 404. Other non-success responses throw `HttpRequestException`; feedback writes preserve HTTP status and structured server messages. Required response bodies must not be empty. |
 | `ApiRequestExtensions.WithUserId` | Internal extension that URL-escapes `userId` and appends it using `?` or `&`, depending on the existing path. |
 
 ### `ITalksOpsApiClient` methods
@@ -132,6 +139,7 @@ The client sends `userId` in the query for speaker GET/DELETE calls and in the r
 | `GetFeedbackSettingsAsync(eventId, proposalId)` | Speaker GET at `api/events/{eventId}/proposals/{proposalId}/feedback/settings` with current `userId`; returns `FeedbackSettingsDto?`, null on 404. |
 | `SaveFeedbackSettingsAsync(eventId, proposalId, request)` | Speaker PUT at the settings route with `ApiRequest<SaveFeedbackSettingsRequest>` and current `userId`; returns `FeedbackSettingsDto`. Payload contains only `ValidFrom`, `ValidTo` (`DateTimeOffset`) and `TimeZoneId`. |
 | `ListFeedbackAsync(eventId, proposalId)` | Speaker GET at `api/events/{eventId}/proposals/{proposalId}/feedback` with current `userId`; returns newest-first `SessionFeedbackDto` entries including `FeedbackMetadataDto`. |
+| `ImportFeedbackAsync(eventId, proposalId, feedback)` | Speaker POST at `api/events/{eventId}/proposals/{proposalId}/feedback/import` with `ApiRequest<IReadOnlyList<ImportFeedbackEntryDto>>` and current `userId`; returns `ImportFeedbackResultDto`. Appends feedback with new IDs without changing existing entries/settings, including outside the collection period or without configured settings. |
 | `GetPublicFeedbackAsync(sessionId)` | Anonymous GET at `api/feedback/{sessionId}`; never reads `ICurrentUserContext` or adds `userId`; returns `PublicFeedbackDto` (`Title`, `Available`), null on 404. |
 | `SubmitFeedbackAsync(sessionId, request)` | Anonymous POST at the public route; sends flat `SubmitFeedbackRequest` JSON containing only `SessionRating`, `SpeakerRating`, `Comment`. Never reads `ICurrentUserContext`, wraps the body in an envelope, or supplies identity/metadata. Accepts empty 201. |
 

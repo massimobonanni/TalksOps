@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @implements IAsyncDisposable
 @using System.Text.Json
+@using TalksOps.Core.Export
 @using Microsoft.Extensions.Configuration
 @using QRCoder
 @inject ITalksOpsApiClient Api
@@ -85,6 +86,13 @@ else
                 <button id="export-feedback" class="button button-secondary" type="button" disabled="@(this.IsBusy || !this.HasFeedback)" @onclick="ExportFeedbackAsync">Export Feedback</button>
             </div>
         </div>
+        <div class="form-actions">
+            <label>Feedback JSON file (max 10 MB)
+                <InputFile @key="this.importFileVersion" id="import-feedback-file" accept=".json,application/json" OnChange="SelectImportFile" disabled="@this.IsBusy" />
+            </label>
+            <button id="import-feedback" class="button button-secondary" type="button" disabled="@(this.IsBusy || this.ImportFile is null)" @onclick="ImportFeedbackAsync">Import Feedback</button>
+        </div>
+        <p class="muted">Import a file created by Export Feedback. Entries are added without replacing existing feedback or changing settings. Missing or null timestamps use the import time (UTC). Importing the same file again adds duplicates.</p>
         @if (this.HasFeedback)
         {
             <dl class="feedback-summary" aria-label="Feedback summary">
@@ -123,6 +131,7 @@ else
 }
 
 @code {
+    private const long MaxImportFileSize = 10 * 1024 * 1024;
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private static readonly string[] TimeZoneIds = TimeZoneInfo.GetSystemTimeZones()
         .Select(zone => TimeZoneInfo.TryConvertWindowsIdToIanaId(zone.Id, out var ianaId) ? ianaId : zone.Id)
@@ -141,6 +150,8 @@ else
     private DateTime? ValidTo;
     private string TimeZoneId = "UTC";
     private IReadOnlyList<SessionFeedbackDto> Feedback = [];
+    private IBrowserFile? ImportFile;
+    private int importFileVersion;
     private double? AverageSessionRating => this.Feedback.Count == 0
         ? null
         : this.Feedback.Average(item => item.SessionRating);
@@ -176,6 +187,8 @@ else
         this.ValidFrom = this.ValidTo = null;
         this.TimeZoneId = "UTC";
         this.Feedback = [];
+        this.ImportFile = null;
+        ++this.importFileVersion;
         try
         {
             var proposal = await this.Api.GetProposalAsync(eventId, proposalId);
@@ -334,12 +347,71 @@ else
         }
     }
 
+    private void SelectImportFile(InputFileChangeEventArgs args)
+    {
+        this.ErrorMessage = this.SuccessMessage = null;
+        this.ImportFile = args.File;
+    }
+
+    private async Task ImportFeedbackAsync()
+    {
+        if (this.IsBusy || !this.IsReady || this.ImportFile is not { } file) return;
+        this.ErrorMessage = this.SuccessMessage = null;
+        if (file.Size > MaxImportFileSize)
+        {
+            this.ErrorMessage = "The selected file exceeds the 10 MB limit.";
+            return;
+        }
+
+        var version = this.requestVersion;
+        var eventId = this.EventId;
+        var proposalId = this.ProposalId;
+        var importRequested = false;
+        this.IsBusy = true;
+        try
+        {
+            await using var stream = file.OpenReadStream(MaxImportFileSize);
+            var entries = await JsonSerializer.DeserializeAsync<ImportFeedbackEntryDto[]>(stream, SerializerOptions)
+                ?? throw new JsonException("A feedback array is required.");
+            if (version != this.requestVersion) return;
+            importRequested = true;
+            var result = await this.Api.ImportFeedbackAsync(eventId, proposalId, entries);
+            if (version != this.requestVersion) return;
+            this.SuccessMessage = $"Imported {result.FeedbackImported} feedback entries.";
+            this.ImportFile = null;
+            ++this.importFileVersion;
+            this.HasFeedback = false;
+            this.Feedback = [];
+            var feedback = await this.Api.ListFeedbackAsync(eventId, proposalId);
+            if (version == this.requestVersion) this.SetFeedback(feedback);
+        }
+        catch (JsonException) when (!importRequested)
+        {
+            if (version == this.requestVersion) this.ErrorMessage = "The selected file is not a valid feedback export. Expected a JSON array with sessionRating, speakerRating, an optional comment and an optional timestamp.";
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or IOException or TaskCanceledException or JsonException)
+        {
+            if (version == this.requestVersion)
+                this.ErrorMessage = $"Unable to import feedback or refresh the list. {exception.Message} Refresh before retrying an import to avoid duplicates.";
+        }
+        finally
+        {
+            if (version == this.requestVersion) this.IsBusy = false;
+        }
+    }
+
     private Task DownloadQrAsync() => this.DownloadAsync(this.QrBytes, $"talksops-feedback-{this.ProposalId:D}.png", "image/png");
 
     private Task ExportFeedbackAsync()
     {
         if (!this.HasFeedback) return Task.CompletedTask;
-        var entries = this.Feedback.Select(item => new { item.SessionRating, item.SpeakerRating, item.Comment, item.Timestamp });
+        var entries = this.Feedback.Select(item => new ExportedFeedback
+        {
+            SessionRating = item.SessionRating,
+            SpeakerRating = item.SpeakerRating,
+            Comment = item.Comment,
+            Timestamp = item.Timestamp
+        });
         return this.DownloadAsync(JsonSerializer.SerializeToUtf8Bytes(entries, SerializerOptions),
             $"talksops-feedback-{this.ProposalId:D}.json", "application/json");
     }

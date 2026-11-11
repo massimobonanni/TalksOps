@@ -21,3 +21,10 @@ public sealed record SessionFeedbackDto(
 
 /// <summary>Server-acquired request metadata visible only to the owning speaker.</summary>
 public sealed record FeedbackMetadataDto(string? IpAddress, string? UserAgent);
+
+/// <summary>The number of feedback entries added to the selected session.</summary>
+public sealed record ImportFeedbackResultDto(int FeedbackImported);
+
+/// <summary>Transferable feedback values; a missing or null timestamp uses the server's import time.</summary>
+public sealed record ImportFeedbackEntryDto(
+    int SessionRating, int SpeakerRating, string? Comment = null, DateTimeOffset? Timestamp = null);

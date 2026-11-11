@@ -19,6 +19,11 @@ public interface ITalksOpsApiClient
     Task<IReadOnlyList<SessionFeedbackDto>> ListFeedbackAsync(
         Guid eventId, Guid proposalId, CancellationToken cancellationToken = default);
 
+    /// <summary>Adds feedback to an owned session, preserving supplied timestamps or using the server's import time.</summary>
+    Task<ImportFeedbackResultDto> ImportFeedbackAsync(
+        Guid eventId, Guid proposalId, IReadOnlyList<ImportFeedbackEntryDto> feedback,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Gets public availability without accessing the user context; returns null on 404.</summary>
     Task<PublicFeedbackDto?> GetPublicFeedbackAsync(
         Guid sessionId, CancellationToken cancellationToken = default);
