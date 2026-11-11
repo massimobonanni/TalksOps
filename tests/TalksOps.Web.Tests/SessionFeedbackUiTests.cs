@@ -330,6 +330,7 @@ public sealed class SessionFeedbackUiTests : BunitContext
         }).SetVoidResult();
         var component = this.RenderPage(handler);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("#export-feedback")));
+        Assert.Equal("Export Feedback", component.Find("#export-feedback").TextContent.Trim());
 
         component.Find("#export-feedback").Click();
 

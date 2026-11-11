@@ -82,7 +82,7 @@ else
             <h2 id="feedback-list-title">Received feedback</h2>
             <div class="form-actions">
                 <button id="refresh-feedback" class="button" type="button" disabled="@this.IsBusy" @onclick="RefreshAsync">Refresh</button>
-                <button id="export-feedback" class="button button-secondary" type="button" disabled="@(this.IsBusy || !this.HasFeedback)" @onclick="ExportAsync">Download JSON</button>
+                <button id="export-feedback" class="button button-secondary" type="button" disabled="@(this.IsBusy || !this.HasFeedback)" @onclick="ExportFeedbackAsync">Export Feedback</button>
             </div>
         </div>
         @if (this.HasFeedback)
@@ -336,7 +336,7 @@ else
 
     private Task DownloadQrAsync() => this.DownloadAsync(this.QrBytes, $"talksops-feedback-{this.ProposalId:D}.png", "image/png");
 
-    private Task ExportAsync()
+    private Task ExportFeedbackAsync()
     {
         if (!this.HasFeedback) return Task.CompletedTask;
         var entries = this.Feedback.Select(item => new { item.SessionRating, item.SpeakerRating, item.Comment, item.Timestamp });
