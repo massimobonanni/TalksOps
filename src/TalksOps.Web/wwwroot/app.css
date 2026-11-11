@@ -96,6 +96,7 @@ button { cursor: pointer; }
 .app-footer a:hover { text-decoration: underline; }
 .page-heading { display: flex; justify-content: space-between; align-items: end; gap: 1rem; margin-bottom: 2rem; }
 .page-heading h1, .login-page h1 { margin: .25rem 0 0; font-family: Georgia, "Times New Roman", serif; font-size: 2.5rem; font-weight: 500; letter-spacing: 0; }
+.feedback-event-title { margin: .35rem 0 0; font-family: Georgia, "Times New Roman", serif; font-size: 1.5rem; font-weight: 500; line-height: 1.2; }
 .eyebrow { margin: 0; color: var(--green); font-size: .72rem; font-weight: 750; letter-spacing: .12em; }
 .button { display: inline-flex; align-items: center; justify-content: center; gap: .6rem; min-height: 42px; padding: .65rem 1rem; border: 1px solid transparent; border-radius: 4px; text-decoration: none; font-weight: 650; }
 .button-primary { background: var(--green); color: white; }

@@ -11,7 +11,11 @@
 <PageTitle>Session feedback | TalksOps</PageTitle>
 
 <div class="page-heading">
-    <div><p class="eyebrow">SESSION FEEDBACK</p><h1>@(this.Proposal?.Title ?? "Session feedback")</h1></div>
+    <div>
+        <p class="eyebrow">SESSION FEEDBACK</p>
+        <p class="feedback-event-title">@this.EventTitle</p>
+        <h1>@(this.Proposal?.Title ?? "Session feedback")</h1>
+    </div>
     <a class="button" href="/events">Back to events</a>
 </div>
 
@@ -131,6 +135,7 @@ else
     [Parameter] public Guid ProposalId { get; set; }
 
     private SessionProposalDto? Proposal;
+    private string? EventTitle;
     private FeedbackSettingsDto? Settings;
     private DateTime? ValidFrom;
     private DateTime? ValidTo;
@@ -165,6 +170,7 @@ else
         this.IsLoading = true;
         this.IsReady = this.IsBusy = this.HasFeedback = false;
         this.Proposal = null;
+        this.EventTitle = null;
         this.Settings = null;
         this.ErrorMessage = this.SuccessMessage = null;
         this.ValidFrom = this.ValidTo = null;
@@ -180,15 +186,16 @@ else
                 return;
             }
 
+            var eventTask = this.Api.GetEventAsync(eventId);
             var settingsTask = this.Api.GetFeedbackSettingsAsync(eventId, proposalId);
             var feedbackTask = this.Api.ListFeedbackAsync(eventId, proposalId);
-            await Task.WhenAll(settingsTask, feedbackTask);
+            await Task.WhenAll(eventTask, settingsTask, feedbackTask);
             if (version != this.requestVersion) return;
+            var eventDetails = await eventTask
+                ?? throw new InvalidOperationException("The owning event could not be loaded.");
             var settings = await settingsTask;
             if (settings is null)
             {
-                var eventDetails = await this.Api.GetEventAsync(eventId)
-                    ?? throw new InvalidOperationException("The owning event could not be loaded.");
                 this.SetDefaultSettings(eventDetails);
             }
             else
@@ -197,6 +204,7 @@ else
             }
             this.SetFeedback(await feedbackTask);
             this.Proposal = proposal;
+            this.EventTitle = eventDetails.Name;
             this.ConfigureQr(proposalId);
             this.IsReady = true;
         }

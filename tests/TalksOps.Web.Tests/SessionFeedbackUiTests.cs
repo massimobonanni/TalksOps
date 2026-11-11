@@ -49,7 +49,11 @@ public sealed class SessionFeedbackUiTests : BunitContext
                 [nameof(SessionFeedback.ProposalId)] = handler.Proposal.Id
             })));
 
-        component.WaitForAssertion(() => Assert.Equal(handler.Proposal.Title, component.Find("h1").TextContent));
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(handler.Event.Name, component.Find(".feedback-event-title").TextContent);
+            Assert.Equal(handler.Proposal.Title, component.Find("h1").TextContent);
+        });
         Assert.Single(component.FindAll("form"));
     }
 
