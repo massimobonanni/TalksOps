@@ -15,6 +15,10 @@ public sealed record EventDto(
     string? CallForPapersUrl = null,
     DateOnly? CallForPapersDeadline = null)
 {
+    /// <summary>Gets the optional notes for the event.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Notes { get; init; }
+
     /// <summary>Gets the sum of all named event costs.</summary>
     [JsonIgnore]
     public decimal TotalCosts => this.Costs.Values.Sum();

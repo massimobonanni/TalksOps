@@ -159,6 +159,7 @@ public sealed class AzureTableEventRepository : IEventRepository
         OwnerId = Uri.UnescapeDataString(entity.PartitionKey["events|".Length..]),
         Name = entity.GetString(nameof(Event.Name))!,
         Location = entity.GetString(nameof(Event.Location))!,
+        Notes = entity.GetString(nameof(Event.Notes)),
         OfficialWebsiteUrl = entity.GetString(nameof(Event.OfficialWebsiteUrl)),
         CallForPapersUrl = entity.GetString(nameof(Event.CallForPapersUrl)),
         CallForPapersDeadline = entity.GetString(nameof(Event.CallForPapersDeadline)) is { } deadline
@@ -180,6 +181,11 @@ public sealed class AzureTableEventRepository : IEventRepository
             [nameof(Event.EndDate)] = value.EndDate.ToString("yyyy-MM-dd"),
             [nameof(Event.Costs)] = System.Text.Json.JsonSerializer.Serialize(value.Costs)
         };
+
+        if (value.Notes is not null)
+        {
+            entity[nameof(Event.Notes)] = value.Notes;
+        }
 
         if (!string.IsNullOrWhiteSpace(value.OfficialWebsiteUrl))
         {

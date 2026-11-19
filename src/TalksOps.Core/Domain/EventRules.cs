@@ -3,6 +3,9 @@ namespace TalksOps.Core.Domain;
 /// <summary>Contains validation rules for event data.</summary>
 public static class EventRules
 {
+    // Azure Table limits string properties to 64 KiB of UTF-16 data.
+    private const int MaxNotesLength = 32 * 1024;
+
     /// <summary>Returns validation errors for an event, or an empty list when valid.</summary>
     public static IReadOnlyList<string> Validate(Event value)
     {
@@ -22,6 +25,11 @@ public static class EventRules
         if (string.IsNullOrWhiteSpace(value.Location))
         {
             errors.Add("An event location is required.");
+        }
+
+        if (value.Notes is { Length: > MaxNotesLength })
+        {
+            errors.Add($"Event notes cannot exceed {MaxNotesLength} UTF-16 code units.");
         }
 
         if (!IsValidWebUrl(value.OfficialWebsiteUrl))

@@ -420,6 +420,7 @@ public sealed class EventsFunctions(
         OwnerId = string.Empty,
         Name = value.Name,
         Location = value.Location,
+        Notes = value.Notes,
         OfficialWebsiteUrl = string.IsNullOrWhiteSpace(value.OfficialWebsiteUrl) ? null : value.OfficialWebsiteUrl.Trim(),
         CallForPapersUrl = string.IsNullOrWhiteSpace(value.CallForPapersUrl) ? null : value.CallForPapersUrl.Trim(),
         CallForPapersDeadline = value.CallForPapersDeadline,
@@ -440,7 +441,10 @@ public sealed class EventsFunctions(
 
     private static EventDto ToDto(Event value) => new(
         value.Id, value.OwnerId, value.Name, value.Location, value.StartDate, value.EndDate, value.Costs,
-        value.OfficialWebsiteUrl, value.CallForPapersUrl, value.CallForPapersDeadline);
+        value.OfficialWebsiteUrl, value.CallForPapersUrl, value.CallForPapersDeadline)
+    {
+        Notes = value.Notes
+    };
 
     private static SessionProposalDto ToDto(SessionProposal value) => new(
         value.Id, value.EventId, value.OwnerId, value.Title, value.Abstract, value.Notes,

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace TalksOps.ApiClient.Contracts;
 
 /// <summary>Fields accepted when creating or updating an event.</summary>
@@ -9,4 +11,9 @@ public sealed record SaveEventRequest(
     IReadOnlyDictionary<string, decimal> Costs,
     string? OfficialWebsiteUrl = null,
     string? CallForPapersUrl = null,
-    DateOnly? CallForPapersDeadline = null);
+    DateOnly? CallForPapersDeadline = null)
+{
+    /// <summary>Gets the optional notes for the event.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Notes { get; init; }
+}

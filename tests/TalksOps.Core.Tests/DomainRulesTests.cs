@@ -62,6 +62,23 @@ public sealed class DomainRulesTests
     }
 
     [Fact]
+    public void EventRules_EnforcesTableStringLimitForNotes()
+    {
+        var value = new Event
+        {
+            OwnerId = "user-1",
+            Name = "Tech conference",
+            Location = "Milan",
+            StartDate = new DateOnly(2026, 5, 1),
+            EndDate = new DateOnly(2026, 5, 2),
+            Notes = new string('\u20AC', 32_768)
+        };
+
+        Assert.Empty(EventRules.Validate(value));
+        Assert.Contains(EventRules.Validate(value with { Notes = value.Notes + "\n" }), error => error.Contains("notes"));
+    }
+
+    [Fact]
     public void EventRules_RejectsNegativeCosts()
     {
         var value = new Event

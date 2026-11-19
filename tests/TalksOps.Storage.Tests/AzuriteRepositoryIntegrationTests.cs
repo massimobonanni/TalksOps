@@ -101,6 +101,84 @@ public sealed class AzuriteRepositoryIntegrationTests
     }
 
     [AzuriteFact]
+    public async Task EventRepository_PersistsUpdatesAndClearsNotesWithAzurite()
+    {
+        var connectionString = Environment.GetEnvironmentVariable("AZURITE_TABLE_CONNECTION_STRING")!;
+        var table = new TableClient(connectionString, $"t{Guid.NewGuid():N}");
+        await table.CreateIfNotExistsAsync();
+
+        try
+        {
+            var repository = new AzureTableEventRepository(table);
+            var value = new Event
+            {
+                OwnerId = "integration-owner",
+                Name = "Conference",
+                Location = "Rome",
+                StartDate = new DateOnly(2026, 6, 1),
+                EndDate = new DateOnly(2026, 6, 2),
+                Notes = "  Bring the demo.\r\nConfirm the room."
+            };
+
+            await repository.CreateAsync(value);
+
+            var stored = await table.GetEntityAsync<TableEntity>("events|integration-owner", value.Id.ToString("N"));
+            Assert.Equal(value.Notes, stored.Value.GetString("Notes"));
+            Assert.Equal(value.Notes, (await repository.GetAsync(value.OwnerId, value.Id))!.Notes);
+
+            var updated = value with { Notes = "Room confirmed.\nBring an adapter." };
+            await repository.UpdateAsync(updated);
+            var results = await repository.SearchAsync(value.OwnerId, new EventSearchCriteria());
+            Assert.Equal(updated.Notes, Assert.Single(results.Items).Notes);
+
+            await repository.UpdateAsync(value with { Notes = null });
+            stored = await table.GetEntityAsync<TableEntity>("events|integration-owner", value.Id.ToString("N"));
+            Assert.False(stored.Value.ContainsKey("Notes"));
+        }
+        finally
+        {
+            await table.DeleteAsync();
+        }
+    }
+
+    [AzuriteFact]
+    public async Task EventRepository_ReadsLegacyEventWithoutNotesWithAzurite()
+    {
+        var connectionString = Environment.GetEnvironmentVariable("AZURITE_TABLE_CONNECTION_STRING")!;
+        var table = new TableClient(connectionString, $"t{Guid.NewGuid():N}");
+        await table.CreateIfNotExistsAsync();
+
+        try
+        {
+            const string ownerId = "integration-owner";
+            var eventId = Guid.NewGuid();
+            await table.AddEntityAsync(new TableEntity($"events|{ownerId}", eventId.ToString("N"))
+            {
+                ["Name"] = "Legacy conference",
+                ["Location"] = "Rome",
+                ["StartDate"] = "2026-06-01",
+                ["EndDate"] = "2026-06-02",
+                ["Costs"] = "{}"
+            });
+
+            var repository = new AzureTableEventRepository(table);
+            var loaded = await repository.GetAsync(ownerId, eventId);
+            Assert.NotNull(loaded);
+            Assert.Equal("Legacy conference", loaded.Name);
+            Assert.Null(loaded.Notes);
+
+            var results = await repository.SearchAsync(ownerId, new EventSearchCriteria());
+            var found = Assert.Single(results.Items);
+            Assert.Equal(eventId, found.Id);
+            Assert.Null(found.Notes);
+        }
+        finally
+        {
+            await table.DeleteAsync();
+        }
+    }
+
+    [AzuriteFact]
     public async Task Repositories_PersistOwnershipAndCascadeWithAzurite()
     {
         var connectionString = Environment.GetEnvironmentVariable("AZURITE_TABLE_CONNECTION_STRING")!;

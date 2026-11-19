@@ -85,16 +85,16 @@ classDiagram
 
 ## Types and members
 
-Records below expose positional properties with the listed names and types; records have no additional methods unless specified.
+Records below expose properties with the listed names and types. `EventDto` and `SaveEventRequest` expose `Notes` as an optional init-only property outside their positional constructors.
 
 | Type | Properties / purpose |
 | --- | --- |
 | `ApiRequest<T>` | `UserId: string`, `Payload: T`. Envelope used for POST, PUT, and PATCH requests. |
-| `EventDto` | `Id: Guid`, `OwnerId: string`, `Name: string`, `Location: string`, `StartDate: DateOnly`, `EndDate: DateOnly`, `Costs: IReadOnlyDictionary<string, decimal>`, `OfficialWebsiteUrl: string?`, `CallForPapersUrl: string?`, `CallForPapersDeadline: DateOnly?`. |
+| `EventDto` | `Id: Guid`, `OwnerId: string`, `Name: string`, `Location: string`, `StartDate: DateOnly`, `EndDate: DateOnly`, `Costs: IReadOnlyDictionary<string, decimal>`, `OfficialWebsiteUrl: string?`, `CallForPapersUrl: string?`, `CallForPapersDeadline: DateOnly?`, `Notes: string?` (omitted from JSON when absent). |
 | `SessionProposalDto` | `Id: Guid`, `EventId: Guid`, `OwnerId: string`, `Title: string`, `Abstract: string`, `Notes: string`, `Status: ProposalStatus`, `CreatedAt: DateTimeOffset`, `UpdatedAt: DateTimeOffset`, `SubmissionDate: DateOnly?`. |
 | `CalendarEventDto` | `EventId: Guid`, `EventName: string`, `StartDate: DateOnly`, `EndDate: DateOnly`, `ProposalStatuses: IReadOnlyList<string>`, `OfficialWebsiteUrl: string?`, `CallForPapersUrl: string?`, `CallForPapersDeadline: DateOnly?`. |
 | `EventSearchRequest` | `Year: int?`, `Name: string?`, `Location: string?`, `Page: int` (default 1), `PageSize: int` (default 20). |
-| `SaveEventRequest` | `Name: string`, `Location: string`, `StartDate: DateOnly`, `EndDate: DateOnly`, `Costs: IReadOnlyDictionary<string, decimal>`, `OfficialWebsiteUrl: string?`, `CallForPapersUrl: string?`, `CallForPapersDeadline: DateOnly?`; fields accepted to create or update an event. |
+| `SaveEventRequest` | `Name: string`, `Location: string`, `StartDate: DateOnly`, `EndDate: DateOnly`, `Costs: IReadOnlyDictionary<string, decimal>`, `OfficialWebsiteUrl: string?`, `CallForPapersUrl: string?`, `CallForPapersDeadline: DateOnly?`, `Notes: string?` (optional multiline text, up to 32,768 UTF-16 code units). An omitted or null `Notes` field means no notes, including on update. |
 | `SaveSessionProposalRequest` | `Title: string`, `Abstract: string?`, `Notes: string?`, `SubmissionDate: DateOnly?`; fields accepted to create or update a proposal. |
 | `ChangeProposalStatusRequest` | `Status: ProposalStatus`; desired proposal lifecycle state. |
 | `ExtractEventDataRequest` | `SourcePageUrl: string?`; URL of the call-for-papers page to analyze. |
