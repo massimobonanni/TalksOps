@@ -242,6 +242,7 @@ input:focus, textarea:focus, select:focus { outline: 2px solid #6ba88c; outline-
 .calendar-details-grid > div { min-width: 0; }
 .calendar-details-grid dt { color: var(--muted); font-size: .82rem; margin-bottom: .3rem; }
 .calendar-details-grid dd { margin: 0; }
+.calendar-event-notes { white-space: pre-wrap; }
 .calendar-session-list { border-top: 1px solid var(--line); }
 .calendar-session { padding: 1rem 0; border-bottom: 1px solid var(--line); }
 .calendar-session-heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: .5rem 1rem; }
