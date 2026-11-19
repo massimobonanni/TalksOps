@@ -13,6 +13,92 @@ namespace TalksOps.Web.Tests;
 
 public sealed class EventsProposalSummaryTests : BunitContext
 {
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" \t\r\n ")]
+    [InlineData("Travel details\nContact <organizer> & confirm \"hotel\"")]
+    public void EventNotes_IconIsAccessibleAndVisibleOnlyForNonBlankNotes(string? notes)
+    {
+        using var handler = new ProposalHandler { EventNotes = notes };
+        var component = this.RenderEvents(handler);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(".event-name")));
+
+        if (string.IsNullOrWhiteSpace(notes))
+        {
+            Assert.Empty(component.FindAll(".event-notes-icon"));
+            return;
+        }
+
+        var icon = Assert.Single(component.FindAll(".event-name .event-notes-icon"));
+        Assert.Equal(notes, icon.GetAttribute("title"));
+        Assert.Equal($"Event notes: {notes}", icon.GetAttribute("aria-label"));
+        Assert.Equal("img", icon.GetAttribute("role"));
+        Assert.Equal("0", icon.GetAttribute("tabindex"));
+        Assert.Equal("true", icon.QuerySelector("svg")!.GetAttribute("aria-hidden"));
+        Assert.Empty(icon.QuerySelectorAll("organizer"));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("Travel details\nContact organizer")]
+    public void EditEvent_LoadsOptionalNotes(string? notes)
+    {
+        using var handler = new ProposalHandler { EventNotes = notes };
+        var component = this.RenderEvents(handler);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("button[title='Edit event']")));
+
+        component.Find("button[title='Edit event']").Click();
+
+        component.WaitForAssertion(() => Assert.Equal(notes ?? string.Empty, component.Find("#event-notes").GetAttribute("value")));
+        Assert.False(component.Find("#event-notes").HasAttribute("required"));
+        Assert.Equal("event-notes", component.Find("label[for='event-notes']").GetAttribute("for"));
+    }
+
+    [Fact]
+    public void NewEvent_ClearsNotesFromPreviousEditor()
+    {
+        using var handler = new ProposalHandler { EventNotes = "Existing notes" };
+        var component = this.RenderEvents(handler);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("button[title='Edit event']")));
+        component.Find("button[title='Edit event']").Click();
+        Assert.Equal("Existing notes", component.Find("#event-notes").GetAttribute("value"));
+        component.Find("#event-notes").Change("Unsaved notes");
+        Assert.Equal("Unsaved notes", component.Find("#event-notes").GetAttribute("value"));
+        component.Find(".event-dialog button[aria-label='Close']").Click();
+
+        component.Find(".page-heading button").Click();
+
+        component.WaitForAssertion(() => Assert.Equal(string.Empty, component.Find("#event-notes").GetAttribute("value")));
+    }
+
+    [Theory]
+    [InlineData(false, "Travel details\nContact organizer", "Travel details\nContact organizer")]
+    [InlineData(true, "Updated notes\nHotel confirmed", "Updated notes\nHotel confirmed")]
+    [InlineData(false, "", null)]
+    [InlineData(true, "", null)]
+    [InlineData(true, " \t\r\n ", null)]
+    public void SaveEvent_SendsOptionalNotesForCreateAndUpdate(bool editing, string notes, string? expectedNotes)
+    {
+        using var handler = new ProposalHandler { EventNotes = "Existing notes" };
+        var component = this.RenderEvents(handler);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("button[title='Edit event']")));
+        component.Find(editing ? "button[title='Edit event']" : ".page-heading button").Click();
+        component.Find(".event-dialog input[required][maxlength='160']").Input("Summit");
+        component.FindAll(".event-dialog input[required][maxlength='160']")[1].Change("Rome");
+        component.Find("#event-notes").Change(notes);
+
+        component.Find(".event-dialog form").Submit();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(editing ? HttpMethod.Put : HttpMethod.Post, handler.SavedEventMethod);
+            Assert.Equal(expectedNotes, handler.SavedEventNotes);
+            Assert.Empty(component.FindAll(".event-dialog"));
+        });
+    }
+
     [Fact]
     public void ExpandedProposals_LinkToFeedbackForEachEventAndSession()
     {
@@ -266,13 +352,26 @@ public sealed class EventsProposalSummaryTests : BunitContext
         public bool FailCalendar { get; set; }
         public bool FailProposals { get; set; }
         public IReadOnlyList<string>? CalendarStatuses { get; set; }
+        public string? EventNotes { get; init; }
+        public string? SavedEventNotes { get; private set; }
+        public HttpMethod? SavedEventMethod { get; private set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var path = request.RequestUri!.AbsolutePath;
+            if ((request.Method == HttpMethod.Post && path == "/api/events")
+                || (request.Method == HttpMethod.Put && path == $"/api/events/{this.eventItem.Id}"))
+            {
+                using var eventBody = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
+                var eventPayload = eventBody.RootElement.GetProperty("payload");
+                this.SavedEventNotes = eventPayload.TryGetProperty("notes", out var notes) ? notes.GetString() : null;
+                this.SavedEventMethod = request.Method;
+                return JsonResponse(this.eventItem with { Notes = this.SavedEventNotes });
+            }
+
             if (path == "/api/events")
             {
-                return JsonResponse(new PagedResponse<EventDto>(this.HasEvents ? [this.eventItem] : [], 1, 20, this.HasEvents ? 1 : 0));
+                return JsonResponse(new PagedResponse<EventDto>(this.HasEvents ? [this.eventItem with { Notes = this.EventNotes }] : [], 1, 20, this.HasEvents ? 1 : 0));
             }
 
             if (path == "/api/calendar")
