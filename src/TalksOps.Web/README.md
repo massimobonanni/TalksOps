@@ -88,7 +88,7 @@ Usernames are mutable and can be reassigned, and they are not guaranteed unique 
 
 The shared layout, router, error/not-found pages, and static assets are under `Components`. `Counter.razor` and `Weather.razor` are template/demo pages and are not part of the primary TalksOps workflows.
 
-The calendar details dialog shows event location, dates, websites, call-for-papers deadline and itemized costs, followed by every proposal's title, abstract, notes, submission date and current status. Each proposal links to feedback management; the dialog itself does not offer editing or status changes. Details are refreshed on each opening; calendar links and status indicators retain their existing behavior.
+The calendar details dialog shows event location, dates, websites, call-for-papers deadline, itemized costs and, when non-blank, the full multiline event notes, followed by every proposal's title, abstract, notes, submission date and current status. Each proposal links to feedback management; the dialog itself does not offer editing or status changes. Details are refreshed on each opening; calendar links and status indicators retain their existing behavior.
 
 Within each month, events with overlapping dates are grouped inside a single red outline, including events sharing only their start/end day and chains of overlapping events. Events spanning multiple months or years appear in each applicable month of the selected year; the outline groups only the events visible in that month. Individual event status borders and proposal indicators are unchanged.
 
@@ -135,7 +135,7 @@ The API is authoritative for availability: it checks the UTC validity window aga
 
 ## Import and export
 
-The authenticated `/import-export` page downloads events, sessions, their feedback settings and received feedback as version 1 JSON, optionally filtered by date. **Download JSON template** provides an editable example without needing to select a file. Exports omit event/session/feedback IDs, the settings' internal event reference, IP, user-agent and other request metadata. Import accepts files up to 10 MB, assigns data to the current user, generates new IDs, reconnects settings and feedback to the imported session/event, and never changes existing records. Missing feedback/settings fields and older files containing IDs remain valid; supplied IDs are ignored. See the [Core format and example](../TalksOps.Core/README.md#import-and-export).
+The authenticated `/import-export` page downloads events, including optional event notes, sessions, their feedback settings and received feedback as version 1 JSON, optionally filtered by date. **Download JSON template** provides an editable example without needing to select a file. Exports omit event/session/feedback IDs, the settings' internal event reference, IP, user-agent and other request metadata. Import accepts files up to 10 MB, assigns data to the current user, generates new IDs, reconnects settings and feedback to the imported session/event, and never changes existing records. Missing event notes or feedback/settings fields and older files containing IDs remain valid; supplied IDs are ignored. See the [Core format and example](../TalksOps.Core/README.md#import-and-export).
 
 ## Local configuration and run
 

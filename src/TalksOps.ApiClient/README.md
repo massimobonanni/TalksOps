@@ -128,7 +128,7 @@ Records below expose properties with the listed names and types. `EventDto` and 
 | `DeleteProposalAsync(eventId, proposalId, cancellationToken)` | Deletes a proposal. |
 | `GetCalendarAsync(year, cancellationToken)` | Gets calendar summaries for a year. |
 | `ExportEventsAsync(from, to, cancellationToken)` | Gets a version 1 `EventsExportDocument` without event, session, or feedback IDs; includes transferable feedback and validity settings and remains optionally filtered by date. |
-| `ImportEventsAsync(document, cancellationToken)` | Imports an `EventsExportDocument` additively and returns event, session, and feedback counts. The server generates new event/session/feedback IDs, rebuilds internal settings references, and ignores IDs in older JSON files. Missing feedback/settings fields remain valid. See the [Core JSON format](../TalksOps.Core/README.md#import-and-export). |
+| `ImportEventsAsync(document, cancellationToken)` | Imports an `EventsExportDocument` additively and returns event, session, and feedback counts. The server generates new event/session/feedback IDs, rebuilds internal settings references, and ignores IDs in older JSON files. Missing event notes or feedback/settings fields remain valid. See the [Core JSON format](../TalksOps.Core/README.md#import-and-export). |
 
 The client sends `userId` in the query for speaker GET/DELETE calls and in the request envelope for speaker writes. Keep this client server-side; the Function key and user ID are not browser credentials.
 
