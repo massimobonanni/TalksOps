@@ -80,13 +80,15 @@ Razor component code-behind members are private unless explicitly identified as 
 | `SessionFeedback.razor` (`/events/{eventId}/proposals/{proposalId}/feedback`) | Authenticated feedback settings, sharing, results, and JSON transfer page; calls the API only for the owning speaker. `ExportFeedbackAsync` exports transferable feedback; `SelectImportFile` selects a file; `ImportFeedbackAsync` imports it and refreshes the list and summary. |
 | `PublicFeedback.razor` (`/feedback/{sessionId}`) | Anonymous participant page using `PublicLayout`; loads availability/title, submits only ratings and comment, and sets SSR status/cache headers for public responses. |
 
+The event editor also supports optional multiline notes, loaded when editing and cleared for a new event. Search results show a focusable notes icon with the full text in its tooltip and accessible label only when the notes contain non-whitespace characters.
+
 The owner key sent to the API is the login username, not the app-specific `sub`. For example, `Speaker@Example.com` is stored under `events|speaker@example.com`. The `UserId` and `OwnerId` member names remain unchanged for API compatibility. Existing data must be migrated before it is accessible with the new key; see [username ownership migration](../TalksOps.Storage/README.md#username-ownership-migration).
 
 Usernames are mutable and can be reassigned, and they are not guaranteed unique across identity providers or tenants. This ownership scheme requires a trusted account namespace where usernames uniquely identify users and are not recycled. A rename needs another data migration; assigning the same username to another account would give it access to that username's data. For immutable, tenant-scoped ownership, use an explicit account mapping based on `(tid, oid)` instead. Display names and generic email claims are deliberately not accepted as owner keys.
 
 The shared layout, router, error/not-found pages, and static assets are under `Components`. `Counter.razor` and `Weather.razor` are template/demo pages and are not part of the primary TalksOps workflows.
 
-The calendar details dialog shows event location, dates, websites, call-for-papers deadline and itemized costs, followed by every proposal's title, abstract, notes, submission date and current status. Each proposal links to feedback management; the dialog itself does not offer editing or status changes. Details are refreshed on each opening; calendar links and status indicators retain their existing behavior.
+The calendar details dialog shows event location, dates, websites, call-for-papers deadline, itemized costs and, when non-blank, the full multiline event notes, followed by every proposal's title, abstract, notes, submission date and current status. Each proposal links to feedback management; the dialog itself does not offer editing or status changes. Details are refreshed on each opening; calendar links and status indicators retain their existing behavior.
 
 Within each month, events with overlapping dates are grouped inside a single red outline, including events sharing only their start/end day and chains of overlapping events. Events spanning multiple months or years appear in each applicable month of the selected year; the outline groups only the events visible in that month. Individual event status borders and proposal indicators are unchanged.
 
@@ -133,7 +135,7 @@ The API is authoritative for availability: it checks the UTC validity window aga
 
 ## Import and export
 
-The authenticated `/import-export` page downloads events, sessions, their feedback settings and received feedback as version 1 JSON, optionally filtered by date. **Download JSON template** provides an editable example without needing to select a file. Exports omit event/session/feedback IDs, the settings' internal event reference, IP, user-agent and other request metadata. Import accepts files up to 10 MB, assigns data to the current user, generates new IDs, reconnects settings and feedback to the imported session/event, and never changes existing records. Missing feedback/settings fields and older files containing IDs remain valid; supplied IDs are ignored. See the [Core format and example](../TalksOps.Core/README.md#import-and-export).
+The authenticated `/import-export` page downloads events, including optional event notes, sessions, their feedback settings and received feedback as version 1 JSON, optionally filtered by date. **Download JSON template** provides an editable example without needing to select a file. Exports omit event/session/feedback IDs, the settings' internal event reference, IP, user-agent and other request metadata. Import accepts files up to 10 MB, assigns data to the current user, generates new IDs, reconnects settings and feedback to the imported session/event, and never changes existing records. Missing event notes or feedback/settings fields and older files containing IDs remain valid; supplied IDs are ignored. See the [Core format and example](../TalksOps.Core/README.md#import-and-export).
 
 ## Local configuration and run
 

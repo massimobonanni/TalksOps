@@ -67,7 +67,7 @@ classDiagram
 
 ## Cross-project contracts
 
-- `Event` and `SessionProposal` are the domain records. An event can include an optional `CallForPapersDeadline`; a proposal references its parent event through `EventId`, carries an optional submission date, and uses `ProposalStatus` for its lifecycle.
+- `Event` and `SessionProposal` are the domain records. An event can include optional `Notes` and a `CallForPapersDeadline`; a proposal references its parent event through `EventId`, carries an optional submission date, and uses `ProposalStatus` for its lifecycle.
 - `IEventService` and `ISessionProposalService` expose operations for the current user. Their implementations replace caller-supplied ownership with `ICurrentUserContext.UserId` before persistence.
 - `IEventRepository` and `ISessionProposalRepository` separate application behavior from persistence. `TalksOps.Storage` provides their Azure Tables implementations.
 - `ITalksOpsApiClient` is the Web-to-Functions boundary. Its DTOs and request records live in `TalksOps.ApiClient.Contracts` and are intentionally separate from Core domain records.
@@ -76,7 +76,7 @@ classDiagram
 
 ## Import and export
 
-The authenticated Web app provides an **Import / Export** page for moving events, session proposals, feedback settings, and received feedback as a JSON file. Event data includes named costs; session data includes its status, timestamps, and optional submission date. Feedback exports include ratings, comment, timestamp, and the settings' validity interval/time zone, but omit IDs, internal references, and request metadata. Neither exports nor the **Download JSON template** file contain event, session, or feedback IDs. Export can be filtered by optional `from` and `to` dates; it includes events whose date range overlaps the requested range. Import accepts TalksOps export documents up to 10 MB and is additive: it creates new IDs, assigns all imported records to the current user, and leaves existing data unchanged. Older version 1 documents containing IDs or missing a session submission date or event costs remain valid; any supplied IDs are ignored. The complete import is validated before any records are written.
+The authenticated Web app provides an **Import / Export** page for moving events, session proposals, feedback settings, and received feedback as a JSON file. Event data includes optional notes and named costs; session data includes its status, timestamps, and optional submission date. Feedback exports include ratings, comment, timestamp, and the settings' validity interval/time zone, but omit IDs, internal references, and request metadata. Neither exports nor the **Download JSON template** file contain event, session, or feedback IDs. Export can be filtered by optional `from` and `to` dates; it includes events whose date range overlaps the requested range. Import accepts TalksOps export documents up to 10 MB and is additive: it creates new IDs, assigns all imported records to the current user, and leaves existing data unchanged. Older version 1 documents containing IDs or missing event notes, a session submission date, or event costs remain valid; any supplied IDs are ignored. The complete import is validated before any records are written.
 
 The Functions API exposes the corresponding export and import operations. For the JSON schema, status values, and a complete sample document, see [Import and export in TalksOps.Core](TalksOps.Core/README.md#import-and-export) and [`example-export.json`](TalksOps.Core/Export/example-export.json).
 

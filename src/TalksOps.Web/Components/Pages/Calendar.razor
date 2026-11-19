@@ -169,6 +169,10 @@ else
                         <strong>Total: @details.TotalCosts.ToString("0.00", CultureInfo.InvariantCulture)</strong>
                     }
                 </dd></div>
+                @if (!string.IsNullOrWhiteSpace(details.Notes))
+                {
+                    <div class="span-all"><dt>Notes</dt><dd class="calendar-event-notes">@details.Notes</dd></div>
+                }
             </dl>
             <h3>Session proposals (@this.EventProposals.Count)</h3>
             @if (this.EventProposals.Count == 0)

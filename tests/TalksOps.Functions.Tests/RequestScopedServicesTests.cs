@@ -1,3 +1,8 @@
+using System.Text;
+using System.Text.Json;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using TalksOps.ApiClient.Contracts;
 using TalksOps.Core.Contracts;
 using TalksOps.Core.Domain;
 using TalksOps.Core.Services;
@@ -7,6 +12,46 @@ namespace TalksOps.Functions.Tests;
 
 public sealed class RequestScopedServicesTests
 {
+    [Theory]
+    [InlineData(null)]
+    [InlineData("  Bring the demo.\nRoom confirmed.")]
+    public async Task CreateEvent_AcceptsOptionalNotesAndReturnsThemWhenPresent(string? notes)
+    {
+        var currentUser = new RequestCurrentUserContext();
+        var repository = new FakeEventRepository();
+        var functions = new EventsFunctions(
+            new EventService(repository, currentUser),
+            new SessionProposalService(new FakeProposalRepository(new SessionProposal
+            {
+                EventId = Guid.NewGuid(),
+                OwnerId = "authenticated-sub",
+                Title = "Unused proposal"
+            }), currentUser),
+            currentUser);
+        var request = new SaveEventRequest(
+            "Conference", "Milan", new DateOnly(2026, 5, 1), new DateOnly(2026, 5, 2),
+            new Dictionary<string, decimal>())
+        {
+            Notes = notes
+        };
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var json = JsonSerializer.Serialize(new ApiRequest<SaveEventRequest>("authenticated-sub", request), options);
+        using var requestJson = JsonDocument.Parse(json);
+        Assert.Equal(notes is not null, requestJson.RootElement.GetProperty("payload").TryGetProperty("notes", out _));
+        using var body = new MemoryStream(Encoding.UTF8.GetBytes(json));
+        var httpRequest = new DefaultHttpContext().Request;
+        httpRequest.ContentType = "application/json";
+        httpRequest.Body = body;
+
+        var result = Assert.IsType<CreatedResult>(await functions.CreateEvent(httpRequest, default));
+        var response = Assert.IsType<EventDto>(result.Value);
+        Assert.Equal(notes, repository.CreatedEvent!.Notes);
+        Assert.Equal(notes, response.Notes);
+
+        using var responseJson = JsonSerializer.SerializeToDocument(response, options);
+        Assert.Equal(notes is not null, responseJson.RootElement.TryGetProperty("notes", out _));
+    }
+
     [Fact]
     public async Task EventService_UsesRequestUserInsteadOfSubmittedOwner()
     {

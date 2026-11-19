@@ -91,6 +91,42 @@ public sealed class CalendarEventDetailsTests : BunitContext
     }
 
     [Fact]
+    public void Open_WithEventNotes_ShowsFullTextOnlyInDialog()
+    {
+        var notes = $"First line with <script>alert('notes')</script>\n{new string('x', 2000)}\nLast line";
+        using var handler = new DetailsHandler();
+        handler.Event = handler.Event with { Notes = notes };
+        var component = this.RenderCalendar(handler);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(".calendar-details-button")));
+        Assert.Equal(0, handler.EventRequests);
+
+        component.Find(".calendar-details-button").Click();
+
+        component.WaitForAssertion(() => Assert.Equal(notes, component.Find("dialog .calendar-event-notes").TextContent));
+        Assert.Contains(component.FindAll("dialog dt"), term => term.TextContent == "Notes");
+        Assert.Empty(component.FindAll("dialog script"));
+        Assert.DoesNotContain(notes, component.Find(".calendar-event").TextContent);
+        Assert.Equal(1, handler.EventRequests);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" \t\r\n ")]
+    public void Open_WithoutEventNotes_OmitsNotesSection(string? notes)
+    {
+        using var handler = new DetailsHandler();
+        handler.Event = handler.Event with { Notes = notes };
+        var component = this.RenderCalendar(handler);
+
+        component.Find(".calendar-details-button").Click();
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("dialog .calendar-details-grid")));
+        Assert.Empty(component.FindAll("dialog .calendar-event-notes"));
+        Assert.DoesNotContain(component.FindAll("dialog dt"), term => term.TextContent == "Notes");
+    }
+
+    [Fact]
     public void EmptyProposalsAndOptionalFields_ShowExplicitEmptyStates()
     {
         using var handler = new DetailsHandler { HasProposals = false };
@@ -227,7 +263,7 @@ public sealed class CalendarEventDetailsTests : BunitContext
 
     private sealed class DetailsHandler : HttpMessageHandler
     {
-        public EventDto Event { get; } = new(Guid.NewGuid(), "test-user", "Summit", "Rome",
+        public EventDto Event { get; set; } = new(Guid.NewGuid(), "test-user", "Summit", "Rome",
             new DateOnly(DateTime.Today.Year, 5, 1), new DateOnly(DateTime.Today.Year, 5, 2),
             new Dictionary<string, decimal>() { ["Travel"] = 25m });
         public int EventRequests { get; private set; }

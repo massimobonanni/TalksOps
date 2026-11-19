@@ -75,6 +75,12 @@ else
                             {
                                 @eventItem.Name
                             }
+                            @if (!string.IsNullOrWhiteSpace(eventItem.Notes))
+                            {
+                                <span class="icon-button event-notes-icon" role="img" tabindex="0" title="@eventItem.Notes" aria-label="@($"Event notes: {eventItem.Notes}")">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6M8 13h8M8 17h6" /></svg>
+                                </span>
+                            }
                             @if (!string.IsNullOrWhiteSpace(eventItem.CallForPapersUrl))
                             {
                                 <a class="call-for-papers-link" href="@eventItem.CallForPapersUrl" target="_blank" rel="noopener noreferrer">call for paper</a>
@@ -257,6 +263,7 @@ else
                     <label>Event Start date<input type="date" required @bind="this.EventStartDate" @bind:after="this.OnEventStartDateChangedAsync" /></label>
                     <label>Event End date<input type="date" required @bind="this.EventEndDate" @bind:after="this.RefreshEventOverlapAsync" /></label>
                     <label>Call for papers deadline<input type="date" @bind="this.EventCallForPapersDeadline" /></label>
+                    <label class="span-all" for="event-notes">Notes (optional)<textarea id="event-notes" rows="3" @bind="this.EventNotes"></textarea></label>
                     <label class="span-all">Costs <span class="muted">One item per line, formatted as name=amount</span><textarea rows="4" placeholder="Travel=250.00&#10;Hotel=600.00" @bind="this.EventCosts"></textarea></label>
                 </div>
                 @if (this.HasEventOverlap)
@@ -310,6 +317,7 @@ else
     private DateTime EventStartDate = DateTime.Today;
     private DateTime EventEndDate = DateTime.Today;
     private string EventCosts = string.Empty;
+    private string EventNotes = string.Empty;
     // AI extraction feature flag and UI state
     private bool IsAiExtractionEnabled
     {
@@ -439,7 +447,7 @@ else
         this.SuccessMessage = null;
         this.CalendarEventsByYear.Clear();
         this.EventEditorId = null;
-        this.EventName = this.EventLocation = this.EventOfficialWebsiteUrl = this.EventCallForPapersUrl = this.EventCosts = string.Empty;
+        this.EventName = this.EventLocation = this.EventOfficialWebsiteUrl = this.EventCallForPapersUrl = this.EventCosts = this.EventNotes = string.Empty;
         this.EventCallForPapersDeadline = null;
         this.EventStartDate = this.EventEndDate = DateTime.Today;
         this.HasDuplicateEventTitle = false;
@@ -462,6 +470,7 @@ else
         this.EventStartDate = eventItem.StartDate.ToDateTime(TimeOnly.MinValue);
         this.EventEndDate = eventItem.EndDate.ToDateTime(TimeOnly.MinValue);
         this.EventCosts = string.Join(Environment.NewLine, eventItem.Costs.Select(cost => $"{cost.Key}={cost.Value.ToString(CultureInfo.InvariantCulture)}"));
+        this.EventNotes = eventItem.Notes ?? string.Empty;
         this.IsEventEditorOpen = true;
         await this.RefreshEventOverlapAsync();
         await this.RefreshDuplicateEventNameAsync();
@@ -604,7 +613,10 @@ else
             var request = new SaveEventRequest(
                 this.EventName.Trim(), this.EventLocation.Trim(), startDate, endDate, ParseCosts(this.EventCosts),
                 NullIfEmpty(this.EventOfficialWebsiteUrl), NullIfEmpty(this.EventCallForPapersUrl),
-                this.EventCallForPapersDeadline is DateTime deadline ? DateOnly.FromDateTime(deadline) : null);
+                this.EventCallForPapersDeadline is DateTime deadline ? DateOnly.FromDateTime(deadline) : null)
+            {
+                Notes = NullIfEmpty(this.EventNotes)
+            };
             if (this.EventEditorId is Guid eventId)
             {
                 await this.Api.UpdateEventAsync(eventId, request);
