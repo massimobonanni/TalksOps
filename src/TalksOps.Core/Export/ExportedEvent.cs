@@ -10,6 +10,9 @@ public sealed record ExportedEvent
     /// <summary>Gets the event location.</summary>
     public required string Location { get; init; }
 
+    /// <summary>Gets the optional notes for the event.</summary>
+    public string? Notes { get; init; }
+
     /// <summary>Gets the official event website URL.</summary>
     public string? OfficialWebsiteUrl { get; init; }
 

@@ -118,6 +118,7 @@ public sealed class EventImportExportServiceTests
         using var document = await JsonDocument.ParseAsync(stream);
         var exported = Assert.Single(document.RootElement.GetProperty("events").EnumerateArray());
         Assert.False(exported.TryGetProperty("id", out _));
+        Assert.False(exported.TryGetProperty("notes", out _));
         Assert.False(Assert.Single(exported.GetProperty("sessions").EnumerateArray()).TryGetProperty("id", out _));
         stream.Position = 0;
 
@@ -126,6 +127,7 @@ public sealed class EventImportExportServiceTests
         Assert.Equal(new EventImportResult(1, 1, 1), result);
         var imported = Assert.Single(store.Events);
         Assert.NotEqual(Guid.Empty, imported.Id);
+        Assert.Null(imported.Notes);
         var session = Assert.Single(store.Sessions);
         Assert.NotEqual(Guid.Empty, session.Id);
         Assert.Equal(imported.Id, session.EventId);
@@ -150,12 +152,24 @@ public sealed class EventImportExportServiceTests
     public async Task ImportAsync_RoundTripAddsCopiesWithoutTouchingExistingData()
     {
         var store = new InMemoryStore();
-        var original = store.AddEvent(UserId, new DateOnly(2026, 5, 1), callForPapersDeadline: new DateOnly(2026, 3, 15));
+        var original = store.AddEvent(
+            UserId,
+            new DateOnly(2026, 5, 1),
+            callForPapersDeadline: new DateOnly(2026, 3, 15),
+            notes: "First line\nSecond line");
         store.AddSession(original, "Talk A", ProposalStatus.Accepted, new DateOnly(2026, 4, 15));
         var service = CreateService(store);
 
         using var stream = new MemoryStream();
         await service.ExportAsync(stream, null, null);
+        stream.Position = 0;
+        using (var document = await JsonDocument.ParseAsync(stream))
+        {
+            Assert.Equal(1, document.RootElement.GetProperty("schemaVersion").GetInt32());
+            var exported = Assert.Single(document.RootElement.GetProperty("events").EnumerateArray());
+            Assert.Equal(original.Notes, exported.GetProperty("notes").GetString());
+        }
+
         stream.Position = 0;
         var result = await service.ImportAsync(stream);
 
@@ -164,6 +178,7 @@ public sealed class EventImportExportServiceTests
         Assert.Contains(store.Events, value => value.Id == original.Id);
         var imported = Assert.Single(store.Events, value => value.Id != original.Id);
         Assert.Equal(UserId, imported.OwnerId);
+        Assert.Equal(original.Notes, imported.Notes);
         Assert.Equal(original.CallForPapersDeadline, imported.CallForPapersDeadline);
         var session = Assert.Single(store.Sessions, value => value.EventId == imported.Id);
         Assert.NotEqual(Guid.Empty, imported.Id);
@@ -378,13 +393,19 @@ public sealed class EventImportExportServiceTests
 
         public List<SessionFeedback> Feedback { get; } = [];
 
-        public Event AddEvent(string ownerId, DateOnly start, DateOnly? end = null, DateOnly? callForPapersDeadline = null)
+        public Event AddEvent(
+            string ownerId,
+            DateOnly start,
+            DateOnly? end = null,
+            DateOnly? callForPapersDeadline = null,
+            string? notes = null)
         {
             var value = new Event
             {
                 OwnerId = ownerId,
                 Name = "Event",
                 Location = "Milan",
+                Notes = notes,
                 StartDate = start,
                 EndDate = end ?? start,
                 CallForPapersDeadline = callForPapersDeadline

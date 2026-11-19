@@ -110,6 +110,7 @@ public sealed class EventImportExportService(
                 OwnerId = ownerId,
                 Name = exportedEvent.Name,
                 Location = exportedEvent.Location,
+                Notes = exportedEvent.Notes,
                 OfficialWebsiteUrl = exportedEvent.OfficialWebsiteUrl,
                 CallForPapersUrl = exportedEvent.CallForPapersUrl,
                 CallForPapersDeadline = exportedEvent.CallForPapersDeadline,
@@ -287,6 +288,7 @@ public sealed class EventImportExportService(
         {
             Name = value.Name,
             Location = value.Location,
+            Notes = value.Notes,
             OfficialWebsiteUrl = value.OfficialWebsiteUrl,
             CallForPapersUrl = value.CallForPapersUrl,
             CallForPapersDeadline = value.CallForPapersDeadline,
